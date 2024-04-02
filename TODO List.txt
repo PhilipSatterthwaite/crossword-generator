@@ -28,3 +28,35 @@ Generate XW
 Word list
 	Generate score for each word
 	Weed out terrible words
+
+
+
+
+
+
+
+2:46
+
+Nested Loops: Your code contains nested loops, and these can contribute to slower execution, especially when the size of the input data is large. In particular, the nested loops inside the canFillGrid function could potentially lead to slower performance.
+1:54
+
+Recursion: Recursion can be a powerful tool, but it can also lead to performance issues if not managed properly. The solve_phase function appears to be using recursion to solve the crossword puzzle. Recursive function calls can consume a significant amount of memory and time, especially as the recursion depth increases.
+
+Deep Copy: Your code frequently uses the deepcopy function from the copy module. Deep copying large data structures can be slow and memory-intensive, especially if it's done frequently. Consider whether deep copying is necessary in all instances, and if possible, try to optimize your code to minimize the need for deep copying.
+1:50
+
+Printing: The code includes a printing mechanism that prints the current state of the puzzle and the time elapsed every minute. While this might be useful for debugging, it could also slow down the execution of your code. Printing can be an expensive operation, especially when done frequently.
+
+List Manipulation: Manipulating lists can sometimes be slow, especially when dealing with large lists. Be mindful of operations that involve appending, deleting, or copying lists, as these operations can have a performance impact.
+1:55 (no improvement)
+
+
+Repeated Calculations: Your code appears to perform some calculations repeatedly within loops. Consider whether you can precompute values or reuse calculations to avoid redundant work.
+
+Optimizing Search: The code involves searching through word lists to find matches. Depending on the size of your word lists, this search process could potentially be optimized using more efficient data structures or algorithms.
+
+Profiling: To identify specific performance bottlenecks, consider using profiling tools that can help you pinpoint which parts of your code are taking the most time to execute. This can guide your optimization efforts to focus on the areas that will have the most impact.
+
+Data Input: Ensure that the input data, such as the crossword puzzle grid and word lists, are efficiently structured and organized. This can impact the speed of various operations, such as word comparison and grid updates.
+
+Algorithm Complexity: Carefully analyze the algorithmic complexity of your code. If your algorithm has high complexity (e.g., quadratic or cubic time complexity), it could lead to slower execution as the input size increases.

@@ -7,6 +7,7 @@ from copy import copy, deepcopy
 def make_word_list(grid, seed):
     wordslist = []
     word = []
+    wordsInPuzzle = []
     for row in range(len(grid)):    #loop through rows
         for col in range(len(grid[0])):    #loop through cols
             #go through each cell
@@ -27,6 +28,8 @@ def make_word_list(grid, seed):
                     length = length + 1
                     
                 word = [row,col,direc,length]
+                if all(letter != ' ' and letter != '■' for letter in define_word(grid, word)):
+                    wordsInPuzzle.append(define_word(grid,word))
                 wordslist = wordslist + [word]
 
             #define down word
@@ -36,8 +39,9 @@ def make_word_list(grid, seed):
                 
                 while row+length < len(grid) and grid[row+length][col] != '■':
                     length = length + 1
-                    
                 word = [row,col,direc,length]
+                if all(letter != ' ' and letter != '■' for letter in define_word(grid, word)):
+                    wordsInPuzzle.append(define_word(grid,word))
                 wordslist = wordslist + [word]
 
     
@@ -266,7 +270,7 @@ def make_word_list(grid, seed):
 
         
     
-    return wordlistOrdered
+    return wordlistOrdered, wordsInPuzzle
 
 def canSnake(grid, space, snake, hor, ver):
     #cannot be black square, cannot cut diagonally across black square, cannot be an already filled word, cannot be out of grid
@@ -296,7 +300,20 @@ def canSnake(grid, space, snake, hor, ver):
 
         
 
-
+def define_word(xw, wordSlot):
+        #wordSlot is [row,col,direction,length]
+        length = wordSlot[3]
+        row = wordSlot[0]
+        col = wordSlot[1]
+        direc = wordSlot[2]
+        wordFrame = [' '] * length
+        for i in range(length):
+            if direc == 1:
+                wordFrame[i] = xw[row][col+i]  # across
+            else:
+                wordFrame[i] = xw[row+i][col]  # down
+                
+        return wordFrame
 
 
 

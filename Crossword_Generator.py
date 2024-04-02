@@ -1,41 +1,92 @@
 
-from solve_xword import solve_phase, canFillGrid
+from solve_xword import solve_phase
+#from solve_xword_optimize import solve_xword
 from copy import copy, deepcopy
 from word_list import make_word_list
 import os
 import time
+import sys
 import datetime
+#from trie import TrieNode, Trie
+sys.path.append(r'C:\Users\psatt\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages')
 
-class GenerateStopException(Exception):
-    pass
+from pytrie import StringTrie
+'''
+class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.score = None
 
-def stop_generate():
-    raise GenerateStopException("Generate function stopped manually.")
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word, score):
+        node = self.root
+        for char in word:
+            if char not in node.children:
+                node.children[char] = TrieNode()
+            node = node.children[char]
+        node.score = score
+
+    def search(self, word):
+        node = self.root
+        for char in word:
+            if char not in node.children:
+                return None
+             node = node.children[char]
+        return node.score
+'''
+
+    
+
+
 
 def Generate(xw, seed):
     start_time = time.time()
-    
     # Pull words from the word bank
 
     folder_path = r"C:\Users\psatt\Desktop\Fun Projects\Crossword Generator\compileWords\SortedWords"
 
+    numWords = []
 
     wordDataBase = []
+    wordDataBase_list = []
     for i in range(3,22):
         file_name =  f"len{i}.txt"
         file_path = os.path.join(folder_path,file_name)
         with open(file_path, "r", encoding="utf-8") as file:
             lines = file.readlines()
+        numWords.append(len(lines))
+        
+        
+        trie = StringTrie()
+        listedWords = []
+        for line in lines:
+            line_data = line.split()
+            word = line_data[0]
+            score = int(line_data[1])
+            trie[word] = score
+            listedWords.append(word)
+    
+        wordDataBase_list.append(listedWords)
+        wordDataBase.append(trie)
 
 
+    
+    #trie = wordDataBase[0]  # Replace 'length' with the desired word length
+    ##word = "AND"
+    #score = trie[word]
+    #print(score)
+    '''
         onelengthwords = []
         for line in lines:
             line_data = line.split()
             onelengthwords.append([line_data[0], int(line_data[1])])
-
         wordDataBase.append(onelengthwords)
-
-
+        '''
+        
+        
     # Convert each line to separate words and numbers
     '''
     xw =    ['A', 'T', ' ', ' ', '■'],\
@@ -156,8 +207,9 @@ def Generate(xw, seed):
     seed = [seed]
         
     #define list of words and order to go through them
-    wordsInPuzzle = []
-    wordList = make_word_list(xw, seed)
+    
+    wordList, wordsInPuzzle = make_word_list(xw, seed)
+    print(wordsInPuzzle)
     #for row in wordList:
     #    print(row)
 
@@ -165,11 +217,11 @@ def Generate(xw, seed):
         print(row)
 
     # Call the function to solve the crossword
-    try:
-        xw, did_solve = solve_phase(xw,wordDataBase, wordList,wordsInPuzzle, time.time())
-    except GenerateStopException as e:
-        print(e) 
+    #print(canFillGrid(xw, wordDataBase, [0, 0, 1, 5, [0, 0, 2, 5], [0, 1, 2, 5], [0, 2, 2, 5], [0, 3, 2, 5], [0, 4, 2, 5]]))
+    xw, did_solve = solve_phase(xw,wordDataBase, wordList,wordsInPuzzle, time.time(), numWords, wordDataBase_list)
 
+    #solve_xword(xw, wordDataBase, wordDataBase_list, wordList, wordsInPuzzle, time.time(), numWords)
+    
 
     # Print the crossword
     print(did_solve)
@@ -191,22 +243,46 @@ def format_time(seconds):
     formatted_time = str(time_delta)
     return formatted_time
 
-'''
-xw =        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '],\
-            ['■', '■', '■', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', '■', '■', '■'],\
-            [' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
-            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ']
+xw =    [' ', ' ', ' ',' ',' '],\
+        [' ', ' ', ' ',' ',' '],\
+        [' ', ' ', ' ',' ',' '],\
+        [' ', ' ', ' ',' ',' '],\
+        [' ', ' ', ' ',' ',' ']
 
-Generate(xw, [12,0])
 '''
+xw =        [' ', ' ', ' ', ' ', '■', ' ',' ', ' ', ' ', '■', '■', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', '■', ' ',' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', '■', ' ',' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', ' ',' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', '■'],\
+            ['■', '■', '■', ' ', ' ', ' ','■', '■', ' ', ' ', ' ', ' ', '■', '■', '■'],\
+            ['■', ' ', ' ', ' ', ' ', ' ',' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', '■', ' ', ' ',' ', ' ', '■', '■', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', '■', ' ',' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', '■','■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', ' ',' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■'],\
+            ['■', '■', '■', ' ', ' ', ' ',' ', '■', '■', ' ', ' ', ' ', '■', '■', '■'],\
+            ['■', '■', ' ', ' ', ' ', ' ',' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', '■',' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', '■',' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', '■', '■',' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ']
+'''
+'''
+xw =        [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['G', 'O', 'L', 'D', 'E', 'N', 'R', 'E', 'T', 'R', 'I', 'E', 'V', 'E', 'R'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', '■', '■'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', '■', '■', ' ', ' ', ' ', ' '],\
+            ['■', '■', '■', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['N', 'U', 'C', 'L', 'E', 'A', 'R', 'F', 'O', 'O', 'T', 'B', 'A', 'L', 'L'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', '■', '■', '■'],\
+            [' ', ' ', ' ', ' ', '■', '■', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['■', '■', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['B', 'A', 'T', 'T', 'L', 'E', 'O', 'F', 'B', 'U', 'L', 'L', 'R', 'U', 'N'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ']
+'''
+Generate(xw, [0,0])
+
+print("Not sure why this is printing in Crossword_Generator")
