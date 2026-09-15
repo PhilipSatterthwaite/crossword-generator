@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gridfill Clues</title>
-<meta name="description" content="Write the clues for a Gridfill crossword, then export it as .puz, .ipuz, .jpz or a printable PDF.">
+<meta name="description" content="Write the clues for a Gridfill crossword.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,21 +13,13 @@
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
-  .pages {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 24px;
-    padding-block: 12px;
-    border-top: 1.5px solid var(--ink);
-    border-bottom: 1px solid var(--rule);
-  }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 12px; border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule); }
   .progress { margin: 0; font-size: 14px; color: var(--muted); }
   .progress b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .progress .changed { color: var(--danger); }
 
-  /* Desk: the clue columns, with the grid and export beside them. */
-  .desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 32px 44px; align-items: start; }
+  /* Desk: the clue columns, with the grid beside them. */
+  .desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: 32px 44px; align-items: start; }
   .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px 36px; min-width: 0; }
   .columns h2 { margin: 0 0 8px; font: 600 24px / 1.2 var(--serif); }
   .clue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -38,15 +30,7 @@
   .answer label { font: 600 13px / 1.6 var(--sans); letter-spacing: 0.12em; color: var(--ink); overflow-wrap: anywhere; cursor: text; }
   .answer .e { color: var(--rule); }
   .flag { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font: 500 12px / 1.4 var(--sans); color: var(--danger); }
-  .flag button {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: 600 12px var(--sans);
-    text-decoration: underline;
-    cursor: pointer;
-  }
+  .flag button { padding: 0; border: 0; background: none; color: inherit; font: 600 12px var(--sans); text-decoration: underline; cursor: pointer; }
   .clue-text {
     box-sizing: border-box;
     width: 100%;
@@ -59,8 +43,7 @@
   }
   .clue-text:focus { border-color: var(--ink); }
 
-  .side { position: sticky; top: 12px; display: grid; gap: 24px; min-width: 0; }
-  .mini { display: grid; gap: 6px; width: min(100%, 360px); }
+  .side { position: sticky; top: 12px; display: grid; gap: 8px; min-width: 0; }
   #mini {
     --cols: 15;
     display: grid;
@@ -89,27 +72,8 @@
   #mini .mc.on { background: var(--word); }
   #mini .mc.b { background: var(--block); border-color: var(--block); cursor: default; }
   #mini .mn { position: absolute; top: 0.1em; left: 0.18em; font-size: max(6px, calc(100cqi / var(--cols) * 0.2)); font-weight: 500; }
-  .mini-note { margin: 0; font-size: 13px; color: var(--muted); }
-
-  .publish { display: grid; gap: 12px; padding-top: 16px; border-top: 1.5px solid var(--ink); }
-  .publish h2 { margin: 0; font: 600 22px / 1.2 var(--serif); }
-  .details { display: grid; gap: 10px; }
-  .text-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .text-field input, .text-field textarea {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 7px 9px;
-    border: 1.5px solid var(--ink);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    font: 400 16px / 1.4 var(--serif);
-    letter-spacing: 0;
-    text-transform: none;
-  }
-  .export-check, .export-status { margin: 0; font-size: 14px; }
-  .export-check { color: var(--muted); }
-  .export-status { min-height: 1.4em; }
+  .side-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .side-note a { color: var(--pencil); }
 
   .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
   .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
@@ -117,71 +81,34 @@
 
   @media (max-width: 880px) {
     .desk { grid-template-columns: minmax(0, 1fr); }
-    .side { position: static; order: -1; }
-  }
-
-  /* Printing shows only the puzzle sheet: the blank puzzle and clues, then the answer key. */
-  #print-sheet { display: none; }
-  .print-page + .print-page { break-before: page; }
-  .print-head h1 { margin: 0; font: 600 20pt / 1.2 var(--serif); }
-  .print-head p { margin: 2pt 0 0; font: 10pt var(--sans); }
-  .print-grid {
-    display: grid;
-    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-    width: min(100%, calc(var(--cols) * 0.34in));
-    margin: 12pt 0 14pt;
-    border: 1.5pt solid #000;
-    container-type: inline-size;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  .print-grid .pr { display: contents; }
-  .print-grid .pc {
-    position: relative;
-    box-sizing: border-box;
-    aspect-ratio: 1;
-    display: grid;
-    place-items: center;
-    border-right: 0.75pt solid #000;
-    border-bottom: 0.75pt solid #000;
-    font: 600 calc(100cqi / var(--cols) * 0.5) / 1 var(--sans);
-  }
-  .print-grid .pr .pc:last-child { border-right: 0; }
-  .print-grid .pr:last-child .pc { border-bottom: 0; }
-  .print-grid .pc.b { background: #000; }
-  .print-grid .pn { position: absolute; top: 1pt; left: 2pt; font: 600 calc(100cqi / var(--cols) * 0.2) / 1 var(--sans); }
-  .print-clues { columns: 2; column-gap: 0.35in; font: 10pt / 1.3 var(--serif); }
-  .print-clues h2 { margin: 0 0 4pt; font: 700 11pt var(--sans); break-after: avoid; }
-  .print-clues p { margin: 0 0 3pt; break-inside: avoid; }
-  .print-clues b { display: inline-block; min-width: 1.8em; font-family: var(--sans); }
-  .print-note { margin-top: 10pt; font: 9pt var(--sans); }
-  @media print {
-    @page { margin: 0.6in; }
-    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
-    .page { display: none !important; }
-    #print-sheet { display: block; color: #000; }
+    .side { position: static; order: -1; max-width: 360px; }
   }
 </style>
 </head>
 <body>
 <div class="page">
   <header class="masthead">
-    <a class="wordmark-link" href="index.html" aria-label="Gridfill, back to the grid">
+    <a class="wordmark-link" href="index.html" aria-label="Gridfill, the grid page">
       <span class="wordmark" aria-hidden="true">
         <span><sup>1</sup>G</span><span>R</span><span>I</span><span>D</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>F</span><span class="fill-letter">I</span><span class="fill-letter">L</span><span class="fill-letter">L</span>
       </span>
     </a>
-    <h1 class="lede">Clues: write one for every entry. Changes you make on the grid page show up here right away.</h1>
+    <h1 class="lede">Write a clue for every entry. Changes on the Grid tab show up here as soon as you make them.</h1>
   </header>
 
-  <nav class="pages" aria-label="Pages">
-    <a class="btn" href="index.html">← Back to the grid</a>
-    <p id="progress" class="progress" aria-live="polite"></p>
+  <nav class="tabs" aria-label="Pages">
+    <a class="tab" href="index.html">Grid</a>
+    <a class="tab" href="clues.html" aria-current="page">Clues <span class="tab-count" data-count="clues"></span></a>
+    <a class="tab" href="export.html">Export</a>
   </nav>
+
+  <div class="bar">
+    <p id="progress" class="progress" aria-live="polite"></p>
+  </div>
 
   <section id="no-grid" class="empty-state" hidden>
     <h2>No grid yet</h2>
-    <p>Clues follow the grid you build on the grid page. Build or fill one there, then come back here to write its clues.</p>
+    <p>Clues follow the grid you build on the Grid tab. Build or fill one there, then come back to write its clues.</p>
     <a class="btn primary" href="index.html">Go to the grid</a>
   </section>
 
@@ -197,116 +124,40 @@
       </section>
     </div>
 
-    <aside class="side">
-      <div class="mini">
-        <span class="label">Grid</span>
-        <div id="mini" role="img" aria-label="The grid, with the entry you're writing highlighted"></div>
-        <p class="mini-note">Click a square to jump to its clue; click again for the other direction.</p>
-      </div>
-
-      <section id="publish" class="publish" aria-labelledby="publish-title">
-        <h2 id="publish-title">Details and export</h2>
-        <div class="details">
-          <label class="text-field">Title <input id="meta-title" type="text" autocomplete="off"></label>
-          <label class="text-field">Author <input id="meta-author" type="text" autocomplete="off"></label>
-          <label class="text-field">Copyright <input id="meta-copyright" type="text" autocomplete="off" placeholder="© 2026 Your Name"></label>
-          <label class="text-field">Notes <textarea id="meta-notes" rows="2"></textarea></label>
-        </div>
-        <p id="export-check" class="export-check"></p>
-        <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://philipsatterthwaite.github.io/crossword-generator/">philipsatterthwaite.github.io/crossword-generator</a>.</p>
-        <div class="actions">
-          <button type="button" class="btn primary" data-export="puz">Download .puz</button>
-          <button type="button" class="btn" data-export="ipuz">Download .ipuz</button>
-          <button type="button" class="btn" data-export="jpz">Download .jpz</button>
-          <button type="button" id="print-puzzle" class="btn">Print or save as PDF</button>
-        </div>
-        <p id="export-status" class="export-status" role="status"></p>
-      </section>
+    <aside class="side" aria-label="Grid">
+      <span class="label">Grid</span>
+      <div id="mini" role="img" aria-label="The grid, with the entry you're writing highlighted"></div>
+      <p class="side-note">Click a square to jump to its clue; click again for the other direction. Press Enter in a clue to move to the next one.</p>
+      <p class="side-note">When the clues are done, name and download the puzzle on the <a href="export.html">Export</a> tab.</p>
     </aside>
   </main>
 </div>
 
-<div id="print-sheet" aria-hidden="true"></div>
-
 <script src="filler.js"></script>
-<script src="exporters.js"></script>
+<script src="store.js"></script>
 <script>
 (() => {
   "use strict";
-  const G = window.Gridfill;
-  const X = window.GridExport;
+  const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
 
-  // The grid page saves the grid here; this page saves clues and details in its own record,
-  // so two open tabs never overwrite each other's work.
-  const GRID_STORE = "gridfill:v2";
-  const CLUE_STORE = "gridfill:clues:v1";
-  const META_FIELDS = ["title", "author", "copyright", "notes"];
-
-  let grid = null;   // {W, H, blocks, letters} from the grid page
-  let slots = [];
+  let grid = null;   // the grid saved by the Grid tab
   let clues = {};    // entry key -> {text, answer the clue was written for}
-  let meta = { title: "", author: "", copyright: "", notes: "" };
   let current = "";  // key of the entry being written
 
-  const read = (key) => {
-    try { return JSON.parse(localStorage.getItem(key)); } catch (error) { return null; }
-  };
-  const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
+  const clueKey = S.clueKey;
   const inputId = (slot) => `clue-${slot.direction}-${slot.row}-${slot.col}`;
   const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-  const letterOf = (value) => (/^[A-Z]$/.test(value) ? value : "");
-
-  function loadGrid() {
-    const data = read(GRID_STORE);
-    const n = data && data.W > 0 && data.H > 0 ? data.W * data.H : 0;
-    if (!n || [data.blocks, data.ink, data.pencil].some((s) => typeof s !== "string" || s.length !== n)) {
-      grid = null;
-      slots = [];
-      return;
-    }
-    grid = {
-      W: data.W,
-      H: data.H,
-      blocks: Array.from(data.blocks, (ch) => ch === "#"),
-      letters: Array.from({ length: n }, (_, i) => letterOf(data.ink[i]) || letterOf(data.pencil[i])),
-    };
-    const rows = [];
-    for (let r = 0; r < grid.H; r++) rows.push(data.blocks.slice(r * grid.W, (r + 1) * grid.W));
-    slots = G.parseGrid(rows).slots;
-  }
-
-  function loadClues() {
-    let data = read(CLUE_STORE);
-    if (!data) {
-      // Clues used to be saved with the grid; take them over once.
-      const old = read(GRID_STORE);
-      if (old && old.clues && typeof old.clues === "object") {
-        data = { clues: Object.fromEntries(Object.entries(old.clues).filter(([, text]) => typeof text === "string").map(([key, text]) => [key, { text, answer: "" }])), meta: old.meta };
-      }
-    }
-    clues = {};
-    for (const [key, value] of Object.entries((data && data.clues) || {})) {
-      if (value && typeof value.text === "string") clues[key] = { text: value.text, answer: typeof value.answer === "string" ? value.answer : "" };
-    }
-    for (const field of META_FIELDS) {
-      meta[field] = data && data.meta && typeof data.meta[field] === "string" ? data.meta[field] : "";
-      if (document.activeElement !== $(`meta-${field}`)) $(`meta-${field}`).value = meta[field];
-    }
-  }
-
-  function saveClues() {
-    try { localStorage.setItem(CLUE_STORE, JSON.stringify({ v: 1, clues, meta })); } catch (error) { /* storage unavailable */ }
-  }
-
-  const answerOf = (slot) => slot.cells.map((i) => grid.letters[i]).join("");
+  const answerOf = (slot) => S.answerOf(grid, slot);
   const isComplete = (slot, answer) => answer.length === slot.cells.length;
+  const slotFor = (key) => grid.slots.find((slot) => clueKey(slot) === key);
 
   // --- rendering ---
 
   function render() {
     $("no-grid").hidden = Boolean(grid);
     $("desk").hidden = !grid;
+    S.renderTabs(grid ? grid.slots : [], clues);
     if (!grid) {
       $("progress").textContent = "";
       return;
@@ -319,18 +170,17 @@
 
     let adopted = false;
     const rows = { across: [], down: [] };
-    for (const slot of slots) {
+    for (const slot of grid.slots) {
       const key = clueKey(slot);
       const answer = answerOf(slot);
       const clue = clues[key];
-      // A clue written before its answer was filled in belongs to the first complete answer.
+      // A clue written before its answer was complete belongs to the first complete answer.
       if (clue && !clue.answer && isComplete(slot, answer)) {
         clue.answer = answer;
         adopted = true;
       }
-      const changed = Boolean(clue && clue.answer && clue.answer !== answer);
-      const letters = slot.cells.map((i) => (grid.letters[i] ? grid.letters[i] : '<span class="e">·</span>')).join("");
-      const flag = changed
+      const letters = slot.cells.map((i) => grid.letters[i] || '<span class="e">·</span>').join("");
+      const flag = S.isStale(grid, clues, slot)
         ? `<span class="flag">Written for ${escapeHtml(clue.answer)} <button type="button" data-keep="${key}">Keep this clue</button></span>`
         : "";
       rows[slot.direction].push(
@@ -344,7 +194,7 @@
     }
     $("across").innerHTML = rows.across.join("");
     $("down").innerHTML = rows.down.join("");
-    if (adopted) saveClues();
+    if (adopted) S.saveClues(clues);
 
     if (focusKey) {
       const again = document.querySelector(`.clue-text[data-key="${focusKey}"]`);
@@ -355,15 +205,14 @@
     }
     renderMini();
     renderProgress();
-    renderExportCheck();
   }
 
   function renderMini() {
     const mini = $("mini");
     mini.style.setProperty("--cols", grid.W);
-    const slot = slots.find((s) => clueKey(s) === current);
+    const slot = slotFor(current);
     const on = new Set(slot ? slot.cells : []);
-    const numbers = new Map(slots.map((s) => [s.cells[0], s.number]));
+    const numbers = new Map(grid.slots.map((s) => [s.cells[0], s.number]));
     const html = [];
     for (let r = 0; r < grid.H; r++) {
       html.push('<div class="mr">');
@@ -378,11 +227,12 @@
   }
 
   function renderProgress() {
-    const written = slots.filter((slot) => clues[clueKey(slot)] && clues[clueKey(slot)].text.trim()).length;
-    const changed = slots.filter((slot) => clues[clueKey(slot)] && clues[clueKey(slot)].answer && clues[clueKey(slot)].answer !== answerOf(slot)).length;
+    const written = grid.slots.filter((slot) => S.hasClue(clues, slot)).length;
+    const changed = grid.slots.filter((slot) => S.isStale(grid, clues, slot)).length;
     $("progress").innerHTML =
-      `<b>${written}</b> of <b>${slots.length}</b> entries have clues` +
+      `<b>${written}</b> of <b>${grid.slots.length}</b> entries have clues` +
       (changed ? ` · <span class="changed">${changed} ${changed === 1 ? "answer has" : "answers have"} changed since the clue was written</span>` : "");
+    S.renderTabs(grid.slots, clues);
   }
 
   function highlight(key) {
@@ -400,20 +250,19 @@
   columns.addEventListener("input", (event) => {
     const box = event.target;
     if (!box.classList.contains("clue-text")) return;
-    const slot = slots.find((s) => clueKey(s) === box.dataset.key);
+    const slot = slotFor(box.dataset.key);
     if (!slot) return;
     const answer = answerOf(slot);
     if (box.value.trim()) {
-      // Editing a clue counts as reviewing it against the answer as it is now.
+      // Editing a clue counts as checking it against the answer as it is now.
       clues[box.dataset.key] = { text: box.value, answer: isComplete(slot, answer) ? answer : "" };
     } else {
       delete clues[box.dataset.key];
     }
-    saveClues();
+    S.saveClues(clues);
     const flag = box.closest(".clue-row").querySelector(".flag");
-    if (flag && (!clues[box.dataset.key] || clues[box.dataset.key].answer === answer)) flag.remove();
+    if (flag && !S.isStale(grid, clues, slot)) flag.remove();
     renderProgress();
-    renderExportCheck();
   });
   columns.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || !event.target.classList.contains("clue-text")) return;
@@ -428,12 +277,12 @@
   columns.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-keep]");
     if (!button) return;
-    const slot = slots.find((s) => clueKey(s) === button.dataset.keep);
+    const slot = slotFor(button.dataset.keep);
     const clue = clues[button.dataset.keep];
     if (!slot || !clue) return;
     const answer = answerOf(slot);
     clue.answer = isComplete(slot, answer) ? answer : "";
-    saveClues();
+    S.saveClues(clues);
     render();
   });
 
@@ -441,7 +290,7 @@
     const square = event.target.closest(".mc[data-i]");
     if (!square) return;
     const i = Number(square.dataset.i);
-    const here = slots.filter((slot) => slot.cells.includes(i));
+    const here = grid.slots.filter((slot) => slot.cells.includes(i));
     if (!here.length) return;
     // Click again on a square of the current entry to switch to the other direction.
     const at = here.findIndex((slot) => clueKey(slot) === current);
@@ -451,108 +300,16 @@
     box.scrollIntoView({ block: "nearest" });
   });
 
-  for (const field of META_FIELDS) {
-    $(`meta-${field}`).addEventListener("input", (event) => {
-      meta[field] = event.target.value;
-      saveClues();
-    });
-  }
-
-  // --- export ---
-
-  function puzzleForExport() {
-    return {
-      width: grid.W,
-      height: grid.H,
-      cells: grid.blocks.map((b, i) => (b ? "#" : grid.letters[i])),
-      entries: slots.map((slot) => ({
-        number: slot.number,
-        direction: slot.direction,
-        row: slot.row,
-        col: slot.col,
-        length: slot.cells.length,
-        answer: answerOf(slot),
-        clue: clues[clueKey(slot)] ? clues[clueKey(slot)].text : "",
-      })),
-      ...meta,
-    };
-  }
-
-  function renderExportCheck() {
-    const { empty, unclued } = X.problems(puzzleForExport());
-    const todo = [];
-    if (empty) todo.push(`${empty} empty ${empty === 1 ? "square" : "squares"} (.puz and .jpz need a full grid)`);
-    if (unclued) todo.push(`${unclued} ${unclued === 1 ? "entry" : "entries"} without a clue`);
-    $("export-check").textContent = todo.length ? `Still to do: ${todo.join("; ")}.` : "Every square is filled and every entry has a clue.";
-  }
-
-  const fileBase = () => meta.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gridfill-puzzle";
-
-  function download(filename, data, type) {
-    const url = URL.createObjectURL(new Blob([data], { type }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
-
-  const FORMATS = {
-    puz: [(puzzle) => X.toPuz(puzzle), "application/x-crossword"],
-    ipuz: [(puzzle) => X.toIpuz(puzzle), "application/json"],
-    jpz: [(puzzle) => X.toJpz(puzzle), "application/xml"],
-  };
-  $("publish").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-export]");
-    if (!button || !grid) return;
-    const [make, type] = FORMATS[button.dataset.export];
-    const filename = `${fileBase()}.${button.dataset.export}`;
-    try {
-      download(filename, make(puzzleForExport()), type);
-      $("export-status").textContent = `Downloaded ${filename}.`;
-    } catch (error) {
-      $("export-status").textContent = error.message;
-    }
-  });
-
-  $("print-puzzle").addEventListener("click", () => {
-    if (!grid) return;
-    $("print-sheet").innerHTML = X.toPrintHtml(puzzleForExport());
-    try {
-      window.print();
-    } catch (error) {
-      $("export-status").textContent = "This page can't open the print dialog here. Print from the GitHub Pages site instead.";
-    }
-  });
-
-  // Inside the claude.ai viewer, pages can't download these files or open the print dialog.
-  if (window.claude && typeof window.claude.use === "function") {
-    $("export-elsewhere").hidden = false;
-    document.querySelector("#publish .actions").hidden = true;
-  }
-
-  // --- staying in step with the grid page ---
+  // --- staying in step with the other tabs ---
 
   function reload() {
-    loadGrid();
-    loadClues();
+    grid = S.loadGrid();
+    clues = S.loadClues();
     render();
   }
-  window.addEventListener("storage", (event) => {
-    if (event.key === GRID_STORE || event.key === CLUE_STORE || event.key === null) reload();
-  });
-  // Coming back with the browser's Back button can restore a stale copy of this page.
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) reload();
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") reload();
-  });
-
+  S.watch(reload);
   reload();
-  if (grid && slots.length) highlight(clueKey(slots[0]));
+  if (grid && grid.slots.length) highlight(clueKey(grid.slots[0]));
 })();
 </script>
 </body>

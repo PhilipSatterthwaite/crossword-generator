@@ -134,7 +134,6 @@
   .options-summary { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
   .options-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .preview-bar { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--rule); background: var(--surface); font-size: 14px; }
   .option[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: -2px; }
   .options-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .key { width: 12px; height: 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--cell); }
@@ -270,6 +269,12 @@
     <p class="lede">Draw the blocks, ink your theme answers, pick scored words entry by entry, and let it pencil in the rest.</p>
   </header>
 
+  <nav class="tabs" aria-label="Pages">
+    <a class="tab" href="index.html" aria-current="page">Grid</a>
+    <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
+    <a class="tab" href="export.html">Export</a>
+  </nav>
+
   <div class="controls">
     <div class="control-row">
       <form id="size-form" class="control-group">
@@ -294,7 +299,6 @@
       <div class="control-group">
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
         <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
-        <a href="clues.html" id="clues-link" class="btn">Write clues →</a>
       </div>
     </div>
     <div class="control-row">
@@ -351,16 +355,8 @@
           <span><span class="key" aria-hidden="true"></span><b id="count-open">0</b> unconfirmed</span>
           <span><span class="key fails" aria-hidden="true"></span><b id="count-fails">0</b> confirmed bad</span>
         </p>
-        <div id="preview-bar" class="preview-bar" hidden>
-          <span id="preview-text" aria-live="polite"></span>
-          <div class="actions">
-            <button type="button" id="use-word" class="btn primary">Use word</button>
-            <button type="button" id="use-fill" class="btn">Use word and fill</button>
-            <button type="button" id="cancel-preview" class="btn quiet">Cancel</button>
-          </div>
-        </div>
-        <ol id="options" class="options-list"></ol>
         <p id="options-note" class="options-note" aria-live="polite"></p>
+        <ol id="options" class="options-list"></ol>
       </section>
     </aside>
   </main>
@@ -384,6 +380,7 @@
 
 <script src="words.js"></script>
 <script src="filler.js"></script>
+<script src="store.js"></script>
 <script>
 (() => {
   "use strict";
@@ -893,19 +890,16 @@
     }
   }
 
-  function renderPreviewBar() {
+  /* One line about the previewed word, shown in the note above the word list. */
+  function previewText() {
     const option = preview && options && options.list ? options.list[preview.index] : null;
-    $("preview-bar").hidden = !option;
-    if (!option) return;
+    if (!option) return "";
     const word = preview.word;
-    let text;
-    if (option.status === "works") text = `Previewing ${word} with a full fill around it.`;
-    else if (option.status === "fails") text = `${word} breaks the grid: no fill can use it.`;
-    else if (preview.checking || option.status === null) text = `Previewing ${word}. Looking for a fill that uses it…`;
-    else text = `Previewing ${word}. No fill found in time, so it may or may not work.`;
-    $("preview-text").textContent = text;
-    $("use-word").textContent = `Use ${word}`;
-    $("use-fill").disabled = option.status !== "works";
+    const how = "Double-click it or press Enter to use it (add Shift to keep the fill around it), or Esc to cancel.";
+    if (option.status === "works") return `Previewing ${word} with a full fill around it. ${how}`;
+    if (option.status === "fails") return `${word} breaks the grid: no fill can use it. Esc cancels the preview.`;
+    if (preview.checking || option.status === null) return `Previewing ${word} while looking for a fill that uses it. ${how}`;
+    return `Previewing ${word}. No fill found in time, so it may or may not work. ${how}`;
   }
 
   function useWord(withFill) {
@@ -972,8 +966,6 @@
     const listEl = $("options");
     const summary = $("options-summary");
     const note = $("options-note");
-    renderPreviewBar();
-
     const list = options && options.list ? options.list : [];
     let works = 0;
     let fails = 0;
@@ -1020,7 +1012,7 @@
     else if (!options.done) text = running ? "Checking resumes when the fill finishes." : `Checking from the top down: ${checked} of ${list.length} done. Click a word to preview it.`;
     else text = "Every word in the list has been checked. Click a word to preview it.";
     if (list.length > VISIBLE_OPTIONS) text += ` Showing the first ${VISIBLE_OPTIONS} rows; words that work move up as they're found.`;
-    note.textContent = text;
+    note.textContent = previewText() || text;
   }
 
   // --- editing ---
@@ -1123,7 +1115,8 @@
     render();
   });
 
-  // Clicking a word previews it in the grid; double-clicking uses it.
+  // Clicking a word previews it in the grid. Double-click it, or press Enter on it, to use it; with
+  // Shift the fill found around it goes in as pencil too. Esc cancels the preview.
   $("options").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-index]");
     if (!button || !options || !options.list || running) return;
@@ -1135,11 +1128,14 @@
     renderOptions();
   });
   $("options").addEventListener("dblclick", (event) => {
-    if (event.target.closest("button[data-index]")) useWord(false);
+    if (event.target.closest("button[data-index]")) useWord(event.shiftKey);
   });
-  $("use-word").addEventListener("click", () => useWord(false));
-  $("use-fill").addEventListener("click", () => useWord(true));
-  $("cancel-preview").addEventListener("click", cancelPreview);
+  $("options").addEventListener("keydown", (event) => {
+    const button = event.target.closest("button[data-index]");
+    if (event.key !== "Enter" || !button || !preview || preview.index !== Number(button.dataset.index)) return;
+    event.preventDefault();
+    useWord(event.shiftKey);
+  });
 
   $("size-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1169,13 +1165,9 @@
 
   // --- the clues page ---
 
-  /* "Write clues (12/76) →": how many of this grid's entries have a clue on clues.html. */
+  /* The Clues tab shows how many of this grid's entries have a clue. */
   function renderCluesLink() {
-    let store = null;
-    try { store = JSON.parse(localStorage.getItem(CLUE_STORE)); } catch (error) { store = null; }
-    const clues = store && store.clues ? store.clues : {};
-    const written = slots.filter((slot) => clues[clueKey(slot)] && String(clues[clueKey(slot)].text || "").trim()).length;
-    $("clues-link").textContent = written ? `Write clues (${written}/${slots.length}) →` : "Write clues →";
+    GridfillStore.renderTabs(slots, GridfillStore.loadClues());
   }
   window.addEventListener("storage", (event) => {
     if (event.key === CLUE_STORE) renderCluesLink();

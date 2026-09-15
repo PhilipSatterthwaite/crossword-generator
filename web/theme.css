@@ -126,6 +126,26 @@ body {
 .wordmark sup { position: absolute; top: 3px; left: 4px; font: 600 calc(var(--wm) * 0.22) / 1 var(--sans); color: var(--ink); }
 .lede { margin: 0; max-width: 46ch; font: italic 400 19px / 1.4 var(--serif); color: var(--muted); text-wrap: pretty; }
 
+/* Page tabs: they sit on the ruled line that tops each page's working area
+   (the negative margin cancels .page's 28px gap below them). */
+.tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; margin-bottom: -28px; }
+.tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 18px 8px;
+  border: 1.5px solid var(--rule);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--surface);
+  color: var(--muted);
+  font: 600 15px / 1 var(--sans);
+  text-decoration: none;
+}
+.tab:hover { background: var(--hover); color: var(--ink); }
+.tab[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+.tab-count { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.8; }
+
 .label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .field { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .number {

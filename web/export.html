@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridfill Export</title>
+<meta name="description" content="Name a Gridfill crossword and download it as .puz, .ipuz or .jpz, or print it.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { margin: 0; }
+  .wordmark-link { color: inherit; text-decoration: none; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 12px; border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule); }
+  .summary { margin: 0; font-size: 14px; color: var(--muted); }
+  .summary b { color: var(--ink); }
+
+  /* Desk: details, checks and downloads on the left; the printed puzzle as it will look on the right. */
+  .desk { display: grid; grid-template-columns: minmax(280px, 400px) minmax(0, 1fr); gap: 32px 48px; align-items: start; }
+  .export-side { position: sticky; top: 12px; display: grid; gap: 28px; min-width: 0; }
+  .export-side h2 { margin: 0 0 10px; font: 600 22px / 1.2 var(--serif); }
+  .details { display: grid; gap: 10px; }
+  .text-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .text-field input, .text-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 7px 9px;
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 400 16px / 1.4 var(--serif);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .checklist li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; line-height: 1.45; }
+  .mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font: 700 11px / 1 var(--sans); }
+  .checklist li[data-ok="true"] .mark { background: var(--works-bg); color: var(--works-ink); }
+  .checklist li[data-ok="false"] .mark { background: var(--score-lo-bg); color: var(--score-lo); }
+  .checklist a, .save-note a { color: var(--pencil); }
+  .formats { display: grid; gap: 10px; }
+  .format { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 4px 14px; align-items: center; }
+  .format .btn { text-align: left; }
+  .format span { font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .export-status { margin: 10px 0 0; min-height: 1.4em; font-size: 14px; }
+  .save-note { margin: 0; max-width: 46ch; font-size: 13px; color: var(--muted); }
+
+  .preview-head { margin: 0 0 10px; }
+  /* On screen each printed page is a sheet of paper; it stays white in dark mode too. */
+  #paper { display: grid; gap: 24px; }
+  #paper .print-page {
+    padding: clamp(18px, 6%, 52px);
+    background: #fff;
+    color: #000;
+    box-shadow: 0 1px 2px rgba(20, 23, 28, 0.18), 0 10px 28px rgba(20, 23, 28, 0.12);
+  }
+
+  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
+  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
+  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
+
+  @media (max-width: 880px) {
+    .desk { grid-template-columns: minmax(0, 1fr); }
+    .export-side { position: static; }
+  }
+
+  /* The printed puzzle: blank grid and clues, then the answer key. */
+  .print-page + .print-page { break-before: page; }
+  .print-head h1 { margin: 0; font: 600 20pt / 1.2 var(--serif); }
+  .print-head p { margin: 2pt 0 0; font: 10pt var(--sans); }
+  .print-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    width: min(100%, calc(var(--cols) * 0.34in));
+    margin: 12pt 0 14pt;
+    border: 1.5pt solid #000;
+    container-type: inline-size;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-grid .pr { display: contents; }
+  .print-grid .pc {
+    position: relative;
+    box-sizing: border-box;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-right: 0.75pt solid #000;
+    border-bottom: 0.75pt solid #000;
+    font: 600 calc(100cqi / var(--cols) * 0.5) / 1 var(--sans);
+  }
+  .print-grid .pr .pc:last-child { border-right: 0; }
+  .print-grid .pr:last-child .pc { border-bottom: 0; }
+  .print-grid .pc.b { background: #000; }
+  .print-grid .pn { position: absolute; top: 1pt; left: 2pt; font: 600 calc(100cqi / var(--cols) * 0.2) / 1 var(--sans); }
+  .print-clues { columns: 2; column-gap: 0.35in; font: 10pt / 1.3 var(--serif); }
+  .print-clues h2 { margin: 0 0 4pt; font: 700 11pt var(--sans); break-after: avoid; }
+  .print-clues p { margin: 0 0 3pt; break-inside: avoid; }
+  .print-clues b { display: inline-block; min-width: 1.8em; font-family: var(--sans); }
+  .print-note { margin-top: 10pt; font: 9pt var(--sans); }
+  #print-sheet { display: none; }
+  @media print {
+    @page { margin: 0.6in; }
+    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+    .page { display: none !important; }
+    #print-sheet { display: block; color: #000; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="Gridfill, the grid page">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>G</span><span>R</span><span>I</span><span>D</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>F</span><span class="fill-letter">I</span><span class="fill-letter">L</span><span class="fill-letter">L</span>
+      </span>
+    </a>
+    <h1 class="lede">Name the puzzle, check it's finished, then download it or print it.</h1>
+  </header>
+
+  <nav class="tabs" aria-label="Pages">
+    <a class="tab" href="index.html">Grid</a>
+    <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
+    <a class="tab" href="export.html" aria-current="page">Export</a>
+  </nav>
+
+  <div class="bar">
+    <p id="summary" class="summary" aria-live="polite"></p>
+  </div>
+
+  <section id="no-grid" class="empty-state" hidden>
+    <h2>Nothing to export yet</h2>
+    <p>Build a grid on the Grid tab and write its clues on the Clues tab; this page turns them into files you can share or print.</p>
+    <a class="btn primary" href="index.html">Go to the grid</a>
+  </section>
+
+  <main id="desk" class="desk" hidden>
+    <aside class="export-side">
+      <section aria-labelledby="details-title">
+        <h2 id="details-title">Details</h2>
+        <div class="details">
+          <label class="text-field">Title <input id="meta-title" type="text" autocomplete="off"></label>
+          <label class="text-field">Author <input id="meta-author" type="text" autocomplete="off"></label>
+          <label class="text-field">Copyright <input id="meta-copyright" type="text" autocomplete="off" placeholder="© 2026 Your Name"></label>
+          <label class="text-field">Notes <textarea id="meta-notes" rows="2"></textarea></label>
+        </div>
+      </section>
+
+      <section aria-labelledby="check-title">
+        <h2 id="check-title">Before you export</h2>
+        <ul id="checklist" class="checklist"></ul>
+      </section>
+
+      <section aria-labelledby="download-title">
+        <h2 id="download-title">Download</h2>
+        <div id="formats" class="formats">
+          <div class="format"><button type="button" class="btn primary" data-export="puz">Download .puz</button><span>Across Lite, which most solving apps open. Needs every square filled.</span></div>
+          <div class="format"><button type="button" class="btn" data-export="ipuz">Download .ipuz</button><span>The open crossword standard, and a good backup copy.</span></div>
+          <div class="format"><button type="button" class="btn" data-export="jpz">Download .jpz</button><span>Crossword Compiler and many web solvers. Needs every square filled.</span></div>
+          <div class="format"><button type="button" id="print-puzzle" class="btn">Print or PDF</button><span>The puzzle with its clues, then an answer key.</span></div>
+        </div>
+        <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://philipsatterthwaite.github.io/crossword-generator/">philipsatterthwaite.github.io/crossword-generator</a>.</p>
+        <p id="export-status" class="export-status" role="status"></p>
+      </section>
+
+      <p class="save-note">Your grid, clues and details save automatically in this browser as you work. Download an .ipuz to keep a copy anywhere else.</p>
+    </aside>
+
+    <section aria-labelledby="preview-title">
+      <h2 id="preview-title" class="label preview-head">The printed puzzle</h2>
+      <div id="paper"></div>
+    </section>
+  </main>
+</div>
+
+<div id="print-sheet" aria-hidden="true"></div>
+
+<script src="filler.js"></script>
+<script src="exporters.js"></script>
+<script src="store.js"></script>
+<script>
+(() => {
+  "use strict";
+  const S = window.GridfillStore;
+  const X = window.GridExport;
+  const $ = (id) => document.getElementById(id);
+
+  let grid = null;
+  let clues = {};
+  let details = S.loadDetails();
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function render() {
+    $("no-grid").hidden = Boolean(grid);
+    $("desk").hidden = !grid;
+    S.renderTabs(grid ? grid.slots : [], clues);
+    if (!grid) {
+      $("summary").textContent = "";
+      return;
+    }
+
+    const puzzle = S.puzzle(grid, clues, details);
+    const { empty, unclued } = X.problems(puzzle);
+    const stale = grid.slots.filter((slot) => S.isStale(grid, clues, slot)).length;
+    const titled = Boolean(details.title.trim());
+    const checks = [
+      [empty === 0, empty === 0 ? "Every square is filled." : `${plural(empty, "square is", "squares are")} still empty: fill ${empty === 1 ? "it" : "them"} on the <a href="index.html">Grid</a> tab.`],
+      [unclued === 0, unclued === 0 ? "Every entry has a clue." : `${plural(unclued, "entry needs", "entries need")} a clue on the <a href="clues.html">Clues</a> tab.`],
+      [stale === 0, stale === 0 ? "Every clue was written for its current answer." : `${plural(stale, "clue was", "clues were")} written for an answer that has since changed: check ${stale === 1 ? "it" : "them"} on the <a href="clues.html">Clues</a> tab.`],
+      [titled, titled ? "The puzzle has a title." : "No title yet. It goes on the printed page and names the files."],
+    ];
+    $("checklist").innerHTML = checks
+      .map(([ok, html]) => `<li data-ok="${ok}"><span class="mark" aria-hidden="true">${ok ? "✓" : "!"}</span><span>${html}</span></li>`)
+      .join("");
+    const todo = checks.filter(([ok]) => !ok).length;
+    $("summary").innerHTML =
+      `<b>${escapeHtml(details.title.trim() || "Untitled")}</b> · ${grid.W}×${grid.H}, ${plural(grid.slots.length, "entry", "entries")} · ` +
+      (todo ? plural(todo, "thing", "things") + " to finish before it's ready" : "Ready to export");
+
+    for (const kind of ["puz", "jpz"]) document.querySelector(`[data-export="${kind}"]`).disabled = empty > 0;
+    $("paper").innerHTML = X.toPrintHtml(puzzle);
+  }
+
+  const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+
+  for (const field of S.META_FIELDS) {
+    $(`meta-${field}`).addEventListener("input", (event) => {
+      details[field] = event.target.value;
+      S.saveDetails(details);
+      render();
+    });
+  }
+
+  // --- downloads and printing ---
+
+  const fileBase = () => details.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gridfill-puzzle";
+
+  function download(filename, data, type) {
+    const url = URL.createObjectURL(new Blob([data], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  const FORMATS = {
+    puz: [(puzzle) => X.toPuz(puzzle), "application/x-crossword"],
+    ipuz: [(puzzle) => X.toIpuz(puzzle), "application/json"],
+    jpz: [(puzzle) => X.toJpz(puzzle), "application/xml"],
+  };
+  $("formats").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-export]");
+    if (!button || !grid) return;
+    const [make, type] = FORMATS[button.dataset.export];
+    const filename = `${fileBase()}.${button.dataset.export}`;
+    try {
+      download(filename, make(S.puzzle(grid, clues, details)), type);
+      $("export-status").textContent = `Downloaded ${filename}.`;
+    } catch (error) {
+      $("export-status").textContent = error.message;
+    }
+  });
+
+  $("print-puzzle").addEventListener("click", () => {
+    if (!grid) return;
+    $("print-sheet").innerHTML = X.toPrintHtml(S.puzzle(grid, clues, details));
+    try {
+      window.print();
+    } catch (error) {
+      $("export-status").textContent = "This page can't open the print dialog here. Print from the GitHub Pages site instead.";
+    }
+  });
+
+  // Inside the claude.ai viewer, pages can't download these files or open the print dialog.
+  if (window.claude && typeof window.claude.use === "function") {
+    $("export-elsewhere").hidden = false;
+    $("formats").hidden = true;
+  }
+
+  // --- staying in step with the other tabs ---
+
+  function reload() {
+    grid = S.loadGrid();
+    clues = S.loadClues();
+    details = S.loadDetails();
+    for (const field of S.META_FIELDS) {
+      const input = $(`meta-${field}`);
+      if (document.activeElement !== input) input.value = details[field];
+    }
+    render();
+  }
+  S.watch(reload);
+  reload();
+})();
+</script>
+</body>
+</html>
