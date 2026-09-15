@@ -69,7 +69,14 @@ def main():
     for name in PAGES + ("grid.html",):
         path = SITE / name
         path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
-    (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
+    (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included
+
+    # Firebase's sign-in helper pages (web/__/auth/), served from the site's own domain so Google's
+    # account chooser says "continue to fillmein.org" (account.js sets authDomain to it). GitHub Pages
+    # serves /__/auth/handler from handler.html. They're copies of the files at
+    # https://fillmein-87a2d.firebaseapp.com/__/auth/{handler,handler.js,experiments.js,iframe,iframe.js};
+    # refresh them from there now and then.
+    shutil.copytree(HERE / "__", SITE / "__", dirs_exist_ok=True)
     (SITE / "CNAME").write_text(f"{DOMAIN}\n", encoding="utf-8")  # the domain GitHub Pages serves it at
 
     # The site used to live at philipsatterthwaite.github.io/crossword-generator/docs/, and GitHub forwards
