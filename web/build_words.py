@@ -247,6 +247,14 @@ def load_blocklist():
     blocked = set()
     for path in COMPILE.glob("blocklist*.txt"):
         blocked |= read_word_file(path)
+    # Every word still listed in a review file (web/find_bad_words.py writes one) is blocked too --
+    # delete a line there to keep that word instead of marking it. Section headers ("## ...") and
+    # comments ("# ...") are skipped; a listed word looks like "WORD   score   reason".
+    for path in COMPILE.glob("review*.txt"):
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            match = re.match(r"([A-Z]+)\s+-?\d+\s", line)
+            if match:
+                blocked.add(match.group(1))
     allowlist = COMPILE / "allowlist.txt"
     if allowlist.exists():
         blocked -= read_word_file(allowlist)
