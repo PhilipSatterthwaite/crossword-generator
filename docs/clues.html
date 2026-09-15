@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=47ec3e6158">
+<link rel="stylesheet" href="theme.css?v=a8d6cb596b">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -97,6 +97,11 @@
     <div class="account" data-account></div>
   </header>
 
+  <div class="puzzle-bar">
+    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>All puzzles</a>
+    <input id="puzzle-title" class="puzzle-title" type="text" placeholder="Name your puzzle" aria-label="Puzzle title" autocomplete="off" maxlength="120">
+  </div>
+
   <nav class="tabs" aria-label="Pages">
     <a class="tab" href="grid.html">Grid</a>
     <a class="tab" href="clues.html" aria-current="page">Clues <span class="tab-count" data-count="clues"></span></a>
@@ -135,13 +140,14 @@
 </div>
 
 <script src="filler.js?v=0c1518a0b7"></script>
-<script src="store.js?v=65ce352bd6"></script>
+<script src="store.js?v=9cd640058c"></script>
 <script type="module" src="account.js?v=b227547930"></script>
 <script>
 (() => {
   "use strict";
   const S = window.GridfillStore;
   S.open(); // the puzzle in the address, or the most recently edited one
+  S.bindTitle(document.getElementById("puzzle-title"));
   const $ = (id) => document.getElementById(id);
 
   let grid = null;   // the grid saved by the Grid tab

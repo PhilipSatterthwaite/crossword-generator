@@ -270,6 +270,26 @@
     });
   }
 
+  /* Show the page's puzzle title in a field and save what's typed there. The Export page can change the
+     other details meanwhile, so each save starts from the latest saved details. */
+  function bindTitle(input) {
+    if (!input) return;
+    input.disabled = !id;
+    const show = () => {
+      if (document.activeElement !== input) input.value = loadDetails().title;
+    };
+    input.addEventListener("input", () => {
+      const details = loadDetails();
+      details.title = input.value;
+      saveDetails(details);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") input.blur();
+    });
+    watch(show);
+    show();
+  }
+
   /* The Clues tab's count: how many of the grid's entries have a clue. */
   function renderTabs(slots, clues) {
     const count = document.querySelector('.tab [data-count="clues"]');
@@ -282,6 +302,6 @@
     open, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
     clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails,
-    answerOf, hasClue, isStale, puzzle, watch, renderTabs,
+    answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };
 })(self);
