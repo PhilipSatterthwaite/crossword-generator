@@ -14,198 +14,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
 <style>
-  :root {
-    --ground: #EBEFEE;
-    --surface: #F6F8F7;
-    --cell: #FFFFFF;
-    --ink: #14171C;
-    --block: #14171C;
-    --rule: #9FA9AE;
-    --line-soft: #E1E6E5;
-    --muted: #56616B;
-    --pencil: #2A5EA5;
-    --pencil-on-select: #1D4A86;
-    --word: #D2E4F5;
-    --select: #F6D047;
-    --on-select: #14171C;
-    --hover: #DDE4E3;
-    --weak: #F6DCD5;
-    --works-bg: #D3EDDB;
-    --works-ink: #1C6639;
-    --chip: #E3E8E7;
-    --score-hi: #1C6639;
-    --score-hi-bg: #D3EDDB;
-    --score-lo: #9B3318;
-    --score-lo-bg: #F6DCD5;
-    --ok: #2C7A4B;
-    --busy: #A97A12;
-    --danger: #A2391F;
-    --focus: #2A5EA5;
-    --sans: "Libre Franklin", "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
-    --serif: "Newsreader", Georgia, "Times New Roman", serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground: #111418;
-      --surface: #181C21;
-      --cell: #1F242B;
-      --ink: #E7EAEE;
-      --block: #06080A;
-      --rule: #3B434E;
-      --line-soft: #2A3038;
-      --muted: #9AA4AF;
-      --pencil: #8DB8EE;
-      --pencil-on-select: #1D4A86;
-      --word: #213650;
-      --select: #E2BD3F;
-      --on-select: #111418;
-      --hover: #262D36;
-      --weak: #3A2420;
-      --works-bg: #1B3A27;
-      --works-ink: #92DBAA;
-      --chip: #29303A;
-      --score-hi: #92DBAA;
-      --score-hi-bg: #1B3A27;
-      --score-lo: #F29A83;
-      --score-lo-bg: #3A2420;
-      --ok: #6CC593;
-      --busy: #E2BD3F;
-      --danger: #F08C74;
-      --focus: #8DB8EE;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ground: #111418;
-    --surface: #181C21;
-    --cell: #1F242B;
-    --ink: #E7EAEE;
-    --block: #06080A;
-    --rule: #3B434E;
-    --line-soft: #2A3038;
-    --muted: #9AA4AF;
-    --pencil: #8DB8EE;
-    --pencil-on-select: #1D4A86;
-    --word: #213650;
-    --select: #E2BD3F;
-    --on-select: #111418;
-    --hover: #262D36;
-    --weak: #3A2420;
-    --works-bg: #1B3A27;
-    --works-ink: #92DBAA;
-    --chip: #29303A;
-    --score-hi: #92DBAA;
-    --score-hi-bg: #1B3A27;
-    --score-lo: #F29A83;
-    --score-lo-bg: #3A2420;
-    --ok: #6CC593;
-    --busy: #E2BD3F;
-    --danger: #F08C74;
-    --focus: #8DB8EE;
-  }
-
-  body {
-    background: var(--ground);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 15px;
-    line-height: 1.5;
-    padding-inline: 20px;
-    padding-block: 28px 56px;
-  }
-  .page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-
-  /* Masthead: the name is itself a row of the grid — two entries split by a block. */
-  .masthead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 36px; }
-  .wordmark {
-    --wm: clamp(28px, 7.4vw, 48px);
-    display: inline-grid;
-    grid-template-columns: repeat(9, var(--wm));
-    margin: 0;
-    border: 2px solid var(--ink);
-  }
-  .wordmark span + span { border-left: 1px solid var(--rule); }
-  .wordmark span {
-    position: relative;
-    display: grid;
-    place-items: center;
-    height: var(--wm);
-    background: var(--cell);
-    font: 800 calc(var(--wm) * 0.56) / 1 var(--sans);
-  }
-  .wordmark .fill-letter { color: var(--pencil); font-weight: 600; }
-  .wordmark .wm-block { background: var(--block); }
-  .wordmark sup { position: absolute; top: 3px; left: 4px; font: 600 calc(var(--wm) * 0.22) / 1 var(--sans); color: var(--ink); }
-  .lede { margin: 0; max-width: 46ch; font: italic 400 19px / 1.4 var(--serif); color: var(--muted); text-wrap: pretty; }
 
   /* Controls: grid-level tools in two ruled rows above the bench. */
   .controls { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule); }
   .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 12px; }
   .control-row + .control-row { border-top: 1px solid var(--line-soft); }
   .control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-  .label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .field { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-  .number {
-    width: 4.2em;
-    padding: 7px 8px;
-    border: 1.5px solid var(--ink);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    font: 600 15px / 1 var(--sans);
-    font-variant-numeric: tabular-nums;
-  }
   .times { color: var(--muted); }
-  select {
-    padding: 7px 8px;
-    border: 1.5px solid var(--ink);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    font: 500 14px var(--sans);
-  }
-  .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
-  .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
   .range input { width: 130px; accent-color: var(--ink); }
   .range output { min-width: 2ch; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-  .btn {
-    padding: 8px 12px;
-    border: 1.5px solid var(--ink);
-    border-radius: 2px;
-    background: transparent;
-    color: var(--ink);
-    font: 600 14px / 1 var(--sans);
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .btn:hover:not(:disabled) { background: var(--hover); }
-  .btn.primary { background: var(--ink); color: var(--ground); }
-  .btn.primary:hover:not(:disabled) { background: var(--pencil); border-color: var(--pencil); color: var(--ground); }
-  .btn.stop { border-color: var(--danger); color: var(--danger); }
-  .btn.quiet { border-color: var(--rule); font-weight: 500; }
-  .btn:disabled { opacity: 0.42; cursor: not-allowed; }
-  button:focus-visible, select:focus-visible, input:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 2px;
-  }
-
-  .status { flex: 1 1 260px; display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 14px; }
-  .status::before {
-    content: "";
-    flex: none;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--muted);
-    transform: translateY(-1px);
-  }
-  .status[data-state="busy"]::before { background: var(--busy); animation: pulse 1s ease-in-out infinite; }
-  .status[data-state="ok"]::before { background: var(--ok); }
-  .status[data-state="error"]::before { background: var(--danger); border-radius: 1px; transform: translateY(-1px) rotate(45deg); }
-  .status[data-state="error"] { color: var(--danger); }
-  @keyframes pulse { 50% { opacity: 0.3; } }
 
   /* Bench: the grid, and the selected entry's word options beside it. */
   .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 380px); gap: 32px 44px; align-items: start; }
@@ -309,7 +128,6 @@
     font: 700 14px / 1 var(--sans);
   }
   .pattern .p { color: var(--pencil); font-weight: 500; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
   .options { display: grid; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -424,76 +242,6 @@
   .w .p { color: var(--pencil); font-weight: 500; }
   .w .e { color: var(--rule); }
   .note { margin: 0; max-width: 75ch; font-size: 13px; color: var(--muted); }
-  .entries .cl { grid-column: 2 / -1; font: 400 13px / 1.35 var(--serif); color: var(--ink); letter-spacing: 0; overflow-wrap: anywhere; }
-  .entries .cl.none { color: var(--muted); font-style: italic; }
-  a.btn { display: inline-block; text-decoration: none; }
-
-  .clue-field { display: grid; gap: 4px; }
-  .clue-field input, .text-field input, .text-field textarea {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 8px 10px;
-    border: 1.5px solid var(--ink);
-    border-radius: 2px;
-    background: var(--surface);
-    color: var(--ink);
-    font: 400 16px / 1.4 var(--serif);
-    letter-spacing: 0;
-    text-transform: none;
-  }
-  .clue-field input:disabled { opacity: 0.5; }
-
-  /* Details and export */
-  .publish { display: grid; gap: 14px; padding-top: 20px; border-top: 1.5px solid var(--ink); }
-  .publish h2 { margin: 0; font: 600 24px / 1.2 var(--serif); }
-  .details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px 20px; }
-  .text-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .text-field.wide { grid-column: 1 / -1; }
-  .export-check, .export-status { margin: 0; font-size: 14px; }
-  .export-check { color: var(--muted); }
-  .export-status { min-height: 1.4em; }
-
-  /* Printing shows only the puzzle sheet: the blank puzzle and clues, then the answer key. */
-  #print-sheet { display: none; }
-  .print-page + .print-page { break-before: page; }
-  .print-head h1 { margin: 0; font: 600 20pt / 1.2 var(--serif); }
-  .print-head p { margin: 2pt 0 0; font: 10pt var(--sans); }
-  .print-grid {
-    display: grid;
-    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-    width: min(100%, calc(var(--cols) * 0.34in));
-    margin: 12pt 0 14pt;
-    border: 1.5pt solid #000;
-    container-type: inline-size;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  .print-grid .pr { display: contents; }
-  .print-grid .pc {
-    position: relative;
-    box-sizing: border-box;
-    aspect-ratio: 1;
-    display: grid;
-    place-items: center;
-    border-right: 0.75pt solid #000;
-    border-bottom: 0.75pt solid #000;
-    font: 600 calc(100cqi / var(--cols) * 0.5) / 1 var(--sans);
-  }
-  .print-grid .pr .pc:last-child { border-right: 0; }
-  .print-grid .pr:last-child .pc { border-bottom: 0; }
-  .print-grid .pc.b { background: #000; }
-  .print-grid .pn { position: absolute; top: 1pt; left: 2pt; font: 600 calc(100cqi / var(--cols) * 0.2) / 1 var(--sans); }
-  .print-clues { columns: 2; column-gap: 0.35in; font: 10pt / 1.3 var(--serif); }
-  .print-clues h2 { margin: 0 0 4pt; font: 700 11pt var(--sans); break-after: avoid; }
-  .print-clues p { margin: 0 0 3pt; break-inside: avoid; }
-  .print-clues b { display: inline-block; min-width: 1.8em; font-family: var(--sans); }
-  .print-note { margin-top: 10pt; font: 9pt var(--sans); }
-  @media print {
-    @page { margin: 0.6in; }
-    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
-    .page { display: none !important; }
-    #print-sheet { display: block; color: #000; }
-  }
 
   @media (max-width: 880px) {
     .bench { grid-template-columns: minmax(0, 1fr); }
@@ -546,7 +294,7 @@
       <div class="control-group">
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
         <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
-        <a href="#publish" class="btn quiet">Export…</a>
+        <a href="clues.html" id="clues-link" class="btn">Write clues →</a>
       </div>
     </div>
     <div class="control-row">
@@ -588,10 +336,6 @@
         <span class="label">Selected entry</span>
         <div class="entry-title"><span id="sel-name">–</span><span id="sel-score"></span></div>
         <div id="sel-letters" class="pattern" aria-hidden="true"></div>
-        <label class="clue-field">
-          <span class="label">Clue</span>
-          <input id="clue-input" type="text" autocomplete="off" spellcheck="true" placeholder="Write a clue; Enter goes to the next entry" disabled>
-        </label>
         <div class="actions">
           <button type="button" id="keep" class="btn quiet">Ink the pencil letters</button>
           <button type="button" id="clear-entry" class="btn quiet">Clear entry</button>
@@ -635,32 +379,11 @@
     <div><h2>Down</h2><ol id="down"></ol></div>
   </section>
 
-  <section id="publish" class="publish" aria-labelledby="publish-title">
-    <h2 id="publish-title">Details and export</h2>
-    <div class="details">
-      <label class="text-field">Title <input id="meta-title" type="text" autocomplete="off"></label>
-      <label class="text-field">Author <input id="meta-author" type="text" autocomplete="off"></label>
-      <label class="text-field">Copyright <input id="meta-copyright" type="text" autocomplete="off" placeholder="© 2026 Your Name"></label>
-      <label class="text-field wide">Notes <textarea id="meta-notes" rows="2"></textarea></label>
-    </div>
-    <p id="export-check" class="export-check"></p>
-    <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://philipsatterthwaite.github.io/crossword-generator/">philipsatterthwaite.github.io/crossword-generator</a>.</p>
-    <div class="actions">
-      <button type="button" class="btn primary" data-export="puz">Download .puz</button>
-      <button type="button" class="btn" data-export="ipuz">Download .ipuz</button>
-      <button type="button" class="btn" data-export="jpz">Download .jpz</button>
-      <button type="button" id="print-puzzle" class="btn">Print or save as PDF</button>
-    </div>
-    <p id="export-status" class="export-status" role="status"></p>
-  </section>
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
 </div>
 
-<div id="print-sheet" aria-hidden="true"></div>
-
 <script src="words.js"></script>
 <script src="filler.js"></script>
-<script src="exporters.js"></script>
 <script>
 (() => {
   "use strict";
@@ -749,8 +472,7 @@
   const fresh = new Set();
   let running = false, ready = false;
   let fillBefore = null;
-  let clues = {};                                          // clue text by where its entry starts
-  let meta = { title: "", author: "", copyright: "", notes: "" };
+  const CLUE_STORE = "gridfill:clues:v1"; // clues and puzzle details, written by clues.html
   const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
   const past = [];
   const future = [];
@@ -827,7 +549,7 @@
 
   // --- undo and redo ---
 
-  const snapshot = () => ({ W, H, blocks: blocks.slice(), ink: ink.slice(), pencil: pencil.slice(), clues: { ...clues }, sel, dir });
+  const snapshot = () => ({ W, H, blocks: blocks.slice(), ink: ink.slice(), pencil: pencil.slice(), sel, dir });
 
   const sameContent = (state) =>
     state.W === W && state.H === H &&
@@ -848,8 +570,6 @@
     blocks = state.blocks.slice();
     ink = state.ink.slice();
     pencil = state.pencil.slice();
-    clues = { ...state.clues };
-    $("clue-input").dataset.key = ""; // refresh the clue box
     sel = state.sel;
     dir = state.dir;
     fresh.clear();
@@ -983,14 +703,13 @@
       $("sel-score").innerHTML = "";
       $("sel-letters").innerHTML = "";
     }
-    syncClueInput(k);
 
     // Entry lists
     const lists = { across: [], down: [] };
     slots.forEach((slot, j) => {
       const chip = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
       lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}${clueLine(slot)}</button></li>`
+        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}</button></li>`
       );
     });
     $("across").innerHTML = lists.across.join("");
@@ -1014,7 +733,7 @@
     $("t-sym").textContent = symmetric ? "Rotational" : "None";
     $("t-sym-cap").textContent = symmetric ? "blocks match when turned 180°" : "most published grids are symmetric";
 
-    renderExportCheck();
+    renderCluesLink();
     updateButtons();
     save();
   }
@@ -1220,10 +939,32 @@
     setTimeout(() => {
       optionsRenderQueued = false;
       renderOptions();
-    }, 90);
+    }, 200);
   }
 
-  const RANK = { works: 0, unknown: 1, fails: 2 };
+  // Option rows are kept between renders (by option index) and only updated and reordered, so a
+  // click that starts while check results pour in still lands on the row it started on.
+  const optionRows = new Map();
+  let optionRowsFor = null;
+
+  function optionRow(i, option) {
+    let row = optionRows.get(i);
+    if (!row) {
+      row = document.createElement("li");
+      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true"></span></button>`;
+      optionRows.set(i, row);
+    }
+    const button = row.firstChild;
+    const status = option.status || "pending";
+    if (button.dataset.status !== status) {
+      button.dataset.status = status;
+      button.lastChild.textContent = STATE_MARK[option.status] || "";
+      button.setAttribute("aria-label", `${option.word}, score ${option.score}, ${option.status ? STATE_WORDS[option.status] : "not checked yet"}`);
+    }
+    const pressed = String(Boolean(preview && preview.index === i));
+    if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
+    return row;
+  }
   const STATE_WORDS = { works: "fills the grid", fails: "breaks the grid", unknown: "no fill found in time" };
   const STATE_MARK = { works: "✓", fails: "✕", unknown: "?" };
 
@@ -1231,34 +972,44 @@
     const listEl = $("options");
     const summary = $("options-summary");
     const note = $("options-note");
-    const focusedWord = listEl.contains(document.activeElement) ? document.activeElement.dataset.word : null;
     renderPreviewBar();
 
     const list = options && options.list ? options.list : [];
-    const works = list.filter((o) => o.status === "works").length;
-    const fails = list.filter((o) => o.status === "fails").length;
+    let works = 0;
+    let fails = 0;
+    for (const option of list) {
+      if (option.status === "works") works++;
+      else if (option.status === "fails") fails++;
+    }
     $("count-works").textContent = works;
     $("count-open").textContent = list.length - works - fails;
     $("count-fails").textContent = fails;
 
     if (!options || options.message) {
-      listEl.innerHTML = "";
+      listEl.replaceChildren();
+      optionRows.clear();
       summary.textContent = "";
       note.textContent = options ? options.message : "";
       return;
     }
 
-    // Confirmed words first, confirmed bad last; within each group, best score first.
-    const order = list.map((_, i) => i).sort((a, b) => RANK[list[a].status ?? "unknown"] - RANK[list[b].status ?? "unknown"] || a - b);
-    listEl.innerHTML = order.slice(0, VISIBLE_OPTIONS).map((i) => {
-      const option = list[i];
-      const state = option.status ? STATE_WORDS[option.status] : "not checked yet";
-      const pressed = preview && preview.index === i;
-      return `<li><button type="button" class="option" data-index="${i}" data-word="${option.word}" data-status="${option.status || "pending"}" aria-pressed="${pressed}" aria-label="${option.word}, score ${option.score}, ${state}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true">${STATE_MARK[option.status] || ""}</span></button></li>`;
-    }).join("");
-    if (focusedWord) {
-      const again = listEl.querySelector(`button[data-word="${focusedWord}"]`);
-      if (again) again.focus({ preventScroll: true });
+    // Confirmed words first, confirmed bad last; within each group, best score first (list order).
+    if (optionRowsFor !== list) {
+      optionRows.clear();
+      optionRowsFor = list;
+    }
+    const visible = [];
+    for (const group of ["works", "open", "fails"]) {
+      for (let i = 0; i < list.length && visible.length < VISIBLE_OPTIONS; i++) {
+        const status = list[i].status;
+        if ((status === "works" ? "works" : status === "fails" ? "fails" : "open") === group) visible.push(optionRow(i, list[i]));
+      }
+    }
+    const shown = listEl.children;
+    if (visible.length !== shown.length || visible.some((row, k) => shown[k] !== row)) {
+      const focused = listEl.contains(document.activeElement) ? document.activeElement : null;
+      listEl.replaceChildren(...visible);
+      if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
     }
 
     const checked = list.filter((o) => o.status !== null).length;
@@ -1370,7 +1121,6 @@
     sel = slot.cells[0];
     dir = slot.direction;
     render();
-    $("clue-input").focus({ preventScroll: true });
   });
 
   // Clicking a word previews it in the grid; double-clicking uses it.
@@ -1396,10 +1146,7 @@
     const size = (field) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(Number($(field).value) || 15)));
     const cols = size("cols");
     const rows = size("rows");
-    edit(() => {
-      clues = {};
-      loadRows(blank(cols, rows));
-    });
+    edit(() => loadRows(blank(cols, rows)));
     setStatus("idle", `New ${cols}×${rows} grid. Click a square and press Space to add a block.`);
   });
 
@@ -1407,10 +1154,7 @@
     const rows = EXAMPLES[$("example").value];
     $("example").value = "";
     if (!rows) return;
-    edit(() => {
-      clues = {};
-      loadRows(rows);
-    });
+    edit(() => loadRows(rows));
     setStatus("idle", ready ? "Example loaded. Fill it, or change blocks and letters first." : "Loading the word list…");
   });
 
@@ -1423,147 +1167,28 @@
   allowPopularEl.addEventListener("change", render);
   $("undo").addEventListener("click", undo);
 
-  // --- clues, details and export ---
+  // --- the clues page ---
 
-  const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-
-  const clueLine = (slot) => {
-    const clue = clues[clueKey(slot)];
-    return clue ? `<span class="cl">${escapeHtml(clue)}</span>` : '<span class="cl none">No clue yet</span>';
-  };
-
-  /* Point the clue box at the selected entry without clobbering what's being typed. */
-  function syncClueInput(k) {
-    const box = $("clue-input");
-    const key = k >= 0 ? clueKey(slots[k]) : "";
-    if (box.dataset.key === key) return;
-    box.dataset.key = key;
-    box.value = key ? clues[key] || "" : "";
-    box.disabled = !key;
-    box.setAttribute("aria-label", key ? `Clue for ${slots[k].name}` : "Clue");
+  /* "Write clues (12/76) →": how many of this grid's entries have a clue on clues.html. */
+  function renderCluesLink() {
+    let store = null;
+    try { store = JSON.parse(localStorage.getItem(CLUE_STORE)); } catch (error) { store = null; }
+    const clues = store && store.clues ? store.clues : {};
+    const written = slots.filter((slot) => clues[clueKey(slot)] && String(clues[clueKey(slot)].text || "").trim()).length;
+    $("clues-link").textContent = written ? `Write clues (${written}/${slots.length}) →` : "Write clues →";
   }
-
-  // A stretch of clue typing counts as one undo step.
-  let clueBefore = null;
-  function commitClueEdit() {
-    if (clueBefore && JSON.stringify(clueBefore.clues) !== JSON.stringify(clues)) {
-      remember(clueBefore);
-      updateButtons();
-    }
-    clueBefore = null;
-  }
-
-  const clueBox = $("clue-input");
-  clueBox.addEventListener("focus", () => (clueBefore = snapshot()));
-  clueBox.addEventListener("blur", commitClueEdit);
-  clueBox.addEventListener("input", () => {
-    const key = clueBox.dataset.key;
-    if (!key) return;
-    if (clueBox.value.trim()) clues[key] = clueBox.value;
-    else delete clues[key];
-    render();
-  });
-  clueBox.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      input.focus({ preventScroll: true });
-      return;
-    }
-    if (event.key !== "Enter") return;
-    // Enter moves to the next entry and Shift+Enter to the previous: all acrosses, then all downs.
-    event.preventDefault();
-    commitClueEdit();
-    const order = [...slots.filter((s) => s.direction === "across"), ...slots.filter((s) => s.direction === "down")];
-    const k = currentSlot();
-    const at = k >= 0 ? order.indexOf(slots[k]) : -1;
-    const next = order[(at + (event.shiftKey ? -1 : 1) + order.length) % order.length];
-    if (!next) return;
-    sel = next.cells[0];
-    dir = next.direction;
-    render();
-    clueBefore = snapshot();
+  window.addEventListener("storage", (event) => {
+    if (event.key === CLUE_STORE) renderCluesLink();
   });
 
-  const META_FIELDS = ["title", "author", "copyright", "notes"];
-  for (const field of META_FIELDS) {
-    $(`meta-${field}`).addEventListener("input", (event) => {
-      meta[field] = event.target.value;
-      save();
-    });
-  }
-
-  /* The puzzle as the exporters take it: the grid's letters, every entry and its clue, and the details. */
-  function puzzleForExport() {
-    const letterAt = (i) => ink[i] || pencil[i] || "";
-    return {
-      width: W,
-      height: H,
-      cells: blocks.map((b, i) => (b ? "#" : letterAt(i))),
-      entries: slots.map((slot) => ({
-        number: slot.number,
-        direction: slot.direction,
-        row: slot.row,
-        col: slot.col,
-        length: slot.cells.length,
-        answer: slot.cells.map(letterAt).join(""),
-        clue: clues[clueKey(slot)] || "",
-      })),
-      ...meta,
-    };
-  }
-
-  function renderExportCheck() {
-    const { empty, unclued } = GridExport.problems(puzzleForExport());
-    const todo = [];
-    if (empty) todo.push(`${empty} empty ${empty === 1 ? "square" : "squares"} (.puz and .jpz need a full grid)`);
-    if (unclued) todo.push(`${unclued} ${unclued === 1 ? "entry" : "entries"} without a clue`);
-    $("export-check").textContent = todo.length ? `Still to do: ${todo.join("; ")}.` : "Every square is filled and every entry has a clue.";
-  }
-
-  const fileBase = () => meta.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gridfill-puzzle";
-
-  function download(filename, data, type) {
-    const url = URL.createObjectURL(new Blob([data], { type }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
-
-  const FORMATS = {
-    puz: [(puzzle) => GridExport.toPuz(puzzle), "application/x-crossword"],
-    ipuz: [(puzzle) => GridExport.toIpuz(puzzle), "application/json"],
-    jpz: [(puzzle) => GridExport.toJpz(puzzle), "application/xml"],
-  };
-  $("publish").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-export]");
-    if (!button) return;
-    const [make, type] = FORMATS[button.dataset.export];
-    const filename = `${fileBase()}.${button.dataset.export}`;
+  /* Clues used to be saved with the grid; hand them to the clues page's store once. */
+  function migrateClues(data) {
     try {
-      download(filename, make(puzzleForExport()), type);
-      $("export-status").textContent = `Downloaded ${filename}.`;
-    } catch (error) {
-      $("export-status").textContent = error.message;
-    }
-  });
-
-  $("print-puzzle").addEventListener("click", () => {
-    $("print-sheet").innerHTML = GridExport.toPrintHtml(puzzleForExport());
-    try {
-      window.print();
-    } catch (error) {
-      $("export-status").textContent = "This page can't open the print dialog here. Print from the GitHub Pages site instead.";
-    }
-  });
-
-  // Inside the claude.ai viewer, pages can't download .puz/.ipuz/.jpz files or open the print
-  // dialog, so point to the hosted site there instead of showing buttons that do nothing.
-  if (window.claude && typeof window.claude.use === "function") {
-    $("export-elsewhere").hidden = false;
-    document.querySelector("#publish .actions").hidden = true;
+      if (!data.clues || typeof data.clues !== "object" || localStorage.getItem(CLUE_STORE)) return;
+      const clues = {};
+      for (const [key, text] of Object.entries(data.clues)) if (typeof text === "string") clues[key] = { text, answer: "" };
+      localStorage.setItem(CLUE_STORE, JSON.stringify({ v: 1, clues, meta: data.meta || {} }));
+    } catch (error) { /* storage unavailable */ }
   }
   $("redo").addEventListener("click", redo);
 
@@ -1817,8 +1442,6 @@
       tint: tintEl.checked,
       minScore: minScore(),
       allowPopular: allowPopularEl.checked,
-      clues,
-      meta,
     };
   }
 
@@ -1842,12 +1465,7 @@
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
     if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
-    clues = data.clues && typeof data.clues === "object" ? { ...data.clues } : {};
-    for (const field of META_FIELDS) {
-      meta[field] = typeof (data.meta || {})[field] === "string" ? data.meta[field] : "";
-      $(`meta-${field}`).value = meta[field];
-    }
-    $("clue-input").dataset.key = "";
+    migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();
     return true;

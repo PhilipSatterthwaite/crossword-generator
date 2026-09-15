@@ -38,7 +38,8 @@ def main():
 
     SITE.mkdir(exist_ok=True)
     (SITE / "index.html").write_text(f"{HEAD}{head}</head>\n<body>\n{marker}{body}</body>\n</html>\n", encoding="utf-8")
-    for name in ("filler.js", "exporters.js", "worker.js", "words.js"):
+    # clues.html is a complete document already; only index.html needs the artifact-style wrapper.
+    for name in ("clues.html", "theme.css", "filler.js", "exporters.js", "worker.js", "words.js"):
         shutil.copyfile(HERE / name, SITE / name)
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
     size = sum(p.stat().st_size for p in SITE.iterdir() if p.is_file())

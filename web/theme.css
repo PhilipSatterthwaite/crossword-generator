@@ -1,0 +1,192 @@
+/* Gridfill's shared look: colors (light and dark), type, the wordmark, buttons and form controls.
+   Every page links this first, then adds its own styles. */
+:root {
+  --ground: #EBEFEE;
+  --surface: #F6F8F7;
+  --cell: #FFFFFF;
+  --ink: #14171C;
+  --block: #14171C;
+  --rule: #9FA9AE;
+  --line-soft: #E1E6E5;
+  --muted: #56616B;
+  --pencil: #2A5EA5;
+  --pencil-on-select: #1D4A86;
+  --word: #D2E4F5;
+  --select: #F6D047;
+  --on-select: #14171C;
+  --hover: #DDE4E3;
+  --weak: #F6DCD5;
+  --works-bg: #D3EDDB;
+  --works-ink: #1C6639;
+  --chip: #E3E8E7;
+  --score-hi: #1C6639;
+  --score-hi-bg: #D3EDDB;
+  --score-lo: #9B3318;
+  --score-lo-bg: #F6DCD5;
+  --ok: #2C7A4B;
+  --busy: #A97A12;
+  --danger: #A2391F;
+  --focus: #2A5EA5;
+  --sans: "Libre Franklin", "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111418;
+    --surface: #181C21;
+    --cell: #1F242B;
+    --ink: #E7EAEE;
+    --block: #06080A;
+    --rule: #3B434E;
+    --line-soft: #2A3038;
+    --muted: #9AA4AF;
+    --pencil: #8DB8EE;
+    --pencil-on-select: #1D4A86;
+    --word: #213650;
+    --select: #E2BD3F;
+    --on-select: #111418;
+    --hover: #262D36;
+    --weak: #3A2420;
+    --works-bg: #1B3A27;
+    --works-ink: #92DBAA;
+    --chip: #29303A;
+    --score-hi: #92DBAA;
+    --score-hi-bg: #1B3A27;
+    --score-lo: #F29A83;
+    --score-lo-bg: #3A2420;
+    --ok: #6CC593;
+    --busy: #E2BD3F;
+    --danger: #F08C74;
+    --focus: #8DB8EE;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111418;
+  --surface: #181C21;
+  --cell: #1F242B;
+  --ink: #E7EAEE;
+  --block: #06080A;
+  --rule: #3B434E;
+  --line-soft: #2A3038;
+  --muted: #9AA4AF;
+  --pencil: #8DB8EE;
+  --pencil-on-select: #1D4A86;
+  --word: #213650;
+  --select: #E2BD3F;
+  --on-select: #111418;
+  --hover: #262D36;
+  --weak: #3A2420;
+  --works-bg: #1B3A27;
+  --works-ink: #92DBAA;
+  --chip: #29303A;
+  --score-hi: #92DBAA;
+  --score-hi-bg: #1B3A27;
+  --score-lo: #F29A83;
+  --score-lo-bg: #3A2420;
+  --ok: #6CC593;
+  --busy: #E2BD3F;
+  --danger: #F08C74;
+  --focus: #8DB8EE;
+}
+
+[hidden] { display: none !important; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-inline: 20px;
+  padding-block: 28px 56px;
+}
+.page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Masthead: the name is itself a row of the grid — two entries split by a block. */
+.masthead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 36px; }
+.wordmark {
+  --wm: clamp(28px, 7.4vw, 48px);
+  display: inline-grid;
+  grid-template-columns: repeat(9, var(--wm));
+  margin: 0;
+  border: 2px solid var(--ink);
+}
+.wordmark span + span { border-left: 1px solid var(--rule); }
+.wordmark span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: var(--wm);
+  background: var(--cell);
+  color: var(--ink);
+  font: 800 calc(var(--wm) * 0.56) / 1 var(--sans);
+}
+.wordmark .fill-letter { color: var(--pencil); font-weight: 600; }
+.wordmark .wm-block { background: var(--block); }
+.wordmark sup { position: absolute; top: 3px; left: 4px; font: 600 calc(var(--wm) * 0.22) / 1 var(--sans); color: var(--ink); }
+.lede { margin: 0; max-width: 46ch; font: italic 400 19px / 1.4 var(--serif); color: var(--muted); text-wrap: pretty; }
+
+.label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.field { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.number {
+  width: 4.2em;
+  padding: 7px 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 600 15px / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+select {
+  padding: 7px 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 14px var(--sans);
+}
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); }
+
+.btn {
+  padding: 8px 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: 600 14px / 1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+a.btn { display: inline-block; text-decoration: none; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn.primary { background: var(--ink); color: var(--ground); }
+.btn.primary:hover:not(:disabled) { background: var(--pencil); border-color: var(--pencil); color: var(--ground); }
+.btn.stop { border-color: var(--danger); color: var(--danger); }
+.btn.quiet { border-color: var(--rule); font-weight: 500; }
+.btn:disabled { opacity: 0.42; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.status { flex: 1 1 260px; display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 14px; }
+.status::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  transform: translateY(-1px);
+}
+.status[data-state="busy"]::before { background: var(--busy); animation: pulse 1s ease-in-out infinite; }
+.status[data-state="ok"]::before { background: var(--ok); }
+.status[data-state="error"]::before { background: var(--danger); border-radius: 1px; transform: translateY(-1px) rotate(45deg); }
+.status[data-state="error"] { color: var(--danger); }
+@keyframes pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .status[data-state="busy"]::before { animation: none; }
+}
