@@ -2,7 +2,6 @@
 
 from copy import copy, deepcopy
 from word_list import make_word_list
-from numba import njit
 import time
 import datetime
 import numpy as np
@@ -18,75 +17,90 @@ class TrieNode:
         self.children = {}
         self.is_end_of_word = False
 
-def initialize_grid(rows, cols):
-    return np.full((rows, cols), ' ', dtype='<U1')
-
 def traverse_trie(node, prefix):
     if node.is_end_of_word:
         print(prefix)
     for char, child in node.children.items():
         traverse_trie(child, prefix + char)
 
-def solve_phase(xw, wordDataBase, wordList, wordsInPuzzle, lastPrint, numWords, wordDataBase_list):
+def solve_phase(xw, wordDataBase, wordList,wordsInPuzzle,lastPrint, numWords, wordDataBase_list):
     def recursive_solve(xw, wordListIndex, wordsInPuzzle, lastPrint):
-        # set word parameters
+        #set word parameters
         wordSlot = wordList[wordListIndex]
-        # if all(' ' not in item for item in define_word(xw, wordSlot)):
+        #if all(' ' not in item for item in define_word(xw, wordSlot)):
         #    xw_new, did_solve = recursive_solve(xw, wordListIndex + 1,wordsInPuzzle, lastPrint)
-
+        
         did_solve = False  # not solved initially
-
+        
         # Determine the length of the word
-        lengthIndex = wordSlot[3] - 3
-        fit_words = make_list(xw, wordSlot, lengthIndex, wordsInPuzzle)
-        if fit_words is None or fit_words == []:
+
+        lengthIndex = wordSlot[3]-3
+        #print(wordDataBase_list[lengthIndex][0])
+        fit_words = make_list(xw, wordSlot, lengthIndex, wordsInPuzzle)#############
+        if fit_words == None or fit_words == []:
             return xw, False
 
-        sorted_list = deepcopy(fit_words)
-
-        if sorted_list is None or sorted_list == []:
+        sorted_list = deepcopy(fit_words) ##need to optimize sort_list function
+        
+        #sorted_list = sort_list(fit_words, xw, wordSlot, numWords, wordsInPuzzle)
+        
+        if sorted_list == None or sorted_list == []:
             return xw, False
 
+        #add numbers to end of list
         for i in range(len(sorted_list)):
             sorted_list[i] = [sorted_list[i], 0]
 
-        # Find the first word that fits
+        ########################  # Find the first word that fits
         for i in range(len(sorted_list)):  # loop through words
+            
             test_word = sorted_list[i][0]
-
-            if test_word in wordsInPuzzle:
+            
+            
+            if  test_word in wordsInPuzzle: #== test_word: #if word is in puzzle, skip
                 continue
+            
+            #does_match = does_it_match(test_word, wordCompare) ######
+############################
+            
+            #if does_match:  # if a word fits, delete the word from array, call the next word
 
+            #update words in puzzle list
             wordsInPuzzleNew = deepcopy(wordsInPuzzle)
             wordsInPuzzleNew.append(test_word)
-
+            
+            # update xw
             xw_next = deepcopy(xw)
             xw_next = update_xw(xw_next, wordSlot, test_word)
-            print(wordListIndex)
-            if wordListIndex + 1 == len(wordList):
+            
+            #check if grid is possible
+            
+
+            if wordListIndex+1 == len(wordList):
                 return xw_next, True
 
             timeNow = deepcopy(time.time())
-            # print every minute
-            #if timeNow - lastPrint >= 60:
-            lastPrint = deepcopy(timeNow)
-            current_time = datetime.datetime.fromtimestamp(timeNow).time()
-            print(current_time.strftime("%H:%M:%S"))
-            for row in xw_next:
-                print(row)
-            print()
+            #print every minute
+            if  timeNow - lastPrint >= 60:
+                lastPrint = deepcopy(timeNow)
+                current_time = datetime.datetime.fromtimestamp(timeNow).time()
+                print(current_time.strftime("%H:%M:%S"))
+                for row in xw_next:
+                    print(row)
+                print()
+                #continue ###################experiment (to try to get rid of clogging
+            
+            did_solve = True  # set to True now that this step is solved    (I think can delete this line)
 
-            did_solve = True
-            xw_new, did_solve = recursive_solve(xw_next, wordListIndex + 1, wordsInPuzzleNew, lastPrint)
-
+                
+            # call function for the next word
+            #xw_new = deepcopy(xw_next)
+            xw_new, did_solve = recursive_solve(xw_next, wordListIndex + 1,wordsInPuzzleNew, lastPrint)
+            
             if did_solve:
                 return xw_new, True
 
         return xw, False
-
-    # Modify other functions to work with NumPy arrays
-
-
 
     
 

@@ -3,6 +3,7 @@ from solve_xword import solve_phase
 #from solve_xword_optimize import solve_xword
 from copy import copy, deepcopy
 from word_list import make_word_list
+from solve_crossword import solve_crossword
 import os
 import time
 import sys
@@ -45,32 +46,6 @@ class Trie:
 def Generate(xw, seed):
     start_time = time.time()
     # Pull words from the word bank
-
-    folder_path = r"C:\Users\psatt\Desktop\Fun Projects\Crossword Generator\compileWords\SortedWords"
-
-    numWords = []
-
-    wordDataBase = []
-    wordDataBase_list = []
-    for i in range(3,22):
-        file_name =  f"len{i}.txt"
-        file_path = os.path.join(folder_path,file_name)
-        with open(file_path, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-        numWords.append(len(lines))
-        
-        
-        trie = StringTrie()
-        listedWords = []
-        for line in lines:
-            line_data = line.split()
-            word = line_data[0]
-            score = int(line_data[1])
-            trie[word] = score
-            listedWords.append(word)
-    
-        wordDataBase_list.append(listedWords)
-        wordDataBase.append(trie)
 
 
     
@@ -208,25 +183,26 @@ def Generate(xw, seed):
         
     #define list of words and order to go through them
     
-    wordList, wordsInPuzzle = make_word_list(xw, seed)
-    print(wordsInPuzzle)
+    #wordList, wordsInPuzzle = make_word_list(xw, seed)
+    #print(wordsInPuzzle)
+    #print(wordList)
     #for row in wordList:
     #    print(row)
 
-    for row in xw:
-        print(row)
+    #for row in xw:
+    #    print(row)
 
     # Call the function to solve the crossword
     #print(canFillGrid(xw, wordDataBase, [0, 0, 1, 5, [0, 0, 2, 5], [0, 1, 2, 5], [0, 2, 2, 5], [0, 3, 2, 5], [0, 4, 2, 5]]))
-    xw, did_solve = solve_phase(xw,wordDataBase, wordList,wordsInPuzzle, time.time(), numWords, wordDataBase_list)
+    #xw, did_solve = solve_phase(xw,wordDataBase, wordList,wordsInPuzzle, time.time(), numWords, wordDataBase_list)
 
     #solve_xword(xw, wordDataBase, wordDataBase_list, wordList, wordsInPuzzle, time.time(), numWords)
     
-
+    solve_crossword(xw, seed)
     # Print the crossword
-    print(did_solve)
-    for row in xw:
-        print(row)
+    #print(did_solve)
+    #for row in xw:
+    #    print(row)
         #print(' '.join(row))
 
     end_time = time.time()
@@ -248,6 +224,14 @@ xw =    [' ', ' ', ' ',' ',' '],\
         [' ', ' ', ' ',' ',' '],\
         [' ', ' ', ' ',' ',' '],\
         [' ', ' ', ' ',' ',' ']
+
+xw =    ['■', '■', '■', ' ', ' ', ' ', ' '],\
+        ['■', '■', ' ', ' ', ' ', ' ', ' '],\
+        ['■', ' ', ' ', ' ', ' ', ' ', ' '],\
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '],\
+        [' ', ' ', ' ', ' ', ' ', ' ', '■'],\
+        [' ', ' ', ' ', ' ', ' ', '■', '■'],\
+        [' ', ' ', ' ', ' ', '■', '■', '■']
 
 '''
 xw =        [' ', ' ', ' ', ' ', '■', ' ',' ', ' ', ' ', '■', '■', ' ', ' ', ' ', ' '],\
@@ -283,6 +267,22 @@ xw =        [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' '
             [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
             [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ']
 '''
+xw =        [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['G', 'O', 'L', 'D', 'E', 'N', 'R', 'E', 'T', 'R', 'I', 'E', 'V', 'E', 'R'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', '■', '■'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', '■', '■', ' ', ' ', ' ', ' '],\
+            ['■', '■', '■', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['N', 'U', 'C', 'L', 'E', 'A', 'R', 'F', 'O', 'O', 'T', 'B', 'A', 'L', 'L'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', '■', '■', '■'],\
+            [' ', ' ', ' ', ' ', '■', '■', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' '],\
+            [' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['■', '■', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' '],\
+            ['B', 'A', 'T', 'T', 'L', 'E', 'O', 'F', 'B', 'U', 'L', 'L', 'R', 'U', 'N'],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' '],\
+            [' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ']
+
 Generate(xw, [0,0])
 
 print("Not sure why this is printing in Crossword_Generator")

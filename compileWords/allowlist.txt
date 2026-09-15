@@ -1,0 +1,9 @@
+# Words to keep even though a block list (blocklist*.txt) names them, one per line.
+# These are common in published crosswords with ordinary meanings (the donkey, jazz scat, the bird).
+ASS
+SEX
+SCAT
+NUDE
+SMUT
+TIT
+SEXY

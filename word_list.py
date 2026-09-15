@@ -27,9 +27,10 @@ def make_word_list(grid, seed):
                 while col+length < len(grid[0]) and grid[row][col+length] != '■':
                     length = length + 1
                     
-                word = [row,col,direc,length]
+                word = [row,col,direc,length,'']
                 if all(letter != ' ' and letter != '■' for letter in define_word(grid, word)):
                     wordsInPuzzle.append(define_word(grid,word))
+                    word[4] = ''.join(define_word(grid,word))
                 wordslist = wordslist + [word]
 
             #define down word
@@ -39,9 +40,11 @@ def make_word_list(grid, seed):
                 
                 while row+length < len(grid) and grid[row+length][col] != '■':
                     length = length + 1
-                word = [row,col,direc,length]
+                word = [row,col,direc,length,'']
                 if all(letter != ' ' and letter != '■' for letter in define_word(grid, word)):
                     wordsInPuzzle.append(define_word(grid,word))
+                    word[4] = ''.join(define_word(grid,word))
+
                 wordslist = wordslist + [word]
 
     
