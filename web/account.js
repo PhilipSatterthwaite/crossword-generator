@@ -177,7 +177,7 @@ async function signOutHere() {
   if (page && page !== "index.html") location.href = "index.html";
 }
 
-// --- the account box and sign-in dialog ---
+// --- the account box ---
 
 function button(label, className, onClick) {
   const element = document.createElement("button");
@@ -202,7 +202,7 @@ function renderAccount(user) {
       sync.setAttribute("role", "status");
       box.append(who, sync, button("Sign out", "btn quiet small", () => signOutHere().catch(showError)));
     } else {
-      box.append(button("Sign in", "btn small", openSignIn));
+      box.append(button("Sign in", "btn small", () => openSignIn()));
     }
   }
   for (const element of document.querySelectorAll("[data-signed-in]")) element.hidden = !user;
@@ -228,6 +228,8 @@ document.addEventListener("click", (event) => {
   openSignIn();
 });
 
+// --- the sign-in dialog ---
+
 const WRONG = "That email and password don't match an account. Check them, or create an account.";
 const MESSAGES = {
   "auth/invalid-credential": WRONG,
@@ -248,11 +250,35 @@ const MESSAGES = {
 };
 const explain = (error) => MESSAGES[error.code] ?? `Sign-in didn't work (${error.code || error.message}).`;
 
+const MODES = {
+  "sign-in": {
+    title: "Welcome back",
+    lede: "Sign in to save your puzzles to your account and pick them up on any device.",
+    submit: "Sign in",
+    busy: "Signing in…",
+    autocomplete: "current-password",
+  },
+  create: {
+    title: "Create your account",
+    lede: "Save your puzzles to an account and pick them up on any device. It's free.",
+    submit: "Create account",
+    busy: "Creating your account…",
+    autocomplete: "new-password",
+  },
+};
+
+const GOOGLE_LOGO = `<svg class="google-logo" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
+  <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
+  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+  <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+  <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/>
+</svg>`;
+
 let dialog = null;
 
-function openSignIn() {
+function openSignIn(mode = "sign-in") {
   if (!dialog) dialog = buildDialog();
-  dialog.querySelector(".sign-in-message").textContent = "";
+  dialog.setMode(mode);
   dialog.showModal();
   dialog.querySelector("[data-google]").focus();
 }
@@ -263,92 +289,133 @@ function buildDialog() {
   box.setAttribute("aria-labelledby", "sign-in-title");
   box.innerHTML = `
     <form class="sign-in-form" novalidate>
+      <button type="button" class="sign-in-close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <span class="wordmark sign-in-mark" aria-hidden="true"><span>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter">M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter">I</span><span class="fill-letter">N</span></span>
       <div class="sign-in-head">
-        <h2 id="sign-in-title">Sign in to fillmein</h2>
-        <button type="button" class="btn quiet small" data-close>Close</button>
+        <h2 id="sign-in-title"></h2>
+        <p class="sign-in-lede"></p>
       </div>
-      <p class="sign-in-lede">Your puzzles save to your account, so you can pick them up on any device.</p>
-      <button type="button" class="btn google" data-google>Continue with Google</button>
-      <p class="or">or with your email</p>
-      <label class="text-field">Email <input name="email" type="email" autocomplete="email" required></label>
-      <label class="text-field">Password <input name="password" type="password" autocomplete="current-password" minlength="6" required></label>
-      <div class="actions">
-        <button type="submit" class="btn primary" data-mode="sign-in">Sign in</button>
-        <button type="submit" class="btn" data-mode="create">Create account</button>
+      <button type="button" class="sign-in-google" data-google>${GOOGLE_LOGO}<span>Continue with Google</span></button>
+      <p class="or">or use email</p>
+      <div class="sign-in-modes" role="group" aria-label="Email">
+        <button type="button" data-mode="sign-in" aria-pressed="true">Sign in</button>
+        <button type="button" data-mode="create" aria-pressed="false">Create account</button>
       </div>
-      <button type="button" class="link-button" data-reset>Forgot your password?</button>
+      <div class="sign-in-field">
+        <label class="sign-in-label" for="sign-in-email">Email</label>
+        <div class="sign-in-input"><input id="sign-in-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div>
+      </div>
+      <div class="sign-in-field">
+        <div class="sign-in-label"><label for="sign-in-password">Password</label><button type="button" class="link-button" data-reset>Forgot password?</button></div>
+        <div class="sign-in-input">
+          <input id="sign-in-password" name="password" type="password" autocomplete="current-password" minlength="6" required>
+          <button type="button" class="sign-in-reveal" data-reveal aria-pressed="false" aria-label="Show password">Show</button>
+        </div>
+      </div>
       <p class="sign-in-message" role="alert"></p>
+      <button type="submit" class="btn primary sign-in-submit"></button>
     </form>`;
   document.body.append(box);
 
   const form = box.querySelector("form");
   const message = box.querySelector(".sign-in-message");
+  const submit = box.querySelector(".sign-in-submit");
+  const password = form.elements.password;
+  const reveal = box.querySelector("[data-reveal]");
+  let mode = "sign-in";
+
   const say = (text, tone = "error") => {
     message.textContent = text;
     message.dataset.tone = tone;
   };
-  const busy = (on) => {
-    for (const element of form.querySelectorAll("button")) element.disabled = on;
+  const busy = (label) => {
+    for (const element of form.querySelectorAll("button, input")) element.disabled = Boolean(label);
+    submit.textContent = label || MODES[mode].submit;
   };
   const finish = () => {
     form.reset();
+    showPassword(false);
     say("");
     box.close();
+  };
+  const showPassword = (show) => {
+    password.type = show ? "text" : "password";
+    reveal.textContent = show ? "Hide" : "Show";
+    reveal.setAttribute("aria-pressed", String(show));
+    reveal.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  };
+
+  box.setMode = (next) => {
+    mode = next;
+    for (const option of box.querySelectorAll(".sign-in-modes [data-mode]")) option.setAttribute("aria-pressed", String(option.dataset.mode === mode));
+    box.querySelector("#sign-in-title").textContent = MODES[mode].title;
+    box.querySelector(".sign-in-lede").textContent = MODES[mode].lede;
+    box.querySelector("[data-reset]").hidden = mode !== "sign-in";
+    password.autocomplete = MODES[mode].autocomplete;
+    submit.textContent = MODES[mode].submit;
+    say("");
   };
 
   box.querySelector("[data-close]").addEventListener("click", () => box.close());
   box.addEventListener("click", (event) => {
     if (event.target === box) box.close(); // a click on the backdrop
   });
+  box.querySelector(".sign-in-modes").addEventListener("click", (event) => {
+    const option = event.target.closest("[data-mode]");
+    if (option) box.setMode(option.dataset.mode);
+  });
+  reveal.addEventListener("click", () => showPassword(password.type === "password"));
 
   box.querySelector("[data-google]").addEventListener("click", async () => {
     say("");
-    busy(true);
+    busy("Waiting for Google…");
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
       finish();
     } catch (error) {
       say(explain(error));
     } finally {
-      busy(false);
+      busy(null);
     }
   });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const create = Boolean(event.submitter && event.submitter.dataset.mode === "create");
     const email = form.elements.email.value.trim();
-    const password = form.elements.password.value;
-    if (!email || !password) {
-      say("Enter your email and a password.");
+    if (!email || !password.value) {
+      say(mode === "create" ? "Enter your email and choose a password." : "Enter your email and password.");
+      (email ? password : form.elements.email).focus();
       return;
     }
     say("");
-    busy(true);
+    busy(MODES[mode].busy);
     try {
-      await (create ? createUserWithEmailAndPassword : signInWithEmailAndPassword)(auth, email, password);
+      await (mode === "create" ? createUserWithEmailAndPassword : signInWithEmailAndPassword)(auth, email, password.value);
       finish();
     } catch (error) {
       say(explain(error));
     } finally {
-      busy(false);
+      busy(null);
     }
   });
 
   box.querySelector("[data-reset]").addEventListener("click", async () => {
     const email = form.elements.email.value.trim();
     if (!email) {
-      say("Enter your email above, then choose Forgot your password.");
+      say("Enter your email, then choose Forgot password.");
+      form.elements.email.focus();
       return;
     }
-    busy(true);
+    busy("Sending…");
     try {
       await sendPasswordResetEmail(auth, email);
       say("If there's an account with that email, a link to reset its password is on the way.", "note");
     } catch (error) {
       say(explain(error));
     } finally {
-      busy(false);
+      busy(null);
     }
   });
   return box;

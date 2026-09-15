@@ -9,6 +9,7 @@ This adds that wrapper so the page renders the same anywhere, and copies the oth
 (the home page index.html, clues.html, export.html), the scripts and the word list next to it.
 """
 
+import hashlib
 import shutil
 from pathlib import Path
 
@@ -17,6 +18,8 @@ SITE = HERE.parent / "docs"
 DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
 PAGES = ("index.html", "clues.html", "export.html")
+# Scripts and stylesheets the pages load, copied as they are and referenced with a version stamp.
+ASSETS = ("theme.css", "store.js", "account.js", "filler.js", "exporters.js", "words.js")
 
 HEAD = """<!doctype html>
 <html lang="en">
@@ -32,6 +35,18 @@ HEAD = """<!doctype html>
 """
 
 
+def version(path):
+    """A short hash of a file's bytes."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+
+
+def stamp(text, versions):
+    """Every quoted reference to a versioned file, as "name?v=hash"."""
+    for name, digest in versions.items():
+        text = text.replace(f'"{name}"', f'"{name}?v={digest}"')
+    return text
+
+
 def main():
     page = (HERE / "grid.html").read_text(encoding="utf-8")
     head, marker, body = page.partition(PAGE_START)
@@ -41,8 +56,19 @@ def main():
     SITE.mkdir(exist_ok=True)
     (SITE / "grid.html").write_text(f"{HEAD}{head}</head>\n<body>\n{marker}{body}</body>\n</html>\n", encoding="utf-8")
     # The other pages are complete documents already; only grid.html needs the wrapper.
-    for name in ("index.html", "clues.html", "export.html", "theme.css", "store.js", "account.js", "filler.js", "exporters.js", "worker.js", "words.js"):
+    for name in PAGES + ASSETS:
         shutil.copyfile(HERE / name, SITE / name)
+
+    # Stamp every script and stylesheet reference with its content's hash (store.js?v=3f9a...). The CDN
+    # tells browsers to keep scripts for hours but pages for minutes, so without this a browser can pair a
+    # new page with an old script; a changed file now gets a new address.
+    versions = {name: version(SITE / name) for name in ASSETS}
+    worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
+    (SITE / "worker.js").write_text(worker, encoding="utf-8")
+    versions["worker.js"] = version(SITE / "worker.js")
+    for name in PAGES + ("grid.html",):
+        path = SITE / name
+        path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
     (SITE / "CNAME").write_text(f"{DOMAIN}\n", encoding="utf-8")  # the domain GitHub Pages serves it at
 
