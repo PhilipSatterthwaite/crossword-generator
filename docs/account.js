@@ -27,6 +27,7 @@ const CONFIG = {
   storageBucket: "fillmein-87a2d.firebasestorage.app",
   messagingSenderId: "721963482530",
   appId: "1:721963482530:web:8c057625ad061086fd46fb",
+  measurementId: "G-C9H5DQ0WJG",
 };
 const PARTS = ["grid", "clues", "details"];
 const ACCOUNT = "fillmein:account"; // the account whose puzzles this browser last kept
@@ -35,6 +36,15 @@ const PUSH_DELAY = 800; // ms to wait after a save before sending it, so typing 
 const S = window.GridfillStore;
 const app = initializeApp(CONFIG);
 const auth = getAuth(app);
+
+/* Google Analytics: page views and how many people are on the site, in the Firebase console. Left off in
+   automated browsers so test runs don't count as visitors. Ad blockers block it, so the counts are a
+   floor, not a headcount. */
+if (!navigator.webdriver) {
+  import("https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js")
+    .then(({ getAnalytics, isSupported }) => isSupported().then((ok) => ok && getAnalytics(app)))
+    .catch(() => { /* blocked or unavailable: the site works the same */ });
+}
 
 let firestore = null; // the Firestore module, once loaded
 let db = null;
