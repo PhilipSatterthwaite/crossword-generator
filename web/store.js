@@ -1,14 +1,14 @@
-/* Gridfill's shared puzzle record, used by every page. Each page saves only its own part, so tabs
-   open side by side never overwrite each other: the Grid page saves the grid, the Clues page the
-   clues, the Export page the puzzle's details. Pages redraw when another tab (or the Back button)
-   changes any part. Needs filler.js for Gridfill.parseGrid. */
+/* fillmein's saved puzzles, shared by every page. Each puzzle has an id, carried in the page's address
+   (grid.html?p=ID), and is saved in three parts so tabs open side by side never overwrite each other:
+   the Grid page saves the grid, the Clues page the clues, the Export page the puzzle's details. An index
+   lists the puzzles for the home page. Pages redraw when another tab (or the Back button) changes their
+   puzzle. Everything is saved in this browser. Needs filler.js for Gridfill.parseGrid. */
 (function (root) {
   "use strict";
 
-  const GRID_STORE = "gridfill:v2";
-  const CLUE_STORE = "gridfill:clues:v1";
-  const DETAILS_STORE = "gridfill:details:v1";
+  const INDEX = "fillmein:puzzles";
   const META_FIELDS = ["title", "author", "copyright", "notes"];
+  const PAGES = ["grid.html", "clues.html", "export.html"];
 
   const read = (key) => {
     try { return JSON.parse(localStorage.getItem(key)); } catch (error) { return null; }
@@ -18,10 +18,113 @@
   };
   const letterOf = (value) => (/^[A-Z]$/.test(value) ? value : "");
   const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
+  const keysFor = (pid) => ({ grid: `fillmein:${pid}:grid`, clues: `fillmein:${pid}:clues`, details: `fillmein:${pid}:details` });
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-  /* The saved grid as {W, H, blocks, letters, slots}, or null if the Grid page hasn't saved one. */
-  function loadGrid() {
-    const data = read(GRID_STORE);
+  let id = null; // the puzzle this page shows, once open() has found it
+
+  /* {v, puzzles: {id: {created, updated}}}. The first time, the single puzzle earlier versions kept
+     (under gridfill:* keys) becomes the first puzzle. */
+  function readIndex() {
+    const index = read(INDEX);
+    if (index && index.puzzles && typeof index.puzzles === "object") return index;
+    const fresh = { v: 1, puzzles: {} };
+    const grid = read("gridfill:v2") || read("gridfill:v1");
+    if (grid) {
+      const first = newId();
+      const keys = keysFor(first);
+      write(keys.grid, grid);
+      for (const [part, old] of [["clues", "gridfill:clues:v1"], ["details", "gridfill:details:v1"]]) {
+        const value = read(old);
+        if (value) write(keys[part], value);
+      }
+      fresh.puzzles[first] = { created: Date.now(), updated: Date.now() };
+    }
+    write(INDEX, fresh);
+    return fresh;
+  }
+
+  /* Every saved puzzle, most recently edited first: [{id, created, updated}]. */
+  function list() {
+    return Object.entries(readIndex().puzzles)
+      .map(([pid, entry]) => ({ id: pid, created: entry.created || 0, updated: entry.updated || 0 }))
+      .sort((a, b) => b.updated - a.updated);
+  }
+
+  function create() {
+    const index = readIndex();
+    const pid = newId();
+    index.puzzles[pid] = { created: Date.now(), updated: Date.now() };
+    write(INDEX, index);
+    return pid;
+  }
+
+  function remove(pid) {
+    const index = readIndex();
+    delete index.puzzles[pid];
+    write(INDEX, index);
+    try {
+      for (const key of Object.values(keysFor(pid))) localStorage.removeItem(key);
+    } catch (error) { /* storage unavailable */ }
+  }
+
+  /* Find the puzzle named in the page's address (or, with no name, the most recently edited one) and
+     put its id in the address and in links to the other pages. With create, a page with no puzzle to
+     show starts a new one, as the Grid page does. */
+  function open({ create: startNew = false } = {}) {
+    const wanted = new URLSearchParams(root.location.search).get("p");
+    if (wanted) id = readIndex().puzzles[wanted] ? wanted : null;
+    else id = list().length ? list()[0].id : null;
+    if (!id && startNew) id = create();
+    if (id && id !== wanted) {
+      const url = new URL(root.location.href);
+      url.searchParams.set("p", id);
+      root.history.replaceState(root.history.state, "", url);
+    }
+    linkPages();
+    return id;
+  }
+
+  /* The storage keys of the page's puzzle, or null. */
+  const keys = () => (id ? keysFor(id) : null);
+
+  /* A link to another page for the same puzzle. */
+  const href = (page) => (id ? `${page}?p=${id}` : page);
+
+  function linkPages(scope = document) {
+    if (!id) return;
+    for (const link of scope.querySelectorAll("a[href]")) {
+      const page = link.getAttribute("href").split("?")[0];
+      if (PAGES.includes(page)) link.setAttribute("href", href(page));
+    }
+  }
+
+  /* Mark the page's puzzle as just edited, which orders the home page's list. */
+  function touch() {
+    if (!id) return;
+    const index = readIndex();
+    index.puzzles[id] = { created: Date.now(), ...index.puzzles[id], updated: Date.now() };
+    write(INDEX, index);
+  }
+
+  /* The Grid page's saved state, just as it wrote it, or null. */
+  const gridData = (pid = id) => (pid ? read(keysFor(pid).grid) : null);
+
+  function saveGrid(data) {
+    if (!id) return;
+    const text = JSON.stringify(data);
+    try {
+      if (localStorage.getItem(keysFor(id).grid) === text) return;
+      localStorage.setItem(keysFor(id).grid, text);
+    } catch (error) {
+      return;
+    }
+    touch();
+  }
+
+  /* A saved grid as {W, H, blocks, letters, slots}, or null if the Grid page hasn't saved one. */
+  function loadGrid(pid = id) {
+    const data = gridData(pid);
     const n = data && data.W > 0 && data.H > 0 ? data.W * data.H : 0;
     if (!n || [data.blocks, data.ink, data.pencil].some((s) => typeof s !== "string" || s.length !== n)) return null;
     const rows = [];
@@ -36,11 +139,12 @@
   }
 
   /* Saved clues: {entry key: {text, answer it was written for ("" if it wasn't complete yet)}}. */
-  function loadClues() {
-    let saved = read(CLUE_STORE);
+  function loadClues(pid = id) {
+    if (!pid) return {};
+    let saved = read(keysFor(pid).clues);
     if (!saved) {
       // Earlier versions saved clues as plain text alongside the grid.
-      const old = read(GRID_STORE);
+      const old = gridData(pid);
       if (old && old.clues && typeof old.clues === "object") {
         saved = { clues: {} };
         for (const [key, text] of Object.entries(old.clues)) if (typeof text === "string") saved.clues[key] = { text, answer: "" };
@@ -54,20 +158,24 @@
   }
 
   function saveClues(clues) {
-    write(CLUE_STORE, { v: 1, clues });
+    if (!id) return;
+    write(keysFor(id).clues, { v: 1, clues });
+    touch();
   }
 
   /* The puzzle's title, author, copyright and notes. */
-  function loadDetails() {
+  function loadDetails(pid = id) {
     // Earlier versions kept details with the clues, or with the grid before that.
-    const saved = read(DETAILS_STORE) || (read(CLUE_STORE) || {}).meta || (read(GRID_STORE) || {}).meta || {};
+    const saved = (pid && (read(keysFor(pid).details) || (read(keysFor(pid).clues) || {}).meta || (gridData(pid) || {}).meta)) || {};
     const details = {};
     for (const field of META_FIELDS) details[field] = typeof saved[field] === "string" ? saved[field] : "";
     return details;
   }
 
   function saveDetails(details) {
-    write(DETAILS_STORE, details);
+    if (!id) return;
+    write(keysFor(id).details, details);
+    touch();
   }
 
   const answerOf = (grid, slot) => slot.cells.map((i) => grid.letters[i]).join("");
@@ -97,10 +205,10 @@
     };
   }
 
-  /* Call redraw whenever the saved puzzle may have changed underneath this page. */
+  /* Call redraw whenever the page's saved puzzle may have changed underneath it. */
   function watch(redraw) {
     root.addEventListener("storage", (event) => {
-      if ([GRID_STORE, CLUE_STORE, DETAILS_STORE, null].includes(event.key)) redraw();
+      if (event.key === null || (id && Object.values(keysFor(id)).includes(event.key))) redraw();
     });
     // The Back button can restore an old copy of a page from the browser's cache.
     root.addEventListener("pageshow", (event) => {
@@ -119,8 +227,9 @@
   }
 
   root.GridfillStore = {
-    GRID_STORE, CLUE_STORE, DETAILS_STORE, META_FIELDS,
-    clueKey, loadGrid, loadClues, saveClues, loadDetails, saveDetails,
+    INDEX, META_FIELDS,
+    open, list, create, remove, keys, href, linkPages,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs,
   };
 })(self);

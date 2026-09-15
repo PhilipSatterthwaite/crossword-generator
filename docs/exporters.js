@@ -45,7 +45,7 @@
     const doc = {
       version: "http://ipuz.org/v2",
       kind: ["http://ipuz.org/crossword#1"],
-      origin: "Gridfill",
+      origin: "fillmein",
       title: puzzle.title || "Untitled",
     };
     for (const field of ["author", "copyright", "notes"]) if (puzzle[field]) doc[field] = puzzle[field];

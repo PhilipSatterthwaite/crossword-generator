@@ -3,10 +3,10 @@ from the main branch's docs/ folder at https://fillmein.org.
 
 Run: python web/build_site.py
 
-web/index.html is written for claude.ai artifacts, which wrap the page in <!doctype html>,
-<head> and <body> and add a small reset (including [hidden] { display: none !important },
-which the preview bar relies on). This adds that wrapper so the page renders the same
-anywhere, and copies the scripts and word list next to it.
+web/grid.html is written for claude.ai artifacts, which wrap the page in <!doctype html>,
+<head> and <body> and add a small reset (including [hidden] { display: none !important }).
+This adds that wrapper so the page renders the same anywhere, and copies the other pages
+(the home page index.html, clues.html, export.html), the scripts and the word list next to it.
 """
 
 import shutil
@@ -33,15 +33,15 @@ HEAD = """<!doctype html>
 
 
 def main():
-    page = (HERE / "index.html").read_text(encoding="utf-8")
+    page = (HERE / "grid.html").read_text(encoding="utf-8")
     head, marker, body = page.partition(PAGE_START)
     if not marker:
-        raise SystemExit(f"web/index.html has no {PAGE_START} to split the head from the body")
+        raise SystemExit(f"web/grid.html has no {PAGE_START} to split the head from the body")
 
     SITE.mkdir(exist_ok=True)
-    (SITE / "index.html").write_text(f"{HEAD}{head}</head>\n<body>\n{marker}{body}</body>\n</html>\n", encoding="utf-8")
-    # clues.html and export.html are complete documents already; only index.html needs the wrapper.
-    for name in ("clues.html", "export.html", "theme.css", "store.js", "filler.js", "exporters.js", "worker.js", "words.js"):
+    (SITE / "grid.html").write_text(f"{HEAD}{head}</head>\n<body>\n{marker}{body}</body>\n</html>\n", encoding="utf-8")
+    # The other pages are complete documents already; only grid.html needs the wrapper.
+    for name in ("index.html", "clues.html", "export.html", "theme.css", "store.js", "filler.js", "exporters.js", "worker.js", "words.js"):
         shutil.copyfile(HERE / name, SITE / name)
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
     (SITE / "CNAME").write_text(f"{DOMAIN}\n", encoding="utf-8")  # the domain GitHub Pages serves it at

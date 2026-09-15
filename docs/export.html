@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gridfill Export</title>
-<meta name="description" content="Name a Gridfill crossword and download it as .puz, .ipuz or .jpz, or print it.">
+<title>Export · fillmein</title>
+<meta name="description" content="Name a fillmein crossword and download it as .puz, .ipuz or .jpz, or print it.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -113,16 +113,16 @@
 <body>
 <div class="page">
   <header class="masthead">
-    <a class="wordmark-link" href="index.html" aria-label="Gridfill, the grid page">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
       <span class="wordmark" aria-hidden="true">
-        <span><sup>1</sup>G</span><span>R</span><span>I</span><span>D</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>F</span><span class="fill-letter">I</span><span class="fill-letter">L</span><span class="fill-letter">L</span>
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
     <h1 class="lede">Name the puzzle, check it's finished, then download it or print it.</h1>
   </header>
 
   <nav class="tabs" aria-label="Pages">
-    <a class="tab" href="index.html">Grid</a>
+    <a class="tab" href="grid.html">Grid</a>
     <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
     <a class="tab" href="export.html" aria-current="page">Export</a>
   </nav>
@@ -134,7 +134,7 @@
   <section id="no-grid" class="empty-state" hidden>
     <h2>Nothing to export yet</h2>
     <p>Build a grid on the Grid tab and write its clues on the Clues tab; this page turns them into files you can share or print.</p>
-    <a class="btn primary" href="index.html">Go to the grid</a>
+    <a class="btn primary" href="grid.html">Go to the grid</a>
   </section>
 
   <main id="desk" class="desk" hidden>
@@ -185,6 +185,7 @@
 (() => {
   "use strict";
   const S = window.GridfillStore;
+  S.open(); // the puzzle in the address, or the most recently edited one
   const X = window.GridExport;
   const $ = (id) => document.getElementById(id);
 
@@ -208,9 +209,9 @@
     const stale = grid.slots.filter((slot) => S.isStale(grid, clues, slot)).length;
     const titled = Boolean(details.title.trim());
     const checks = [
-      [empty === 0, empty === 0 ? "Every square is filled." : `${plural(empty, "square is", "squares are")} still empty: fill ${empty === 1 ? "it" : "them"} on the <a href="index.html">Grid</a> tab.`],
-      [unclued === 0, unclued === 0 ? "Every entry has a clue." : `${plural(unclued, "entry needs", "entries need")} a clue on the <a href="clues.html">Clues</a> tab.`],
-      [stale === 0, stale === 0 ? "Every clue was written for its current answer." : `${plural(stale, "clue was", "clues were")} written for an answer that has since changed: check ${stale === 1 ? "it" : "them"} on the <a href="clues.html">Clues</a> tab.`],
+      [empty === 0, empty === 0 ? "Every square is filled." : `${plural(empty, "square is", "squares are")} still empty: fill ${empty === 1 ? "it" : "them"} on the <a href="${S.href("grid.html")}">Grid</a> tab.`],
+      [unclued === 0, unclued === 0 ? "Every entry has a clue." : `${plural(unclued, "entry needs", "entries need")} a clue on the <a href="${S.href("clues.html")}">Clues</a> tab.`],
+      [stale === 0, stale === 0 ? "Every clue was written for its current answer." : `${plural(stale, "clue was", "clues were")} written for an answer that has since changed: check ${stale === 1 ? "it" : "them"} on the <a href="${S.href("clues.html")}">Clues</a> tab.`],
       [titled, titled ? "The puzzle has a title." : "No title yet. It goes on the printed page and names the files."],
     ];
     $("checklist").innerHTML = checks
@@ -237,7 +238,7 @@
 
   // --- downloads and printing ---
 
-  const fileBase = () => details.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gridfill-puzzle";
+  const fileBase = () => details.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "fillmein-puzzle";
 
   function download(filename, data, type) {
     const url = URL.createObjectURL(new Blob([data], { type }));

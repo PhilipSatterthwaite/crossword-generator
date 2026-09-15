@@ -3,1491 +3,236 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fillmein · make crosswords</title>
+<meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
-<style>
-  body { margin: 0; }
-  img { max-width: 100%; }
-  [hidden] { display: none !important; }
-</style>
-<title>Gridfill</title>
-<meta name="description" content="Build a crossword grid, see scored word options for any entry, and fill the rest with real crossword words.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <link rel="stylesheet" href="theme.css">
 <style>
+  body { margin: 0; }
+  .home-title { margin: 0; line-height: 0; }
 
-  /* Controls: grid-level tools in two ruled rows above the bench. */
-  .controls { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule); }
-  .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 12px; }
-  .control-row + .control-row { border-top: 1px solid var(--line-soft); }
-  .control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-  .times { color: var(--muted); }
-  .range input { width: 130px; accent-color: var(--ink); }
-  .range output { min-width: 2ch; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-  /* Bench: the grid, and the selected entry's word options beside it. */
-  .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 380px); gap: 32px 44px; align-items: start; }
-  .board { min-width: 0; }
-  .grid-wrap { --cols: 15; --rows: 15; position: relative; width: min(100%, 680px, calc(80vh * var(--cols) / var(--rows))); }
-  /* Grid lines are cell borders rather than 1px gaps: zoomed out, browsers keep a border at
-     least one screen pixel wide but let a gap round away to nothing. */
-  #grid {
+  /* The three ways in, as numbered entries on one ruled line. */
+  .choices {
     display: grid;
-    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-    background: var(--cell);
-    border: 2px solid var(--ink);
-    container-type: inline-size;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: manipulation;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 20px;
+    padding-top: 24px;
+    border-top: 1.5px solid var(--ink);
   }
-  .grid-wrap:focus-within #grid { outline: 3px solid var(--focus); outline-offset: 3px; }
-  .cell {
-    position: relative;
-    box-sizing: border-box;
-    aspect-ratio: 1;
-    min-width: 0;
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
+  .choice {
     display: grid;
-    place-items: center;
-    background: var(--cell);
-    color: var(--ink);
-    font-size: calc(100cqi / var(--cols) * 0.56);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .cell:last-child { border-right: 0; }
-  [role="row"]:last-child .cell { border-bottom: 0; }
-  .cell .num { position: absolute; top: 0.14em; left: 0.2em; font-size: max(7px, 0.4em); font-weight: 500; }
-  .cell .ch { font-weight: 700; }
-  .cell.pencil .ch { color: var(--pencil); font-weight: 500; }
-  .cell.weak { background: var(--weak); }
-  .cell.in-word { background: var(--word); }
-  .cell.preview .ch { color: var(--muted); font-weight: 500; }
-  .cell.preview-word { background: var(--works-bg); }
-  .cell.preview-word .ch { color: var(--works-ink); font-weight: 700; }
-  .cell.selected { background: var(--select); color: var(--on-select); }
-  .cell.selected.pencil .ch { color: var(--pencil-on-select); }
-  .cell.block { background: var(--block); border-color: var(--block); }
-  .cell.block.selected { box-shadow: inset 0 0 0 max(2px, calc(100cqi / var(--cols) * 0.12)) var(--select); }
-  @keyframes pencil-in { from { opacity: 0; transform: translateY(-0.14em); } }
-  .cell.fresh .ch { animation: pencil-in 0.26s ease-out both; animation-delay: var(--d, 0ms); }
-
-  #grid-input {
-    position: absolute;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    background: transparent;
-    color: transparent;
-    caret-color: transparent;
-    font-size: 16px;
-    pointer-events: none;
-  }
-
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 16px 0 0; font-size: 13px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 7px; }
-  .swatch {
-    display: inline-grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    background: var(--cell);
-    border: 1px solid var(--rule);
-    color: var(--ink);
-    font-weight: 700;
-    font-size: 12px;
-  }
-  .swatch.pencil { color: var(--pencil); font-weight: 500; }
-  .swatch.weak { background: var(--weak); }
-  .keys { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-  kbd {
-    font: 600 11px / 1 var(--sans);
-    padding: 2px 5px;
-    border: 1px solid var(--rule);
-    border-bottom-width: 2px;
-    border-radius: 3px;
+    align-content: start;
+    gap: 14px;
+    padding: 20px 22px 22px;
     background: var(--surface);
-    color: var(--ink);
-  }
-
-  .panel { position: sticky; top: 12px; display: grid; gap: 18px; min-width: 0; }
-  .entry-card { display: grid; gap: 10px; }
-  .entry-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 600 21px / 1.2 var(--serif); }
-  .pattern { display: flex; flex-wrap: wrap; gap: 2px; min-height: 26px; }
-  .pattern span {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    background: var(--cell);
     border: 1px solid var(--rule);
-    font: 700 14px / 1 var(--sans);
-  }
-  .pattern .p { color: var(--pencil); font-weight: 500; }
-
-  .options { display: grid; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
-  .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .options-summary { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
-  .options-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .option[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: -2px; }
-  .options-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .key { width: 12px; height: 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--cell); }
-  .key.works { background: var(--works-bg); border-color: var(--works-ink); }
-  .key.fails { background: repeating-linear-gradient(135deg, var(--rule) 0 1.5px, var(--cell) 1.5px 4px); }
-  .options-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: min(58vh, 540px);
-    overflow-y: auto;
-    border: 1px solid var(--rule);
-    background: var(--cell);
-  }
-  .option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 6px 10px;
-    border: 0;
-    border-bottom: 1px solid var(--line-soft);
-    background: transparent;
-    color: var(--ink);
-    font: 600 15px / 1.25 var(--sans);
-    letter-spacing: 0.08em;
-    text-align: left;
-    cursor: pointer;
-  }
-  .option:hover { background: var(--hover); }
-  .option[data-status="works"] { background: var(--works-bg); color: var(--works-ink); }
-  .option[data-status="fails"] { color: var(--muted); font-weight: 500; }
-  .option[data-status="fails"] .option-word { text-decoration: line-through; text-decoration-thickness: 1px; }
-  .option[data-status="fails"] .score { opacity: 0.55; }
-  .option-word { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .option-mark { flex: none; width: 1.1em; text-align: center; font-weight: 700; letter-spacing: 0; }
-  .tag { flex: none; font: 600 10px / 1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-  .options-note { margin: 0; min-height: 1.5em; font-size: 13px; color: var(--muted); }
-
-  .score {
-    flex: none;
-    display: inline-block;
-    min-width: 2.4em;
-    padding: 3px 5px;
     border-radius: 3px;
-    background: var(--chip);
-    color: var(--muted);
-    font: 700 12px / 1 var(--sans);
-    letter-spacing: 0;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
+    min-width: 0;
   }
-  .score[data-band="hi"] { background: var(--score-hi-bg); color: var(--score-hi); }
-  .score[data-band="lo"] { background: var(--score-lo-bg); color: var(--score-lo); }
-  .score[data-band="none"] { background: transparent; }
-
-  .tally {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px 24px;
-    margin: 0;
-    padding-top: 16px;
-    border-top: 1.5px solid var(--ink);
-  }
-  .tally div { min-width: 0; }
-  .tally dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .tally dd { margin: 2px 0 0; }
-  .tally .value { display: block; font: 700 26px / 1.1 var(--sans); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .tally .value.word { font-size: 18px; letter-spacing: 0.08em; line-height: 1.45; }
-  .tally .cap { display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--muted); }
-
-  /* Entries, set like the clue columns they'll become. */
-  .entries {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-    gap: 24px 44px;
-    padding-top: 20px;
-    border-top: 1.5px solid var(--ink);
-  }
-  .entries h2 { margin: 0 0 8px; font: 600 24px / 1.2 var(--serif); text-wrap: balance; }
-  .entries ol { list-style: none; margin: 0; padding: 0; columns: 2 13rem; column-gap: 24px; }
-  .entries li { break-inside: avoid; }
-  .entries button {
-    display: grid;
-    grid-template-columns: 2.6ch minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 10px;
-    row-gap: 1px;
-    width: 100%;
-    padding: 3px 6px;
-    border: 0;
+  .choice-head { display: flex; align-items: baseline; gap: 10px; }
+  .choice-num { font: 600 13px / 1 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .choice h2 { margin: 0; font: 600 25px / 1.2 var(--serif); }
+  .choice p { margin: 0; max-width: 46ch; color: var(--muted); text-wrap: pretty; }
+  .choice .btn { justify-self: start; }
+  .choice.keep { grid-row: span 2; }
+  .note { font-size: 13px; }
+  .soon {
+    justify-self: start;
+    padding: 4px 8px;
+    border: 1px solid var(--rule);
     border-radius: 2px;
-    background: transparent;
-    color: var(--ink);
-    font: 500 14px / 1.45 var(--sans);
-    text-align: left;
-    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
-  .entries button:hover { background: var(--hover); }
-  .entries button[aria-current="true"] { background: var(--word); }
-  .entries .n { flex: none; width: 2.6ch; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .entries .w { letter-spacing: 0.1em; overflow-wrap: anywhere; }
-  .entries .score { margin-left: auto; }
-  .w .k { font-weight: 700; }
-  .w .p { color: var(--pencil); font-weight: 500; }
-  .w .e { color: var(--rule); }
-  .note { margin: 0; max-width: 75ch; font-size: 13px; color: var(--muted); }
 
-  @media (max-width: 880px) {
-    .bench { grid-template-columns: minmax(0, 1fr); }
-    .panel { position: static; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .cell.fresh .ch, .status[data-state="busy"]::before { animation: none; }
+  .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
+  .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
+  .thumb { display: grid; place-items: center; width: 48px; height: 48px; }
+  .thumb svg { display: block; max-width: 48px; max-height: 48px; background: var(--cell); outline: 1.5px solid var(--ink); }
+  .thumb rect { fill: var(--block); }
+  .puzzle a { color: var(--ink); font: 600 17px / 1.3 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
+  .puzzle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .puzzle a::after { content: ""; }
+  .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .btn.small { padding: 6px 9px; font-size: 13px; }
+  .btn.confirm { border-color: var(--danger); color: var(--danger); font-weight: 600; }
+  .home-status { margin: 0; font-size: 13px; color: var(--muted); }
+  .home-status:empty { display: none; }
+
+  @media (max-width: 640px) {
+    .choice.keep { grid-row: auto; }
+    .puzzle { grid-template-columns: 40px minmax(0, 1fr); }
+    .thumb { width: 40px; height: 40px; }
+    .thumb svg { max-width: 40px; max-height: 40px; }
+    .puzzle .btn { grid-column: 2; justify-self: start; }
   }
 </style>
-
 </head>
 <body>
 <div class="page">
   <header class="masthead">
-    <h1 class="wordmark" aria-label="Gridfill">
-      <span aria-hidden="true"><sup>1</sup>G</span>
-      <span aria-hidden="true">R</span>
-      <span aria-hidden="true">I</span>
-      <span aria-hidden="true">D</span>
-      <span class="wm-block" aria-hidden="true"></span>
-      <span class="fill-letter" aria-hidden="true"><sup>2</sup>F</span>
-      <span class="fill-letter" aria-hidden="true">I</span>
-      <span class="fill-letter" aria-hidden="true">L</span>
-      <span class="fill-letter" aria-hidden="true">L</span>
+    <h1 class="home-title">
+      <span class="sr-only">fillmein</span>
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
     </h1>
-    <p class="lede">Draw the blocks, ink your theme answers, pick scored words entry by entry, and let it pencil in the rest.</p>
+    <p class="lede">Make crosswords with a scored word list and an autofill that knows real crossword fill.</p>
   </header>
 
-  <nav class="tabs" aria-label="Pages">
-    <a class="tab" href="index.html" aria-current="page">Grid</a>
-    <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
-    <a class="tab" href="export.html">Export</a>
-  </nav>
-
-  <div class="controls">
-    <div class="control-row">
-      <form id="size-form" class="control-group">
-        <span class="label">Grid</span>
-        <label class="field">Columns <input id="cols" class="number" type="number" min="3" max="25" value="15" inputmode="numeric"></label>
-        <span class="times" aria-hidden="true">×</span>
-        <label class="field">Rows <input id="rows" class="number" type="number" min="3" max="25" value="15" inputmode="numeric"></label>
-        <button type="submit" id="new-grid" class="btn">New blank grid</button>
-      </form>
-      <div class="control-group">
-        <select id="example" aria-label="Load an example grid">
-          <option value="" selected>Load an example…</option>
-          <option value="themed15">Themed 15×15, three theme answers</option>
-          <option value="themeless15b">Themeless 15×15</option>
-          <option value="themeless15a">Themeless 15×15, stacked corners</option>
-          <option value="stair7">7×7 staircase</option>
-          <option value="open5">5×5 with no blocks</option>
-        </select>
-        <label class="check"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
-        <label class="check"><input type="checkbox" id="tint" checked> Tint weak words</label>
-      </div>
-      <div class="control-group">
-        <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
-        <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
-      </div>
-    </div>
-    <div class="control-row">
-      <div class="control-group">
-        <span class="label">Autofill</span>
-        <label class="field range">Min. word score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
-        <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular words below it</label>
-      </div>
-      <div class="control-group">
-        <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
-        <button type="button" id="another" class="btn" disabled>Try another fill</button>
-        <button type="button" id="stop" class="btn stop" hidden>Stop</button>
-        <button type="button" id="erase" class="btn quiet">Erase pencil</button>
-        <button type="button" id="clear" class="btn quiet">Clear all letters</button>
-      </div>
-      <p id="status" class="status" data-state="busy" role="status">Loading the word list…</p>
-    </div>
-  </div>
-
-  <main class="bench">
-    <section class="board" aria-label="Grid">
-      <div id="grid-wrap" class="grid-wrap">
-        <div id="grid" role="grid" aria-label="Crossword grid"></div>
-        <input id="grid-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-               aria-label="Grid cursor. Type letters, Space toggles a block, arrow keys move, Enter switches direction."
-               aria-describedby="cell-desc">
-      </div>
-      <p id="cell-desc" class="sr-only" aria-live="polite"></p>
-      <p class="legend">
-        <span><span class="swatch" aria-hidden="true">A</span>Ink: letters you typed or picked, always kept</span>
-        <span><span class="swatch pencil" aria-hidden="true">A</span>Pencil: the autofill</span>
-        <span><span class="swatch weak" aria-hidden="true"></span>Entry scoring under 50</span>
-      </p>
-      <p class="keys">Type to ink a letter · <kbd>Space</kbd> adds or removes a block · <kbd>Backspace</kbd> erases, or opens a block · arrows move · <kbd>Enter</kbd> switches Across/Down · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
+  <main class="choices">
+    <section class="choice" aria-labelledby="new-title">
+      <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">Start a new puzzle</h2></div>
+      <p>Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.</p>
+      <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
     </section>
 
-    <aside class="panel" aria-label="Selected entry">
-      <div class="entry-card">
-        <span class="label">Selected entry</span>
-        <div class="entry-title"><span id="sel-name">–</span><span id="sel-score"></span></div>
-        <div id="sel-letters" class="pattern" aria-hidden="true"></div>
-        <div class="actions">
-          <button type="button" id="keep" class="btn quiet">Ink the pencil letters</button>
-          <button type="button" id="clear-entry" class="btn quiet">Clear entry</button>
-        </div>
-      </div>
-      <section class="options" aria-labelledby="options-title">
-        <div class="options-head">
-          <span id="options-title" class="label">Word options</span>
-          <span id="options-summary" class="options-summary"></span>
-        </div>
-        <p class="options-legend">
-          <span><span class="key works" aria-hidden="true"></span><b id="count-works">0</b> confirmed</span>
-          <span><span class="key" aria-hidden="true"></span><b id="count-open">0</b> unconfirmed</span>
-          <span><span class="key fails" aria-hidden="true"></span><b id="count-fails">0</b> confirmed bad</span>
-        </p>
-        <p id="options-note" class="options-note" aria-live="polite"></p>
-        <ol id="options" class="options-list"></ol>
-      </section>
-    </aside>
+    <section class="choice keep" aria-labelledby="keep-title">
+      <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">Keep working</h2></div>
+      <p id="no-puzzles">Puzzles you start show up here, so you can pick up where you left off.</p>
+      <ul id="puzzles" class="puzzles" hidden></ul>
+      <p id="home-status" class="home-status" role="status"></p>
+      <p class="note">Saved in this browser for now. Accounts are on the way, so your puzzles can follow you to any device.</p>
+    </section>
+
+    <section class="choice" aria-labelledby="explore-title">
+      <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">Solve published puzzles</h2></div>
+      <p>Browse crosswords that other constructors publish on fillmein, and solve them right here.</p>
+      <span class="soon">Coming with accounts</span>
+    </section>
   </main>
-
-  <dl class="tally">
-    <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
-    <div><dt>Blocks</dt><dd><span id="t-blocks" class="value">–</span><span id="t-blocks-cap" class="cap"></span></dd></div>
-    <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
-    <div><dt>Avg. word score</dt><dd><span id="t-score" class="value">–</span><span id="t-score-cap" class="cap"></span></dd></div>
-    <div><dt>Weakest entry</dt><dd><span id="t-weak" class="value word">–</span><span id="t-weak-cap" class="cap"></span></dd></div>
-    <div><dt>Symmetry</dt><dd><span id="t-sym" class="value">–</span><span id="t-sym-cap" class="cap"></span></dd></div>
-  </dl>
-
-  <section class="entries" aria-label="Entries">
-    <div><h2>Across</h2><ol id="across"></ol></div>
-    <div><h2>Down</h2><ol id="down"></ol></div>
-  </section>
-
-  <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
 </div>
 
-<script src="words.js"></script>
 <script src="filler.js"></script>
 <script src="store.js"></script>
 <script>
 (() => {
   "use strict";
-  const G = window.Gridfill;
+  const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
-  const gridEl = $("grid");
-  const gridWrap = $("grid-wrap");
-  const input = $("grid-input");
-  const statusEl = $("status");
-  const symmetryEl = $("symmetry");
-  const tintEl = $("tint");
-  const minScoreEl = $("min-score");
-  const allowPopularEl = $("allow-popular");
-  const STORE = "gridfill:v2";
-  const MIN_SIZE = 3;
-  const MAX_SIZE = 25;
-  const VISIBLE_OPTIONS = 300; // option rows drawn at once; every fitting word is still checked
-  const WEAK = 50; // Broda's scale: 50 is ordinary fill, under 50 is weak
-  const HISTORY = 300;
+  const SVG = "http://www.w3.org/2000/svg";
+  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
 
-  const blank = (cols, rows = cols) => Array.from({ length: rows }, () => ".".repeat(cols));
-  const EXAMPLES = {
-    themed15: [
-      "...#....#......", "...#....#......", "GOLDENRETRIEVER", ".......#....###", "......#....#...",
-      ".....#...##....", "###.....#......", "NUCLEARFOOTBALL", "......#.....###", "....##...#.....",
-      "...#....#......", "###....#.......", "BATTLEOFBULLRUN", "......#....#...", "......#....#...",
-    ],
-    themeless15a: [
-      "........#......", "........#......", "...............", "...#.....#.....", "....#....#.....",
-      ".....#....#....", "###...#....#...", ".......#.......", "...#....#...###", "....#....#.....",
-      ".....#....#....", ".....#.....#...", "...............", "......#........", "......#........",
-    ],
-    themeless15b: [
-      "....#....##....", "....#....#.....", "....#....#.....", ".............##", "###...##....###",
-      "#..............", "...#....##.....", "....#.....#....", ".....##....#...", "..............#",
-      "###....##...###", "##.............", ".....#....#....", ".....#....#....", "....##....#....",
-    ],
-    stair7: ["###....", "##.....", "#......", ".......", "......#", ".....##", "....###"],
-    open5: blank(5),
+  const ago = (time) => {
+    const seconds = (time - Date.now()) / 1000;
+    for (const [unit, size] of UNITS) if (Math.abs(seconds) >= size) return relative.format(Math.round(seconds / size), unit);
+    return "just now";
   };
 
-  // --- word scores, read straight from words.js ---
-
-  const lexicon = new Map();
-  function lexiconFor(length) {
-    if (!lexicon.has(length)) {
-      const data = window.GRIDFILL_WORDS && window.GRIDFILL_WORDS[length];
-      // popular: one bit per word (bit w & 7 of byte w >> 3), as a byte string.
-      lexicon.set(length, data ? { letters: data[0], scores: Int16Array.from(data[1].split(","), Number), popular: data[2] ? atob(data[2]) : "" } : null);
-    }
-    return lexicon.get(length);
-  }
-
-  // A word's score, found by searching its length's run-together letters (a map over half a
-  // million words would cost far more memory) and remembered once found.
-  const scoreCache = new Map();
-  function scoreOf(word) {
-    if (scoreCache.has(word)) return scoreCache.get(word);
-    const entry = lexiconFor(word.length);
-    let score = null;
-    if (entry) {
-      for (let at = entry.letters.indexOf(word); at >= 0; at = entry.letters.indexOf(word, at + 1)) {
-        if (at % word.length === 0) {
-          score = entry.scores[at / word.length];
-          break;
-        }
-      }
-    }
-    scoreCache.set(word, score);
-    return score;
-  }
-
-  const band = (score) => (score === null ? "none" : score >= 60 ? "hi" : score >= WEAK ? "mid" : "lo");
-  const scoreChip = (score) =>
-    score === null
-      ? '<span class="score" data-band="none" title="Not in the word list">—</span>'
-      : `<span class="score" data-band="${band(score)}" title="Word score ${score}">${score}</span>`;
-
-  // --- grid model ---
-
-  let W = 15, H = 15;
-  let blocks = [], ink = [], pencil = [];
-  let sel = 0, dir = "across";
-  let slots = [], numbers = [], slotAt = { across: [], down: [] };
-  let cellEls = [];
-  const fresh = new Set();
-  let running = false, ready = false;
-  let fillBefore = null;
-  const CLUE_STORE = "gridfill:clues:v1"; // clues and puzzle details, written by clues.html
-  const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
-  const past = [];
-  const future = [];
-
-  const other = (d) => (d === "across" ? "down" : "across");
-  const minScore = () => Number(minScoreEl.value);
-
-  function loadRows(rows) {
-    H = rows.length;
-    W = rows[0].length;
-    blocks = []; ink = []; pencil = [];
-    for (const row of rows) {
-      for (const ch of row) {
-        const isBlock = ch === "#";
-        blocks.push(isBlock);
-        ink.push(!isBlock && /[A-Z]/.test(ch) ? ch : "");
-        pencil.push("");
-      }
-    }
-    sel = Math.max(0, blocks.indexOf(false));
-    dir = "across";
-    fresh.clear();
-    buildGrid();
-  }
-
-  function analyze() {
-    const rows = [];
-    for (let r = 0; r < H; r++) rows.push(blocks.slice(r * W, (r + 1) * W).map((b) => (b ? "#" : ".")).join(""));
-    slots = G.parseGrid(rows).slots;
-    numbers = new Array(W * H).fill(0);
-    slotAt = { across: new Array(W * H).fill(-1), down: new Array(W * H).fill(-1) };
-    slots.forEach((slot, k) => {
-      numbers[slot.cells[0]] = slot.number;
-      for (const i of slot.cells) slotAt[slot.direction][i] = k;
+  /* The grid's blocks, drawn small. */
+  function thumbnail(grid) {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", `0 0 ${grid.W} ${grid.H}`);
+    svg.setAttribute("width", 48 * Math.min(1, grid.W / grid.H));
+    svg.setAttribute("height", 48 * Math.min(1, grid.H / grid.W));
+    svg.setAttribute("shape-rendering", "crispEdges");
+    grid.blocks.forEach((block, i) => {
+      if (!block) return;
+      const rect = document.createElementNS(SVG, "rect");
+      rect.setAttribute("x", i % grid.W);
+      rect.setAttribute("y", Math.floor(i / grid.W));
+      rect.setAttribute("width", 1);
+      rect.setAttribute("height", 1);
+      svg.append(rect);
     });
+    return svg;
   }
 
-  function currentSlot() {
-    if (blocks[sel]) return -1;
-    const k = slotAt[dir][sel];
-    return k >= 0 ? k : slotAt[other(dir)][sel];
+  function describe(puzzle) {
+    const title = S.loadDetails(puzzle.id).title.trim() || "Untitled puzzle";
+    const grid = S.loadGrid(puzzle.id);
+    if (!grid) return { title, grid, meta: `Nothing on the grid yet · edited ${ago(puzzle.updated)}` };
+    const clues = S.loadClues(puzzle.id);
+    const open = grid.blocks.filter((block) => !block).length;
+    const filled = grid.letters.filter((letter, i) => letter && !grid.blocks[i]).length;
+    const clued = grid.slots.filter((slot) => S.hasClue(clues, slot)).length;
+    const meta = [
+      `${grid.W}×${grid.H}`,
+      `${open ? Math.round((100 * filled) / open) : 100}% filled`,
+      `${clued}/${grid.slots.length} clues`,
+      `edited ${ago(puzzle.updated)}`,
+    ].join(" · ");
+    return { title, grid, meta };
   }
 
-  function step(i, d, delta) {
-    const r = Math.floor(i / W) + (d === "down" ? delta : 0);
-    const c = (i % W) + (d === "across" ? delta : 0);
-    return r >= 0 && r < H && c >= 0 && c < W ? r * W + c : -1;
-  }
-
-  function setBlock(i, value) {
-    const targets = symmetryEl.checked ? [i, W * H - 1 - i] : [i];
-    for (const j of targets) {
-      blocks[j] = value;
-      ink[j] = "";
-    }
-    pencil.fill(""); // the old fill no longer matches the grid's shape
-    analyze();
-  }
-
-  /* Rows for the solver: '#' for blocks, letters, '' elsewhere. Autofill counts only inked
-     letters as given; word options respect every letter on the grid (withPencil). */
-  function solverRows(withPencil = false) {
-    const rows = [];
-    for (let r = 0; r < H; r++) {
-      const row = [];
-      for (let c = 0; c < W; c++) {
-        const i = r * W + c;
-        row.push(blocks[i] ? "#" : ink[i] || (withPencil ? pencil[i] : ""));
-      }
-      rows.push(row);
-    }
-    return rows;
-  }
-
-  // --- undo and redo ---
-
-  const snapshot = () => ({ W, H, blocks: blocks.slice(), ink: ink.slice(), pencil: pencil.slice(), sel, dir });
-
-  const sameContent = (state) =>
-    state.W === W && state.H === H &&
-    state.blocks.every((b, i) => b === blocks[i]) &&
-    state.ink.every((x, i) => x === ink[i]) &&
-    state.pencil.every((x, i) => x === pencil[i]);
-
-  function remember(state) {
-    past.push(state);
-    if (past.length > HISTORY) past.shift();
-    future.length = 0;
-  }
-
-  function restore(state) {
-    const resized = state.W !== W || state.H !== H;
-    W = state.W;
-    H = state.H;
-    blocks = state.blocks.slice();
-    ink = state.ink.slice();
-    pencil = state.pencil.slice();
-    sel = state.sel;
-    dir = state.dir;
-    fresh.clear();
-    if (resized) buildGrid();
-    else {
-      analyze();
-      render();
+  function renderPuzzles() {
+    const puzzles = S.list();
+    const list = $("puzzles");
+    list.replaceChildren();
+    list.hidden = !puzzles.length;
+    $("no-puzzles").hidden = puzzles.length > 0;
+    for (const puzzle of puzzles) {
+      const { title, grid, meta } = describe(puzzle);
+      const item = document.createElement("li");
+      item.className = "puzzle";
+      const thumb = document.createElement("span");
+      thumb.className = "thumb";
+      if (grid) thumb.append(thumbnail(grid));
+      const text = document.createElement("div");
+      const link = document.createElement("a");
+      link.href = `grid.html?p=${encodeURIComponent(puzzle.id)}`;
+      link.textContent = title;
+      const info = document.createElement("div");
+      info.className = "meta";
+      info.textContent = meta;
+      text.append(link, info);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "btn quiet small";
+      remove.dataset.remove = puzzle.id;
+      remove.textContent = "Delete";
+      remove.setAttribute("aria-label", `Delete ${title}`);
+      item.append(thumb, text, remove);
+      list.append(item);
     }
   }
 
-  function undo() {
-    if (running || !past.length) return;
-    future.push(snapshot());
-    restore(past.pop());
-  }
-
-  function redo() {
-    if (running || !future.length) return;
-    past.push(snapshot());
-    restore(future.pop());
-  }
-
-  /* Apply a change to the grid as one undoable step. */
-  function edit(change) {
-    if (running) return;
-    preview = null;
-    const before = snapshot();
-    fresh.clear();
-    change();
-    if (!sameContent(before)) remember(before);
-    render();
-  }
-
-  // --- rendering ---
-
-  function buildGrid() {
-    gridWrap.style.setProperty("--cols", W);
-    gridWrap.style.setProperty("--rows", H);
-    gridEl.setAttribute("aria-label", `Crossword grid, ${W} columns by ${H} rows`);
-    const html = [];
-    for (let r = 0; r < H; r++) {
-      html.push('<div role="row" style="display:contents">');
-      for (let c = 0; c < W; c++) {
-        html.push(`<div class="cell" role="gridcell" data-i="${r * W + c}"><span class="num"></span><span class="ch"></span></div>`);
-      }
-      html.push("</div>");
-    }
-    gridEl.innerHTML = html.join("");
-    cellEls = Array.from(gridEl.querySelectorAll(".cell"));
-    $("cols").value = W;
-    $("rows").value = H;
-    analyze();
-    render();
-  }
-
-  const letterSpans = (cells) =>
-    cells.map((i) => (ink[i] ? `<span class="k">${ink[i]}</span>` : pencil[i] ? `<span class="p">${pencil[i]}</span>` : '<span class="e">·</span>')).join("");
-
-  function describeCell(i) {
-    const where = `Row ${Math.floor(i / W) + 1}, column ${(i % W) + 1}`;
-    if (blocks[i]) return `${where}: block`;
-    const letter = ink[i] || pencil[i];
-    return `${where}: ${letter ? letter + (ink[i] ? "" : " in pencil") : "empty"}`;
-  }
-
-  /* Letters to show for the previewed word and, once found, the fill around it; null without a preview. */
-  function previewLetters(k) {
-    if (!preview || k < 0) return null;
-    const shown = new Array(W * H).fill("");
-    const option = options.list[preview.index];
-    if (option && option.fill) {
-      option.fill.forEach((row, r) => row.forEach((letter, c) => {
-        if (/^[A-Z]$/.test(letter)) shown[r * W + c] = letter;
-      }));
-    }
-    slots[k].cells.forEach((cell, p) => (shown[cell] = preview.word[p]));
-    return shown;
-  }
-
-  function render() {
-    refreshOptions();
-    if (preview && (!options || options.signature !== preview.signature)) {
-      preview = null; // the preview belonged to another entry or an earlier grid
-      renderOptions();
-    }
-    const k = currentSlot();
-    const inWord = new Set(k >= 0 ? slots[k].cells : []);
-    const shown = previewLetters(k);
-
-    // Every entry with all its letters, and its score.
-    const complete = [];
-    const weak = new Set();
-    for (const slot of slots) {
-      if (!slot.cells.every((i) => ink[i] || pencil[i])) continue;
-      const word = slot.cells.map((i) => ink[i] || pencil[i]).join("");
-      const score = scoreOf(word);
-      complete.push({ slot, word, score });
-      if (tintEl.checked && score !== null && score < WEAK) for (const i of slot.cells) weak.add(i);
-    }
-    const scoreBySlot = new Map(complete.map((entry) => [entry.slot, entry.score]));
-
-    for (let i = 0; i < cellEls.length; i++) {
-      const el = cellEls[i];
-      let cls = "cell";
-      if (blocks[i]) cls += " block";
-      if (weak.has(i)) cls += " weak";
-      if (inWord.has(i)) cls += " in-word";
-      if (i === sel) cls += " selected";
-      const previewed = shown && !blocks[i] && !ink[i] ? shown[i] : "";
-      if (ink[i]) cls += " ink";
-      else if (previewed) cls += inWord.has(i) ? " preview-word" : " preview";
-      else if (pencil[i]) cls += " pencil";
-      if (fresh.has(i)) cls += " fresh";
-      el.className = cls;
-      el.firstChild.textContent = numbers[i] || "";
-      el.lastChild.textContent = blocks[i] ? "" : ink[i] || previewed || pencil[i];
-      el.setAttribute("aria-label", describeCell(i));
-    }
-    const r = Math.floor(sel / W), c = sel % W;
-    Object.assign(input.style, { left: `${(c / W) * 100}%`, top: `${(r / H) * 100}%`, width: `${100 / W}%`, height: `${100 / H}%` });
-    $("cell-desc").textContent = describeCell(sel) + (k >= 0 ? `, in ${slots[k].name}` : "");
-
-    // Selected entry
-    if (k >= 0) {
-      const slot = slots[k];
-      $("sel-name").textContent = `${slot.name} · ${slot.cells.length} letters`;
-      $("sel-score").innerHTML = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
-      $("sel-letters").innerHTML = slot.cells.map((i) => `<span class="${ink[i] ? "k" : pencil[i] ? "p" : "e"}">${ink[i] || pencil[i]}</span>`).join("");
-    } else {
-      $("sel-name").textContent = blocks[sel] ? "Block" : "Unchecked square";
-      $("sel-score").innerHTML = "";
-      $("sel-letters").innerHTML = "";
-    }
-
-    // Entry lists
-    const lists = { across: [], down: [] };
-    slots.forEach((slot, j) => {
-      const chip = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
-      lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}</button></li>`
-      );
-    });
-    $("across").innerHTML = lists.across.join("");
-    $("down").innerHTML = lists.down.join("");
-
-    // Tally
-    const blockCount = blocks.filter(Boolean).length;
-    const letters = slots.reduce((total, slot) => total + slot.cells.length, 0);
-    const symmetric = blocks.every((b, i) => b === blocks[W * H - 1 - i]);
-    const scored = complete.filter((entry) => entry.score !== null);
-    const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
-    $("t-words").textContent = slots.length;
-    $("t-words-cap").textContent = W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`;
-    $("t-blocks").textContent = blockCount;
-    $("t-blocks-cap").textContent = `${Math.round((blockCount / (W * H)) * 100)}% of squares`;
-    $("t-avg").textContent = slots.length ? (letters / slots.length).toFixed(2) : "–";
-    $("t-score").textContent = scored.length ? Math.round(scored.reduce((sum, entry) => sum + entry.score, 0) / scored.length) : "–";
-    $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
-    $("t-weak").textContent = weakest ? weakest.word : "–";
-    $("t-weak-cap").textContent = weakest ? `${weakest.slot.name}, score ${weakest.score}` : "";
-    $("t-sym").textContent = symmetric ? "Rotational" : "None";
-    $("t-sym-cap").textContent = symmetric ? "blocks match when turned 180°" : "most published grids are symmetric";
-
-    renderCluesLink();
-    updateButtons();
-    save();
-  }
-
-  function updateButtons() {
-    const k = currentSlot();
-    $("fill").disabled = running || !ready;
-    $("another").disabled = running || !ready;
-    $("stop").hidden = !running || runner.inline;
-    $("undo").disabled = running || !past.length;
-    $("redo").disabled = running || !future.length;
-    $("keep").disabled = running || k < 0 || !slots[k].cells.some((i) => pencil[i]);
-    $("clear-entry").disabled = running || k < 0 || !slots[k].cells.some((i) => ink[i] || pencil[i]);
-    $("erase").disabled = running || !pencil.some(Boolean);
-    $("clear").disabled = running || !(pencil.some(Boolean) || ink.some(Boolean));
-    for (const id of ["new-grid", "cols", "rows", "example", "symmetry", "min-score", "allow-popular"]) $(id).disabled = running;
-  }
-
-  function setStatus(state, text) {
-    statusEl.dataset.state = state;
-    statusEl.textContent = text;
-  }
-
-  // --- word options for the selected entry ---
-
-  let options = null;                 // what the options panel shows
-  let preview = null;                 // a word option shown in the grid but not used: {signature, index, word, checking}
-  const PREVIEW_SECONDS = 4;          // how long to look for a fill around a previewed word
-  const optionCache = new Map();      // signature -> options, so returning to an entry is instant
-  let checkTimer = 0;
-  let checkSerial = 0;
-  let optionsRenderQueued = false;
-
-  function candidatesFor(slot) {
-    const length = slot.cells.length;
-    const entry = lexiconFor(length);
-    const list = [];
-    let total = 0;
-    if (!entry) return { list, total };
-    const pattern = slot.cells.map((i) => (ink[i] || pencil[i] ? (ink[i] || pencil[i]).charCodeAt(0) : 0));
-    const min = minScore();
-    const withPopular = allowPopularEl.checked && entry.popular;
-    for (let w = 0; w < entry.scores.length; w++) {
-      const below = entry.scores[w] < min;
-      if (below && !withPopular) break; // words are sorted best first
-      if (below && !((entry.popular.charCodeAt(w >> 3) >> (w & 7)) & 1)) continue;
-      const offset = w * length;
-      let match = true;
-      for (let p = 0; p < length && match; p++) if (pattern[p] && entry.letters.charCodeAt(offset + p) !== pattern[p]) match = false;
-      if (!match) continue;
-      total++;
-      list.push({ word: entry.letters.substr(offset, length), score: entry.scores[w], status: null, popular: below });
-    }
-    return { list, total };
-  }
-
-  function refreshOptions() {
-    const k = currentSlot();
-    if (k < 0) {
-      const signature = `none|${blocks[sel]}`;
-      if (options && options.signature === signature) return;
-      cancelCheck();
-      options = { signature, message: blocks[sel] ? "A block is selected. Press Backspace to open it up." : "This square isn't part of an entry." };
-      renderOptions();
-      return;
-    }
-    const slot = slots[k];
-    const letters = ink.map((x, i) => x || pencil[i] || ".").join("");
-    const signature = [W, H, blocks.map(Number).join(""), letters, minScore(), allowPopularEl.checked, slot.row, slot.col, slot.direction].join("|");
-    if (options && options.signature === signature) return;
-    cancelCheck();
-    if (slot.cells.every((i) => ink[i] || pencil[i])) {
-      options = { signature, message: "This entry already has a word. Clear it to see other words that fit." };
-    } else {
-      options = optionCache.get(signature);
-      if (!options) {
-        const { list, total } = candidatesFor(slot);
-        options = { signature, target: { row: slot.row, col: slot.col, direction: slot.direction }, list, total, done: list.length === 0 };
-        optionCache.set(signature, options);
-        if (optionCache.size > 12) optionCache.delete(optionCache.keys().next().value); // lists can hold thousands of words
-      }
-      if (!options.done) scheduleCheck();
-    }
-    renderOptions();
-  }
-
-  function scheduleCheck() {
-    clearTimeout(checkTimer);
-    checkTimer = setTimeout(startCheck, 150);
-  }
-
-  function cancelCheck() {
-    clearTimeout(checkTimer);
-    runner.cancelOptions();
-  }
-
-  function resumeCheck() {
-    if (options && options.list && !options.done) scheduleCheck();
-  }
-
-  /* Check word options against the whole grid from the top of the list down: every unchecked
-     option, or just `indices` (a previewed word) allowing `seconds` each. */
-  function startCheck(indices, seconds) {
-    const job = options;
-    if (!job || !job.list || running || !ready) return;
-    const pending = Array.isArray(indices) ? indices : job.list.map((_, i) => i).filter((i) => job.list[i].status === null);
-    if (!pending.length) {
-      job.done = true;
-      renderOptions();
-      return;
-    }
-    const id = ++checkSerial;
-    job.checkId = id;
-    job.pending = pending;
-    const settings = { minScore: minScore(), allowPopular: allowPopularEl.checked };
-    if (seconds) settings.perWordSeconds = seconds;
-    runner.checkOptions(id, solverRows(true), job.target, pending.map((i) => job.list[i].word), settings, (message) => {
-      let previewChanged = false;
-      if (message.error) {
-        job.error = message.error;
-        job.done = true;
-      } else {
-        for (const [p, status, rows] of message.updates) {
-          const option = job.list[pending[p]];
-          option.status = status;
-          if (rows) option.fill = rows;
-          if (preview && preview.signature === job.signature && preview.index === pending[p]) {
-            preview.checking = false;
-            previewChanged = true;
-          }
-        }
-        if (message.done) {
-          job.checkId = 0;
-          if (job.list.every((option) => option.status !== null)) job.done = true;
-          else if (job === options) scheduleCheck(); // a previewed word is done; carry on down the list
-        }
-      }
-      if (job !== options) return;
-      if (previewChanged) render();
-      queueOptionsRender();
-    });
-  }
-
-  /* Get a fill for the previewed word: move it to the front of the running check, or check it alone. */
-  function requestPreviewFill() {
-    const job = options;
-    const option = job && job.list ? job.list[preview.index] : null;
-    if (!option || option.status === "works" || option.status === "fails") return;
-    preview.checking = true;
-    const inRunningCheck = job.checkId && runner.optionsId === job.checkId && option.status === null;
-    const position = inRunningCheck ? job.pending.indexOf(preview.index) : -1;
-    if (position >= 0) {
-      runner.prioritize(job.checkId, position, PREVIEW_SECONDS);
-    } else {
-      cancelCheck();
-      startCheck([preview.index], PREVIEW_SECONDS);
-    }
-  }
-
-  /* One line about the previewed word, shown in the note above the word list. */
-  function previewText() {
-    const option = preview && options && options.list ? options.list[preview.index] : null;
-    if (!option) return "";
-    const word = preview.word;
-    const how = "Double-click it or press Enter to use it (add Shift to keep the fill around it), or Esc to cancel.";
-    if (option.status === "works") return `Previewing ${word} with a full fill around it. ${how}`;
-    if (option.status === "fails") return `${word} breaks the grid: no fill can use it. Esc cancels the preview.`;
-    if (preview.checking || option.status === null) return `Previewing ${word} while looking for a fill that uses it. ${how}`;
-    return `Previewing ${word}. No fill found in time, so it may or may not work. ${how}`;
-  }
-
-  function useWord(withFill) {
-    const k = currentSlot();
-    if (!preview || k < 0 || running) return;
-    const slot = slots[k];
-    const { word, index } = preview;
-    const option = options.list[index];
-    const fill = withFill && option && option.fill;
-    edit(() => {
-      slot.cells.forEach((cell, p) => {
-        ink[cell] = word[p];
-        pencil[cell] = "";
-      });
-      if (fill) for (let i = 0; i < W * H; i++) if (!blocks[i] && !ink[i]) pencil[i] = fill[Math.floor(i / W)][i % W] || "";
-    });
-    setStatus("idle", fill ? `Used ${word} in ${slot.name}, with the fill around it in pencil.` : `Used ${word} in ${slot.name}.`);
-    input.focus({ preventScroll: true });
-  }
-
-  function cancelPreview() {
-    if (!preview) return;
-    preview = null;
-    render();
-    renderOptions();
-  }
-
-  function queueOptionsRender() {
-    if (optionsRenderQueued) return;
-    optionsRenderQueued = true;
-    setTimeout(() => {
-      optionsRenderQueued = false;
-      renderOptions();
-    }, 200);
-  }
-
-  // Option rows are kept between renders (by option index) and only updated and reordered, so a
-  // click that starts while check results pour in still lands on the row it started on.
-  const optionRows = new Map();
-  let optionRowsFor = null;
-
-  function optionRow(i, option) {
-    let row = optionRows.get(i);
-    if (!row) {
-      row = document.createElement("li");
-      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true"></span></button>`;
-      optionRows.set(i, row);
-    }
-    const button = row.firstChild;
-    const status = option.status || "pending";
-    if (button.dataset.status !== status) {
-      button.dataset.status = status;
-      button.lastChild.textContent = STATE_MARK[option.status] || "";
-      button.setAttribute("aria-label", `${option.word}, score ${option.score}, ${option.status ? STATE_WORDS[option.status] : "not checked yet"}`);
-    }
-    const pressed = String(Boolean(preview && preview.index === i));
-    if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
-    return row;
-  }
-  const STATE_WORDS = { works: "fills the grid", fails: "breaks the grid", unknown: "no fill found in time" };
-  const STATE_MARK = { works: "✓", fails: "✕", unknown: "?" };
-
-  function renderOptions() {
-    const listEl = $("options");
-    const summary = $("options-summary");
-    const note = $("options-note");
-    const list = options && options.list ? options.list : [];
-    let works = 0;
-    let fails = 0;
-    for (const option of list) {
-      if (option.status === "works") works++;
-      else if (option.status === "fails") fails++;
-    }
-    $("count-works").textContent = works;
-    $("count-open").textContent = list.length - works - fails;
-    $("count-fails").textContent = fails;
-
-    if (!options || options.message) {
-      listEl.replaceChildren();
-      optionRows.clear();
-      summary.textContent = "";
-      note.textContent = options ? options.message : "";
-      return;
-    }
-
-    // Confirmed words first, confirmed bad last; within each group, best score first (list order).
-    if (optionRowsFor !== list) {
-      optionRows.clear();
-      optionRowsFor = list;
-    }
-    const visible = [];
-    for (const group of ["works", "open", "fails"]) {
-      for (let i = 0; i < list.length && visible.length < VISIBLE_OPTIONS; i++) {
-        const status = list[i].status;
-        if ((status === "works" ? "works" : status === "fails" ? "fails" : "open") === group) visible.push(optionRow(i, list[i]));
-      }
-    }
-    const shown = listEl.children;
-    if (visible.length !== shown.length || visible.some((row, k) => shown[k] !== row)) {
-      const focused = listEl.contains(document.activeElement) ? document.activeElement : null;
-      listEl.replaceChildren(...visible);
-      if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
-    }
-
-    const checked = list.filter((o) => o.status !== null).length;
-    summary.textContent = options.total ? `${options.total.toLocaleString()} ${options.total === 1 ? "word fits" : "words fit"}` : "";
-    let text;
-    if (!list.length) text = `No word scoring ${minScore()} or more fits these letters. Lower the minimum score or change a letter.`;
-    else if (options.error) text = options.error;
-    else if (!options.done) text = running ? "Checking resumes when the fill finishes." : `Checking from the top down: ${checked} of ${list.length} done. Click a word to preview it.`;
-    else text = "Every word in the list has been checked. Click a word to preview it.";
-    if (list.length > VISIBLE_OPTIONS) text += ` Showing the first ${VISIBLE_OPTIONS} rows; words that work move up as they're found.`;
-    note.textContent = previewText() || text;
-  }
-
-  // --- editing ---
-
-  function typeLetter(letter) {
-    edit(() => {
-      if (blocks[sel]) setBlock(sel, false);
-      ink[sel] = letter;
-      pencil[sel] = "";
-      const next = step(sel, dir, 1);
-      if (next >= 0 && !blocks[next]) sel = next;
-    });
-  }
-
-  input.addEventListener("keydown", (event) => {
-    if (event.ctrlKey || event.metaKey || event.altKey) return; // shortcuts are handled on the document
-    const key = event.key;
-    if (/^[a-zA-Z]$/.test(key)) {
-      event.preventDefault();
-      typeLetter(key.toUpperCase());
-    } else if (key === " " || key === ".") {
-      event.preventDefault();
-      edit(() => setBlock(sel, !blocks[sel]));
-    } else if (key === "Backspace" || key === "Delete") {
-      event.preventDefault();
-      edit(() => {
-        if (blocks[sel]) {
-          setBlock(sel, false);
-          return;
-        }
-        if (key === "Backspace" && !ink[sel] && !pencil[sel]) {
-          const prev = step(sel, dir, -1);
-          if (prev >= 0 && !blocks[prev]) sel = prev;
-        }
-        ink[sel] = "";
-        pencil[sel] = "";
-      });
-    } else if (key === "Enter") {
-      event.preventDefault();
-      dir = other(dir);
-      render();
-    } else if (key.startsWith("Arrow")) {
-      event.preventDefault();
-      const axis = key === "ArrowLeft" || key === "ArrowRight" ? "across" : "down";
-      if (dir !== axis) dir = axis;
-      else {
-        const next = step(sel, axis, key === "ArrowLeft" || key === "ArrowUp" ? -1 : 1);
-        if (next >= 0) sel = next;
-      }
-      render();
-    }
+  $("start-new").addEventListener("click", () => {
+    location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
   });
 
-  // Phone keyboards often skip keydown for letters, so read what lands in the input.
-  input.addEventListener("input", () => {
-    const typed = input.value.toUpperCase();
-    input.value = "";
-    for (const ch of typed) {
-      if (/[A-Z]/.test(ch)) typeLetter(ch);
-      else if (ch === " " || ch === ".") edit(() => setBlock(sel, !blocks[sel]));
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && preview) {
-      cancelPreview();
-      return;
-    }
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    const target = event.target;
-    const typingElsewhere = target !== input && (target.tagName === "TEXTAREA" || target.tagName === "SELECT" ||
-      (target.tagName === "INPUT" && !["checkbox", "range", "button", "submit"].includes(target.type)));
-    if (typingElsewhere) return; // let fields undo their own text
-    const key = event.key.toLowerCase();
-    if (key === "z" && !event.shiftKey) {
-      event.preventDefault();
-      undo();
-    } else if (key === "y" || (key === "z" && event.shiftKey)) {
-      event.preventDefault();
-      redo();
-    }
-  });
-
-  gridEl.addEventListener("click", (event) => {
-    const el = event.target.closest(".cell");
-    if (!el) return;
-    const i = Number(el.dataset.i);
-    if (i === sel && !blocks[i]) dir = other(dir);
-    else sel = i;
-    input.focus({ preventScroll: true });
-    render();
-  });
-
-  document.querySelector(".entries").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-slot]");
+  // Deleting takes a second click, within a few seconds of the first.
+  $("puzzles").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove]");
     if (!button) return;
-    const slot = slots[Number(button.dataset.slot)];
-    sel = slot.cells[0];
-    dir = slot.direction;
-    render();
+    if (button.dataset.armed) {
+      const title = button.getAttribute("aria-label").replace(/^Delete /, "");
+      S.remove(button.dataset.remove);
+      renderPuzzles();
+      $("home-status").textContent = `Deleted “${title}”.`;
+      $("start-new").focus();
+      return;
+    }
+    button.dataset.armed = "true";
+    button.textContent = "Delete for good?";
+    button.classList.add("confirm");
+    setTimeout(() => {
+      if (!button.isConnected) return;
+      delete button.dataset.armed;
+      button.textContent = "Delete";
+      button.classList.remove("confirm");
+    }, 4000);
   });
 
-  // Clicking a word previews it in the grid. Double-click it, or press Enter on it, to use it; with
-  // Shift the fill found around it goes in as pencil too. Esc cancels the preview.
-  $("options").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-index]");
-    if (!button || !options || !options.list || running) return;
-    const index = Number(button.dataset.index);
-    if (preview && preview.index === index) return;
-    preview = { signature: options.signature, index, word: options.list[index].word, checking: false };
-    requestPreviewFill();
-    render();
-    renderOptions();
-  });
-  $("options").addEventListener("dblclick", (event) => {
-    if (event.target.closest("button[data-index]")) useWord(event.shiftKey);
-  });
-  $("options").addEventListener("keydown", (event) => {
-    const button = event.target.closest("button[data-index]");
-    if (event.key !== "Enter" || !button || !preview || preview.index !== Number(button.dataset.index)) return;
-    event.preventDefault();
-    useWord(event.shiftKey);
-  });
-
-  $("size-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const size = (field) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(Number($(field).value) || 15)));
-    const cols = size("cols");
-    const rows = size("rows");
-    edit(() => loadRows(blank(cols, rows)));
-    setStatus("idle", `New ${cols}×${rows} grid. Click a square and press Space to add a block.`);
-  });
-
-  $("example").addEventListener("change", () => {
-    const rows = EXAMPLES[$("example").value];
-    $("example").value = "";
-    if (!rows) return;
-    edit(() => loadRows(rows));
-    setStatus("idle", ready ? "Example loaded. Fill it, or change blocks and letters first." : "Loading the word list…");
-  });
-
-  minScoreEl.addEventListener("input", () => {
-    $("min-score-value").textContent = minScoreEl.value;
-    render();
-  });
-  symmetryEl.addEventListener("change", save);
-  tintEl.addEventListener("change", render);
-  allowPopularEl.addEventListener("change", render);
-  $("undo").addEventListener("click", undo);
-
-  // --- the clues page ---
-
-  /* The Clues tab shows how many of this grid's entries have a clue. */
-  function renderCluesLink() {
-    GridfillStore.renderTabs(slots, GridfillStore.loadClues());
-  }
+  // Keep the list current when a puzzle changes in another tab or the page comes back into view.
   window.addEventListener("storage", (event) => {
-    if (event.key === CLUE_STORE) renderCluesLink();
+    if (event.key === null || event.key.startsWith("fillmein:")) renderPuzzles();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) renderPuzzles();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") renderPuzzles();
   });
 
-  /* Clues used to be saved with the grid; hand them to the clues page's store once. */
-  function migrateClues(data) {
-    try {
-      if (!data.clues || typeof data.clues !== "object" || localStorage.getItem(CLUE_STORE)) return;
-      const clues = {};
-      for (const [key, text] of Object.entries(data.clues)) if (typeof text === "string") clues[key] = { text, answer: "" };
-      localStorage.setItem(CLUE_STORE, JSON.stringify({ v: 1, clues, meta: data.meta || {} }));
-    } catch (error) { /* storage unavailable */ }
-  }
-  $("redo").addEventListener("click", redo);
-
-  $("keep").addEventListener("click", () => {
-    const k = currentSlot();
-    if (k < 0) return;
-    edit(() => {
-      for (const i of slots[k].cells) if (pencil[i]) { ink[i] = pencil[i]; pencil[i] = ""; }
-    });
-    setStatus("idle", `${slots[k].name} is inked. Fill again and it stays put.`);
-  });
-
-  $("clear-entry").addEventListener("click", () => {
-    const k = currentSlot();
-    if (k < 0) return;
-    const slot = slots[k];
-    edit(() => {
-      // Keep letters that complete a crossing entry, unless that would leave nothing to clear.
-      const crossingDone = (cell) => {
-        const cross = slotAt[other(slot.direction)][cell];
-        return cross >= 0 && slots[cross].cells.every((i) => ink[i] || pencil[i]);
-      };
-      const loose = slot.cells.filter((cell) => (ink[cell] || pencil[cell]) && !crossingDone(cell));
-      for (const cell of loose.length ? loose : slot.cells) {
-        ink[cell] = "";
-        pencil[cell] = "";
-      }
-    });
-    setStatus("idle", `Cleared ${slot.name}.`);
-  });
-
-  $("erase").addEventListener("click", () => {
-    edit(() => pencil.fill(""));
-    setStatus("idle", "Pencil erased. Your inked letters are unchanged.");
-  });
-
-  $("clear").addEventListener("click", () => {
-    edit(() => { ink.fill(""); pencil.fill(""); });
-    setStatus("idle", "All letters cleared. Blocks are unchanged.");
-  });
-
-  // --- solver ---
-
-  /* Runs the solver in a worker when the page allows one, otherwise on this thread. */
-  const runner = {
-    worker: null, inline: false, words: null, count: 0,
-    onProgress: null, onResult: null, optionsId: -1, onOptions: null,
-
-    start() {
-      return new Promise((resolve, reject) => {
-        if (!window.GRIDFILL_WORDS) return reject(new Error("words.js didn't load"));
-        let worker = null;
-        let settled = false;
-        const useInline = () => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          if (worker) worker.terminate();
-          this.worker = null;
-          this.inline = true;
-          this.count = this.wordList().size;
-          resolve();
-        };
-        const timer = setTimeout(useInline, 15000);
-        try {
-          worker = new Worker("worker.js");
-        } catch (error) {
-          useInline();
-          return;
-        }
-        worker.onerror = (event) => {
-          if (!settled) {
-            event.preventDefault();
-            useInline();
-            return;
-          }
-          const done = this.onResult;
-          this.onResult = null;
-          if (done) done({ success: false, grid: null, reason: "The solver stopped unexpectedly. Try again.", stats: {} });
-        };
-        worker.onmessage = ({ data }) => {
-          if (data.type === "ready") {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            this.worker = worker;
-            this.count = data.count;
-            resolve();
-          } else if (data.type === "progress") {
-            if (this.onProgress) this.onProgress(data.rows, data.stats);
-          } else if (data.type === "result") {
-            const done = this.onResult;
-            this.onResult = null;
-            this.onProgress = null;
-            if (done) done(data.result);
-          } else if (data.type === "options") {
-            if (data.id === this.optionsId && this.onOptions) this.onOptions(data);
-          }
-        };
-      });
-    },
-
-    wordList() {
-      if (!this.words) this.words = new G.WordList(window.GRIDFILL_WORDS);
-      return this.words;
-    },
-
-    fill(grid, options, onProgress, onResult) {
-      this.cancelOptions();
-      if (this.inline) {
-        setTimeout(() => onResult(G.fill(grid, this.wordList(), { ...options, timeLimit: 10 })), 40);
-        return;
-      }
-      this.onProgress = onProgress;
-      this.onResult = onResult;
-      this.worker.postMessage({ type: "fill", grid, options });
-    },
-
-    checkOptions(id, grid, target, candidates, options, onOptions) {
-      this.optionsId = id;
-      this.onOptions = onOptions;
-      if (!this.inline) {
-        this.worker.postMessage({ type: "options", id, grid, target, candidates, options });
-        return;
-      }
-      // On this thread, keep each word's check short so the page stays responsive.
-      const check = G.checkOptions(grid, this.wordList(), target, candidates, { ...options, perWordSeconds: options.perWordSeconds > 0.5 ? 1 : 0.08 });
-      if (check.error) {
-        onOptions({ id, error: check.error });
-        return;
-      }
-      this.inlineCheck = check;
-      const work = () => {
-        if (this.optionsId !== id) return;
-        const { updates, done } = check.step(12);
-        onOptions({ id, updates, done });
-        if (!done) setTimeout(work, 0);
-      };
-      setTimeout(work, 0);
-    },
-
-    cancelOptions() {
-      this.optionsId = -1;
-      this.onOptions = null;
-      this.inlineCheck = null;
-      if (this.worker) this.worker.postMessage({ type: "cancel" });
-    },
-
-    /* Check candidate `index` of the running options check next, allowing it `seconds`. */
-    prioritize(id, index, seconds) {
-      if (this.optionsId !== id) return;
-      if (!this.inline) this.worker.postMessage({ type: "prioritize", id, index, seconds });
-      else if (this.inlineCheck) this.inlineCheck.prioritize(index, Math.min(seconds, 1));
-    },
-
-    stop() {
-      this.cancelOptions();
-      if (this.worker) this.worker.terminate();
-      this.worker = null;
-      this.onProgress = null;
-      this.onResult = null;
-    },
-  };
-
-  function applyRows(rows, reveal) {
-    let order = 0;
-    for (let i = 0; i < W * H; i++) {
-      if (blocks[i] || ink[i]) continue;
-      const letter = rows[Math.floor(i / W)][i % W];
-      pencil[i] = /^[A-Z]$/.test(letter) ? letter : "";
-      if (reveal && pencil[i]) {
-        fresh.add(i);
-        cellEls[i].style.setProperty("--d", `${Math.min(order++ * 6, 900)}ms`);
-      }
-    }
-  }
-
-  const seconds = (s) => (s < 0.1 ? "under 0.1 s" : `${s.toFixed(1)} s`);
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-  function finishFill() {
-    if (fillBefore && !sameContent(fillBefore)) remember(fillBefore);
-    fillBefore = null;
-  }
-
-  function runFill(variety) {
-    if (running || !ready) return;
-    const rows = solverRows();
-    fillBefore = snapshot();
-    preview = null;
-    running = true;
-    fresh.clear();
-    pencil.fill("");
-    render();
-    void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
-    setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: 30, variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2 };
-    runner.fill(
-      rows,
-      fillOptions,
-      (partial, stats) => {
-        applyRows(partial, false);
-        render();
-        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s, ${plural(stats.failures, "backtrack")}`);
-      },
-      (result) => {
-        running = false;
-        pencil.fill("");
-        if (result.success) {
-          render();
-          void gridEl.offsetWidth;
-          applyRows(result.grid, true);
-          setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.`);
-        } else {
-          setStatus("error", result.reason);
-        }
-        finishFill();
-        render();
-        resumeCheck();
-      }
-    );
-    updateButtons();
-  }
-
-  $("fill").addEventListener("click", () => runFill(false));
-  $("another").addEventListener("click", () => runFill(true));
-  $("stop").addEventListener("click", () => {
-    runner.stop();
-    running = false;
-    ready = false;
-    pencil.fill("");
-    finishFill();
-    render();
-    setStatus("idle", "Stopped. Your inked letters are unchanged.");
-    runner.start().then(() => {
-      ready = true;
-      updateButtons();
-      resumeCheck();
-    });
-  });
-
-  // --- saving and startup ---
-
-  function saved() {
-    return {
-      v: 2, W, H, sel, dir,
-      blocks: blocks.map((b) => (b ? "#" : ".")).join(""),
-      ink: ink.map((x) => x || ".").join(""),
-      pencil: pencil.map((x) => x || ".").join(""),
-      symmetry: symmetryEl.checked,
-      tint: tintEl.checked,
-      minScore: minScore(),
-      allowPopular: allowPopularEl.checked,
-    };
-  }
-
-  function save() {
-    try { localStorage.setItem(STORE, JSON.stringify(saved())); } catch (error) { /* storage unavailable */ }
-  }
-
-  function load(data) {
-    if (!data || !(data.v === 1 || data.v === 2)) return false;
-    if (!(data.W >= MIN_SIZE && data.W <= MAX_SIZE && data.H >= MIN_SIZE && data.H <= MAX_SIZE)) return false;
-    const n = data.W * data.H;
-    if ([data.blocks, data.ink, data.pencil].some((s) => typeof s !== "string" || s.length !== n)) return false;
-    W = data.W;
-    H = data.H;
-    blocks = Array.from(data.blocks, (ch) => ch === "#");
-    ink = Array.from(data.ink, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
-    pencil = Array.from(data.pencil, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
-    sel = Math.min(Math.max(0, data.sel | 0), n - 1);
-    dir = data.dir === "down" ? "down" : "across";
-    symmetryEl.checked = data.symmetry !== false;
-    if (typeof data.tint === "boolean") tintEl.checked = data.tint;
-    if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
-    if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
-    migrateClues(data);
-    $("min-score-value").textContent = minScoreEl.value;
-    buildGrid();
-    return true;
-  }
-
-  function start(hotData) {
-    let data = hotData && (hotData.v === 1 || hotData.v === 2) ? hotData : null;
-    if (!data) {
-      try { data = JSON.parse(localStorage.getItem(STORE) || localStorage.getItem("gridfill:v1")); } catch (error) { data = null; }
-    }
-    const restored = load(data);
-    if (!restored) loadRows(EXAMPLES.themed15);
-    if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(() => saved());
-
-    runner.start().then(
-      () => {
-        ready = true;
-        updateButtons();
-        if (restored) {
-          setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
-          resumeCheck();
-        } else {
-          runFill(false);
-        }
-      },
-      () => setStatus("error", "The word list didn't load. Reload the page to try again.")
-    );
-  }
-
-  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+  renderPuzzles();
 })();
 </script>
 </body>

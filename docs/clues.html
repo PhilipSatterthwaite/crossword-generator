@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gridfill Clues</title>
-<meta name="description" content="Write the clues for a Gridfill crossword.">
+<title>Clues · fillmein</title>
+<meta name="description" content="Write the clues for a fillmein crossword.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,16 +88,16 @@
 <body>
 <div class="page">
   <header class="masthead">
-    <a class="wordmark-link" href="index.html" aria-label="Gridfill, the grid page">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
       <span class="wordmark" aria-hidden="true">
-        <span><sup>1</sup>G</span><span>R</span><span>I</span><span>D</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>F</span><span class="fill-letter">I</span><span class="fill-letter">L</span><span class="fill-letter">L</span>
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
     <h1 class="lede">Write a clue for every entry. Changes on the Grid tab show up here as soon as you make them.</h1>
   </header>
 
   <nav class="tabs" aria-label="Pages">
-    <a class="tab" href="index.html">Grid</a>
+    <a class="tab" href="grid.html">Grid</a>
     <a class="tab" href="clues.html" aria-current="page">Clues <span class="tab-count" data-count="clues"></span></a>
     <a class="tab" href="export.html">Export</a>
   </nav>
@@ -109,7 +109,7 @@
   <section id="no-grid" class="empty-state" hidden>
     <h2>No grid yet</h2>
     <p>Clues follow the grid you build on the Grid tab. Build or fill one there, then come back to write its clues.</p>
-    <a class="btn primary" href="index.html">Go to the grid</a>
+    <a class="btn primary" href="grid.html">Go to the grid</a>
   </section>
 
   <main id="desk" class="desk" hidden>
@@ -139,6 +139,7 @@
 (() => {
   "use strict";
   const S = window.GridfillStore;
+  S.open(); // the puzzle in the address, or the most recently edited one
   const $ = (id) => document.getElementById(id);
 
   let grid = null;   // the grid saved by the Grid tab
