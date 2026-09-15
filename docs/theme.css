@@ -126,6 +126,64 @@ body {
 .wordmark .fill-letter { color: var(--pencil); font-weight: 600; }
 .wordmark .wm-block { background: var(--block); }
 .wordmark sup { position: absolute; top: 3px; left: 4px; font: 600 calc(var(--wm) * 0.22) / 1 var(--sans); color: var(--ink); }
+/* Account: the Sign in button, or who's signed in, at the masthead's far end. */
+.account {
+  margin-left: auto;
+  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-height: 32px;
+  font-size: 14px;
+}
+.account-name { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.account-sync:empty { display: none; }
+.account-sync[data-state="error"] { font-size: 13px; color: var(--danger); }
+
+/* Sign-in dialog, opened by account.js. */
+.sign-in {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.sign-in::backdrop { background: rgb(17 20 24 / 0.5); }
+.sign-in-form { display: grid; gap: 14px; padding: 22px; }
+.sign-in-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sign-in h2 { margin: 0; font: 600 24px / 1.2 var(--serif); }
+.sign-in-lede { margin: 0; color: var(--muted); }
+.sign-in .btn.google { padding: 11px 12px; }
+.or { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 13px; color: var(--muted); }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--rule); }
+.sign-in .text-field { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.sign-in .text-field input {
+  padding: 9px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  background: var(--cell);
+  color: var(--ink);
+  font: 500 15px var(--sans);
+}
+.sign-in-message { margin: 0; font-size: 14px; }
+.sign-in-message:empty { display: none; }
+.sign-in-message[data-tone="error"] { color: var(--danger); }
+.link-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pencil);
+  font: 500 14px var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.btn.small { padding: 6px 9px; font-size: 13px; }
+
 .lede { margin: 0; max-width: 46ch; font: italic 400 19px / 1.4 var(--serif); color: var(--muted); text-wrap: pretty; }
 
 /* Page tabs: they sit on the ruled line that tops each page's working area

@@ -1,0 +1,16 @@
+rules_version = '2';
+// Firestore access rules for fillmein.org. Paste into the Firebase console (Firestore Database -> Rules)
+// and Publish whenever this file changes; web/account.js is what reads and writes these documents.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each account's puzzles: only that account can read or write them.
+    match /users/{uid}/puzzles/{puzzleId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(["created", "updated", "parts", "grid", "clues", "details"])
+        && request.resource.data.get("grid", "").size() < 200000
+        && request.resource.data.get("clues", "").size() < 200000
+        && request.resource.data.get("details", "").size() < 20000;
+    }
+  }
+}

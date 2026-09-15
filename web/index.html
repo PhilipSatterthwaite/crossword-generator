@@ -60,7 +60,7 @@
   .puzzle a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .puzzle a::after { content: ""; }
   .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .btn.small { padding: 6px 9px; font-size: 13px; }
+  .note .link-button { font-size: inherit; }
   .btn.confirm { border-color: var(--danger); color: var(--danger); font-weight: 600; }
   .home-status { margin: 0; font-size: 13px; color: var(--muted); }
   .home-status:empty { display: none; }
@@ -84,6 +84,7 @@
       </span>
     </h1>
     <p class="lede">Make crosswords with a scored word list and an autofill that knows real crossword fill.</p>
+    <div class="account" data-account></div>
   </header>
 
   <main class="choices">
@@ -98,19 +99,21 @@
       <p id="no-puzzles">Puzzles you start show up here, so you can pick up where you left off.</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
       <p id="home-status" class="home-status" role="status"></p>
-      <p class="note">Saved in this browser for now. Accounts are on the way, so your puzzles can follow you to any device.</p>
+      <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to save your puzzles to your account and pick them up on any device. Until then they're saved in this browser.</p>
+      <p class="note" data-signed-in hidden>Saved to your account, so they're here on every device you sign in on.</p>
     </section>
 
     <section class="choice" aria-labelledby="explore-title">
       <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">Solve published puzzles</h2></div>
       <p>Browse crosswords that other constructors publish on fillmein, and solve them right here.</p>
-      <span class="soon">Coming with accounts</span>
+      <span class="soon">Coming soon</span>
     </section>
   </main>
 </div>
 
 <script src="filler.js"></script>
 <script src="store.js"></script>
+<script type="module" src="account.js"></script>
 <script>
 (() => {
   "use strict";
@@ -221,7 +224,13 @@
     }, 4000);
   });
 
-  // Keep the list current when a puzzle changes in another tab or the page comes back into view.
+  // Keep the list current when a puzzle changes in another tab, comes down from the account, or the
+  // page comes back into view.
+  let redraw = 0;
+  window.addEventListener("fillmein:changed", () => {
+    cancelAnimationFrame(redraw);
+    redraw = requestAnimationFrame(renderPuzzles);
+  });
   window.addEventListener("storage", (event) => {
     if (event.key === null || event.key.startsWith("fillmein:")) renderPuzzles();
   });

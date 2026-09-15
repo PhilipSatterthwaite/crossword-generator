@@ -41,7 +41,7 @@ def main():
     SITE.mkdir(exist_ok=True)
     (SITE / "grid.html").write_text(f"{HEAD}{head}</head>\n<body>\n{marker}{body}</body>\n</html>\n", encoding="utf-8")
     # The other pages are complete documents already; only grid.html needs the wrapper.
-    for name in ("index.html", "clues.html", "export.html", "theme.css", "store.js", "filler.js", "exporters.js", "worker.js", "words.js"):
+    for name in ("index.html", "clues.html", "export.html", "theme.css", "store.js", "account.js", "filler.js", "exporters.js", "worker.js", "words.js"):
         shutil.copyfile(HERE / name, SITE / name)
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
     (SITE / "CNAME").write_text(f"{DOMAIN}\n", encoding="utf-8")  # the domain GitHub Pages serves it at

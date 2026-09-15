@@ -119,6 +119,7 @@
       </span>
     </a>
     <h1 class="lede">Name the puzzle, check it's finished, then download it or print it.</h1>
+    <div class="account" data-account></div>
   </header>
 
   <nav class="tabs" aria-label="Pages">
@@ -166,7 +167,7 @@
         <p id="export-status" class="export-status" role="status"></p>
       </section>
 
-      <p class="save-note">Your grid, clues and details save automatically in this browser as you work. Download an .ipuz to keep a copy anywhere else.</p>
+      <p class="save-note">Your grid, clues and details save automatically as you work: to your account when you're signed in, and in this browser either way. Download an .ipuz to keep a copy anywhere else.</p>
     </aside>
 
     <section aria-labelledby="preview-title">
@@ -181,6 +182,7 @@
 <script src="filler.js"></script>
 <script src="exporters.js"></script>
 <script src="store.js"></script>
+<script type="module" src="account.js"></script>
 <script>
 (() => {
   "use strict";

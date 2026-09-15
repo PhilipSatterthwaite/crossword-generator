@@ -2,7 +2,8 @@
    (grid.html?p=ID), and is saved in three parts so tabs open side by side never overwrite each other:
    the Grid page saves the grid, the Clues page the clues, the Export page the puzzle's details. An index
    lists the puzzles for the home page. Pages redraw when another tab (or the Back button) changes their
-   puzzle. Everything is saved in this browser. Needs filler.js for Gridfill.parseGrid. */
+   puzzle. Everything is saved in this browser; account.js copies it to a signed-in account and back.
+   Needs filler.js for Gridfill.parseGrid. */
 (function (root) {
   "use strict";
 
@@ -20,6 +21,10 @@
   const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
   const keysFor = (pid) => ({ grid: `fillmein:${pid}:grid`, clues: `fillmein:${pid}:clues`, details: `fillmein:${pid}:details` });
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  /* Tell this tab's other scripts that a puzzle changed: "fillmein:saved" for edits made in this browser
+     (account.js sends them up to the account), "fillmein:changed" for anything that changed underneath
+     the page, such as a newer copy that came down from the account. */
+  const announce = (type, pid, part) => root.dispatchEvent(new CustomEvent(type, { detail: { id: pid, part } }));
 
   let id = null; // the puzzle this page shows, once open() has found it
 
@@ -60,12 +65,20 @@
   }
 
   function remove(pid) {
+    forget(pid);
+    announce("fillmein:saved", pid, "deleted");
+  }
+
+  /* Drop a puzzle from this browser only: account.js does this for puzzles deleted on another device,
+     or kept in an account that has signed out. */
+  function forget(pid) {
     const index = readIndex();
     delete index.puzzles[pid];
     write(INDEX, index);
     try {
       for (const key of Object.values(keysFor(pid))) localStorage.removeItem(key);
     } catch (error) { /* storage unavailable */ }
+    announce("fillmein:changed", pid, "deleted");
   }
 
   /* Find the puzzle named in the page's address (or, with no name, the most recently edited one) and
@@ -99,12 +112,17 @@
     }
   }
 
-  /* Mark the page's puzzle as just edited, which orders the home page's list. */
-  function touch() {
+  /* Mark part of the page's puzzle (grid, clues or details) as just saved: this orders the home page's
+     list and tells account.js which copy of the part is newest. */
+  function touch(part) {
     if (!id) return;
     const index = readIndex();
-    index.puzzles[id] = { created: Date.now(), ...index.puzzles[id], updated: Date.now() };
+    const now = Date.now();
+    const entry = { created: now, ...index.puzzles[id], updated: now };
+    entry.parts = { ...entry.parts, [part]: now };
+    index.puzzles[id] = entry;
     write(INDEX, index);
+    announce("fillmein:saved", id, part);
   }
 
   /* The Grid page's saved state, just as it wrote it, or null. */
@@ -119,7 +137,7 @@
     } catch (error) {
       return;
     }
-    touch();
+    touch("grid");
   }
 
   /* A saved grid as {W, H, blocks, letters, slots}, or null if the Grid page hasn't saved one. */
@@ -160,7 +178,7 @@
   function saveClues(clues) {
     if (!id) return;
     write(keysFor(id).clues, { v: 1, clues });
-    touch();
+    touch("clues");
   }
 
   /* The puzzle's title, author, copyright and notes. */
@@ -175,7 +193,37 @@
   function saveDetails(details) {
     if (!id) return;
     write(keysFor(id).details, details);
-    touch();
+    touch("details");
+  }
+
+  // --- for account.js ---
+
+  /* The index's entries as saved: {id: {created, updated, parts: {grid, clues, details}, owner}}. */
+  const entries = () => readIndex().puzzles;
+
+  /* When a part was last saved in this browser; puzzles saved before parts were timed use their last edit. */
+  const partTime = (entry, part) => (entry && ((entry.parts && entry.parts[part]) || entry.updated)) || 0;
+
+  /* A part just as it was saved, or null. */
+  const partData = (pid, part) => read(keysFor(pid)[part]);
+
+  /* Save a newer copy of a part that came from the account, without announcing it as an edit to send back. */
+  function applyRemote(pid, part, value, time) {
+    const index = readIndex();
+    const entry = { created: time, updated: 0, ...index.puzzles[pid] };
+    entry.parts = { ...entry.parts, [part]: time };
+    entry.updated = Math.max(entry.updated || 0, time);
+    index.puzzles[pid] = entry;
+    write(INDEX, index);
+    write(keysFor(pid)[part], value);
+    announce("fillmein:changed", pid, part);
+  }
+
+  /* Record the account a puzzle is kept in, adding the puzzle to the index if it's new to this browser. */
+  function setOwner(pid, owner, created) {
+    const index = readIndex();
+    index.puzzles[pid] = { created: created || Date.now(), updated: 0, ...index.puzzles[pid], owner };
+    write(INDEX, index);
   }
 
   const answerOf = (grid, slot) => slot.cells.map((i) => grid.letters[i]).join("");
@@ -210,6 +258,9 @@
     root.addEventListener("storage", (event) => {
       if (event.key === null || (id && Object.values(keysFor(id)).includes(event.key))) redraw();
     });
+    root.addEventListener("fillmein:changed", (event) => {
+      if (event.detail.id === id) redraw();
+    });
     // The Back button can restore an old copy of a page from the browser's cache.
     root.addEventListener("pageshow", (event) => {
       if (event.persisted) redraw();
@@ -228,7 +279,8 @@
 
   root.GridfillStore = {
     INDEX, META_FIELDS,
-    open, list, create, remove, keys, href, linkPages,
+    open, list, create, remove, forget, keys, href, linkPages,
+    entries, partTime, partData, applyRemote, setOwner,
     clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs,
   };
