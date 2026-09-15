@@ -400,9 +400,11 @@
   .entries ol { list-style: none; margin: 0; padding: 0; columns: 2 13rem; column-gap: 24px; }
   .entries li { break-inside: avoid; }
   .entries button {
-    display: flex;
+    display: grid;
+    grid-template-columns: 2.6ch minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
+    column-gap: 10px;
+    row-gap: 1px;
     width: 100%;
     padding: 3px 6px;
     border: 0;
@@ -422,6 +424,76 @@
   .w .p { color: var(--pencil); font-weight: 500; }
   .w .e { color: var(--rule); }
   .note { margin: 0; max-width: 75ch; font-size: 13px; color: var(--muted); }
+  .entries .cl { grid-column: 2 / -1; font: 400 13px / 1.35 var(--serif); color: var(--ink); letter-spacing: 0; overflow-wrap: anywhere; }
+  .entries .cl.none { color: var(--muted); font-style: italic; }
+  a.btn { display: inline-block; text-decoration: none; }
+
+  .clue-field { display: grid; gap: 4px; }
+  .clue-field input, .text-field input, .text-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 400 16px / 1.4 var(--serif);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .clue-field input:disabled { opacity: 0.5; }
+
+  /* Details and export */
+  .publish { display: grid; gap: 14px; padding-top: 20px; border-top: 1.5px solid var(--ink); }
+  .publish h2 { margin: 0; font: 600 24px / 1.2 var(--serif); }
+  .details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px 20px; }
+  .text-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .text-field.wide { grid-column: 1 / -1; }
+  .export-check, .export-status { margin: 0; font-size: 14px; }
+  .export-check { color: var(--muted); }
+  .export-status { min-height: 1.4em; }
+
+  /* Printing shows only the puzzle sheet: the blank puzzle and clues, then the answer key. */
+  #print-sheet { display: none; }
+  .print-page + .print-page { break-before: page; }
+  .print-head h1 { margin: 0; font: 600 20pt / 1.2 var(--serif); }
+  .print-head p { margin: 2pt 0 0; font: 10pt var(--sans); }
+  .print-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    width: min(100%, calc(var(--cols) * 0.34in));
+    margin: 12pt 0 14pt;
+    border: 1.5pt solid #000;
+    container-type: inline-size;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-grid .pr { display: contents; }
+  .print-grid .pc {
+    position: relative;
+    box-sizing: border-box;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-right: 0.75pt solid #000;
+    border-bottom: 0.75pt solid #000;
+    font: 600 calc(100cqi / var(--cols) * 0.5) / 1 var(--sans);
+  }
+  .print-grid .pr .pc:last-child { border-right: 0; }
+  .print-grid .pr:last-child .pc { border-bottom: 0; }
+  .print-grid .pc.b { background: #000; }
+  .print-grid .pn { position: absolute; top: 1pt; left: 2pt; font: 600 calc(100cqi / var(--cols) * 0.2) / 1 var(--sans); }
+  .print-clues { columns: 2; column-gap: 0.35in; font: 10pt / 1.3 var(--serif); }
+  .print-clues h2 { margin: 0 0 4pt; font: 700 11pt var(--sans); break-after: avoid; }
+  .print-clues p { margin: 0 0 3pt; break-inside: avoid; }
+  .print-clues b { display: inline-block; min-width: 1.8em; font-family: var(--sans); }
+  .print-note { margin-top: 10pt; font: 9pt var(--sans); }
+  @media print {
+    @page { margin: 0.6in; }
+    body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+    .page { display: none !important; }
+    #print-sheet { display: block; color: #000; }
+  }
 
   @media (max-width: 880px) {
     .bench { grid-template-columns: minmax(0, 1fr); }
@@ -474,6 +546,7 @@
       <div class="control-group">
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
         <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
+        <a href="#publish" class="btn quiet">Export…</a>
       </div>
     </div>
     <div class="control-row">
@@ -515,6 +588,10 @@
         <span class="label">Selected entry</span>
         <div class="entry-title"><span id="sel-name">–</span><span id="sel-score"></span></div>
         <div id="sel-letters" class="pattern" aria-hidden="true"></div>
+        <label class="clue-field">
+          <span class="label">Clue</span>
+          <input id="clue-input" type="text" autocomplete="off" spellcheck="true" placeholder="Write a clue; Enter goes to the next entry" disabled>
+        </label>
         <div class="actions">
           <button type="button" id="keep" class="btn quiet">Ink the pencil letters</button>
           <button type="button" id="clear-entry" class="btn quiet">Clear entry</button>
@@ -557,11 +634,33 @@
     <div><h2>Across</h2><ol id="across"></ol></div>
     <div><h2>Down</h2><ol id="down"></ol></div>
   </section>
+
+  <section id="publish" class="publish" aria-labelledby="publish-title">
+    <h2 id="publish-title">Details and export</h2>
+    <div class="details">
+      <label class="text-field">Title <input id="meta-title" type="text" autocomplete="off"></label>
+      <label class="text-field">Author <input id="meta-author" type="text" autocomplete="off"></label>
+      <label class="text-field">Copyright <input id="meta-copyright" type="text" autocomplete="off" placeholder="© 2026 Your Name"></label>
+      <label class="text-field wide">Notes <textarea id="meta-notes" rows="2"></textarea></label>
+    </div>
+    <p id="export-check" class="export-check"></p>
+    <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://philipsatterthwaite.github.io/crossword-generator/">philipsatterthwaite.github.io/crossword-generator</a>.</p>
+    <div class="actions">
+      <button type="button" class="btn primary" data-export="puz">Download .puz</button>
+      <button type="button" class="btn" data-export="ipuz">Download .ipuz</button>
+      <button type="button" class="btn" data-export="jpz">Download .jpz</button>
+      <button type="button" id="print-puzzle" class="btn">Print or save as PDF</button>
+    </div>
+    <p id="export-status" class="export-status" role="status"></p>
+  </section>
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
 </div>
 
+<div id="print-sheet" aria-hidden="true"></div>
+
 <script src="words.js"></script>
 <script src="filler.js"></script>
+<script src="exporters.js"></script>
 <script>
 (() => {
   "use strict";
@@ -650,6 +749,9 @@
   const fresh = new Set();
   let running = false, ready = false;
   let fillBefore = null;
+  let clues = {};                                          // clue text by where its entry starts
+  let meta = { title: "", author: "", copyright: "", notes: "" };
+  const clueKey = (slot) => `${slot.direction}:${slot.row},${slot.col}`;
   const past = [];
   const future = [];
 
@@ -725,7 +827,7 @@
 
   // --- undo and redo ---
 
-  const snapshot = () => ({ W, H, blocks: blocks.slice(), ink: ink.slice(), pencil: pencil.slice(), sel, dir });
+  const snapshot = () => ({ W, H, blocks: blocks.slice(), ink: ink.slice(), pencil: pencil.slice(), clues: { ...clues }, sel, dir });
 
   const sameContent = (state) =>
     state.W === W && state.H === H &&
@@ -746,6 +848,8 @@
     blocks = state.blocks.slice();
     ink = state.ink.slice();
     pencil = state.pencil.slice();
+    clues = { ...state.clues };
+    $("clue-input").dataset.key = ""; // refresh the clue box
     sel = state.sel;
     dir = state.dir;
     fresh.clear();
@@ -879,13 +983,14 @@
       $("sel-score").innerHTML = "";
       $("sel-letters").innerHTML = "";
     }
+    syncClueInput(k);
 
     // Entry lists
     const lists = { across: [], down: [] };
     slots.forEach((slot, j) => {
       const chip = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
       lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}</button></li>`
+        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}${clueLine(slot)}</button></li>`
       );
     });
     $("across").innerHTML = lists.across.join("");
@@ -909,6 +1014,7 @@
     $("t-sym").textContent = symmetric ? "Rotational" : "None";
     $("t-sym-cap").textContent = symmetric ? "blocks match when turned 180°" : "most published grids are symmetric";
 
+    renderExportCheck();
     updateButtons();
     save();
   }
@@ -1234,7 +1340,8 @@
     }
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const target = event.target;
-    const typingElsewhere = target !== input && (target.tagName === "TEXTAREA" || target.tagName === "SELECT" || (target.tagName === "INPUT" && target.type === "number"));
+    const typingElsewhere = target !== input && (target.tagName === "TEXTAREA" || target.tagName === "SELECT" ||
+      (target.tagName === "INPUT" && !["checkbox", "range", "button", "submit"].includes(target.type)));
     if (typingElsewhere) return; // let fields undo their own text
     const key = event.key.toLowerCase();
     if (key === "z" && !event.shiftKey) {
@@ -1263,6 +1370,7 @@
     sel = slot.cells[0];
     dir = slot.direction;
     render();
+    $("clue-input").focus({ preventScroll: true });
   });
 
   // Clicking a word previews it in the grid; double-clicking uses it.
@@ -1288,7 +1396,10 @@
     const size = (field) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(Number($(field).value) || 15)));
     const cols = size("cols");
     const rows = size("rows");
-    edit(() => loadRows(blank(cols, rows)));
+    edit(() => {
+      clues = {};
+      loadRows(blank(cols, rows));
+    });
     setStatus("idle", `New ${cols}×${rows} grid. Click a square and press Space to add a block.`);
   });
 
@@ -1296,7 +1407,10 @@
     const rows = EXAMPLES[$("example").value];
     $("example").value = "";
     if (!rows) return;
-    edit(() => loadRows(rows));
+    edit(() => {
+      clues = {};
+      loadRows(rows);
+    });
     setStatus("idle", ready ? "Example loaded. Fill it, or change blocks and letters first." : "Loading the word list…");
   });
 
@@ -1308,6 +1422,149 @@
   tintEl.addEventListener("change", render);
   allowPopularEl.addEventListener("change", render);
   $("undo").addEventListener("click", undo);
+
+  // --- clues, details and export ---
+
+  const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+
+  const clueLine = (slot) => {
+    const clue = clues[clueKey(slot)];
+    return clue ? `<span class="cl">${escapeHtml(clue)}</span>` : '<span class="cl none">No clue yet</span>';
+  };
+
+  /* Point the clue box at the selected entry without clobbering what's being typed. */
+  function syncClueInput(k) {
+    const box = $("clue-input");
+    const key = k >= 0 ? clueKey(slots[k]) : "";
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    box.value = key ? clues[key] || "" : "";
+    box.disabled = !key;
+    box.setAttribute("aria-label", key ? `Clue for ${slots[k].name}` : "Clue");
+  }
+
+  // A stretch of clue typing counts as one undo step.
+  let clueBefore = null;
+  function commitClueEdit() {
+    if (clueBefore && JSON.stringify(clueBefore.clues) !== JSON.stringify(clues)) {
+      remember(clueBefore);
+      updateButtons();
+    }
+    clueBefore = null;
+  }
+
+  const clueBox = $("clue-input");
+  clueBox.addEventListener("focus", () => (clueBefore = snapshot()));
+  clueBox.addEventListener("blur", commitClueEdit);
+  clueBox.addEventListener("input", () => {
+    const key = clueBox.dataset.key;
+    if (!key) return;
+    if (clueBox.value.trim()) clues[key] = clueBox.value;
+    else delete clues[key];
+    render();
+  });
+  clueBox.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      input.focus({ preventScroll: true });
+      return;
+    }
+    if (event.key !== "Enter") return;
+    // Enter moves to the next entry and Shift+Enter to the previous: all acrosses, then all downs.
+    event.preventDefault();
+    commitClueEdit();
+    const order = [...slots.filter((s) => s.direction === "across"), ...slots.filter((s) => s.direction === "down")];
+    const k = currentSlot();
+    const at = k >= 0 ? order.indexOf(slots[k]) : -1;
+    const next = order[(at + (event.shiftKey ? -1 : 1) + order.length) % order.length];
+    if (!next) return;
+    sel = next.cells[0];
+    dir = next.direction;
+    render();
+    clueBefore = snapshot();
+  });
+
+  const META_FIELDS = ["title", "author", "copyright", "notes"];
+  for (const field of META_FIELDS) {
+    $(`meta-${field}`).addEventListener("input", (event) => {
+      meta[field] = event.target.value;
+      save();
+    });
+  }
+
+  /* The puzzle as the exporters take it: the grid's letters, every entry and its clue, and the details. */
+  function puzzleForExport() {
+    const letterAt = (i) => ink[i] || pencil[i] || "";
+    return {
+      width: W,
+      height: H,
+      cells: blocks.map((b, i) => (b ? "#" : letterAt(i))),
+      entries: slots.map((slot) => ({
+        number: slot.number,
+        direction: slot.direction,
+        row: slot.row,
+        col: slot.col,
+        length: slot.cells.length,
+        answer: slot.cells.map(letterAt).join(""),
+        clue: clues[clueKey(slot)] || "",
+      })),
+      ...meta,
+    };
+  }
+
+  function renderExportCheck() {
+    const { empty, unclued } = GridExport.problems(puzzleForExport());
+    const todo = [];
+    if (empty) todo.push(`${empty} empty ${empty === 1 ? "square" : "squares"} (.puz and .jpz need a full grid)`);
+    if (unclued) todo.push(`${unclued} ${unclued === 1 ? "entry" : "entries"} without a clue`);
+    $("export-check").textContent = todo.length ? `Still to do: ${todo.join("; ")}.` : "Every square is filled and every entry has a clue.";
+  }
+
+  const fileBase = () => meta.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gridfill-puzzle";
+
+  function download(filename, data, type) {
+    const url = URL.createObjectURL(new Blob([data], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  const FORMATS = {
+    puz: [(puzzle) => GridExport.toPuz(puzzle), "application/x-crossword"],
+    ipuz: [(puzzle) => GridExport.toIpuz(puzzle), "application/json"],
+    jpz: [(puzzle) => GridExport.toJpz(puzzle), "application/xml"],
+  };
+  $("publish").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-export]");
+    if (!button) return;
+    const [make, type] = FORMATS[button.dataset.export];
+    const filename = `${fileBase()}.${button.dataset.export}`;
+    try {
+      download(filename, make(puzzleForExport()), type);
+      $("export-status").textContent = `Downloaded ${filename}.`;
+    } catch (error) {
+      $("export-status").textContent = error.message;
+    }
+  });
+
+  $("print-puzzle").addEventListener("click", () => {
+    $("print-sheet").innerHTML = GridExport.toPrintHtml(puzzleForExport());
+    try {
+      window.print();
+    } catch (error) {
+      $("export-status").textContent = "This page can't open the print dialog here. Print from the GitHub Pages site instead.";
+    }
+  });
+
+  // Inside the claude.ai viewer, pages can't download .puz/.ipuz/.jpz files or open the print
+  // dialog, so point to the hosted site there instead of showing buttons that do nothing.
+  if (window.claude && typeof window.claude.use === "function") {
+    $("export-elsewhere").hidden = false;
+    document.querySelector("#publish .actions").hidden = true;
+  }
   $("redo").addEventListener("click", redo);
 
   $("keep").addEventListener("click", () => {
@@ -1560,6 +1817,8 @@
       tint: tintEl.checked,
       minScore: minScore(),
       allowPopular: allowPopularEl.checked,
+      clues,
+      meta,
     };
   }
 
@@ -1583,6 +1842,12 @@
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
     if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
+    clues = data.clues && typeof data.clues === "object" ? { ...data.clues } : {};
+    for (const field of META_FIELDS) {
+      meta[field] = typeof (data.meta || {})[field] === "string" ? data.meta[field] : "";
+      $(`meta-${field}`).value = meta[field];
+    }
+    $("clue-input").dataset.key = "";
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();
     return true;
