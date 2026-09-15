@@ -1,5 +1,5 @@
 """Build docs/: a standalone copy of the web page for static hosting. GitHub Pages serves it
-from the main branch's docs/ folder.
+from the main branch's docs/ folder at https://fillmein.org.
 
 Run: python web/build_site.py
 
@@ -14,7 +14,9 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 SITE = HERE.parent / "docs"
+DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
+PAGES = ("index.html", "clues.html", "export.html")
 
 HEAD = """<!doctype html>
 <html lang="en">
@@ -42,6 +44,20 @@ def main():
     for name in ("clues.html", "export.html", "theme.css", "store.js", "filler.js", "exporters.js", "worker.js", "words.js"):
         shutil.copyfile(HERE / name, SITE / name)
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages
+    (SITE / "CNAME").write_text(f"{DOMAIN}\n", encoding="utf-8")  # the domain GitHub Pages serves it at
+
+    # The site used to live at philipsatterthwaite.github.io/crossword-generator/docs/, and GitHub forwards
+    # that address to the same path on the domain, so old links land in docs/docs/: send them on.
+    moved = SITE / "docs"
+    moved.mkdir(exist_ok=True)
+    for name in PAGES:
+        target = "/" if name == "index.html" else f"/{name}"
+        (moved / name).write_text(
+            f'<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url={target}">\n'
+            f'<link rel="canonical" href="https://{DOMAIN}{target}">\n<title>This page has moved</title>\n'
+            f'<a href="{target}">This page is now at {DOMAIN}{target}</a>\n',
+            encoding="utf-8",
+        )
     size = sum(p.stat().st_size for p in SITE.iterdir() if p.is_file())
     print(f"built {SITE} ({size // 1024} KB)")
 
