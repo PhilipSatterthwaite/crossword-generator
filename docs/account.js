@@ -20,7 +20,9 @@ const FIRESTORE = "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore
 // firestore.rules are what keep each account's puzzles private.
 const CONFIG = {
   apiKey: "AIzaSyAib6wDX8oBLXw3y66PF9W2k5C7igeUDBI",
-  authDomain: "fillmein-87a2d.firebaseapp.com",
+  // Sign-in runs through the site's own domain (the helper pages in web/__/auth/), so Google's account
+  // chooser says "continue to fillmein.org" and the sign-in window isn't third-party.
+  authDomain: "fillmein.org",
   projectId: "fillmein-87a2d",
   storageBucket: "fillmein-87a2d.firebasestorage.app",
   messagingSenderId: "721963482530",
