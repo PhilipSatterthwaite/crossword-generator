@@ -304,7 +304,7 @@ body {
 .lede { margin: 0; max-width: 46ch; font: italic 400 19px / 1.4 var(--serif); color: var(--muted); text-wrap: pretty; }
 
 /* The foot of every page: a few quiet links. */
-.site-foot { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--line-soft); font-size: 13px; color: var(--muted); }
+.site-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--line-soft); font-size: 13px; color: var(--muted); }
 .site-foot a { color: var(--muted); text-decoration: none; padding-block: 4px; }
 .site-foot a:hover, .site-foot a[aria-current="page"] { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 

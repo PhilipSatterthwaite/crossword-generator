@@ -43,6 +43,10 @@
   .address .sep { color: var(--muted); }
 
   .panes { display: grid; grid-template-columns: 224px minmax(0, 1fr); }
+  .panes[data-tree="false"] { grid-template-columns: minmax(0, 1fr); }
+  .panes[data-tree="false"] .tree-pane { display: none; }
+  .tree.over { outline: 2px dashed var(--focus); outline-offset: 4px; border-radius: 8px; }
+  .toolbar .btn.over { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); }
   .tree-pane { border-right: 1px solid var(--line-soft); background: var(--surface); padding: 10px 8px 14px; }
   .tree-head { padding: 2px 10px 8px; font: 700 11px var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
   .tree { list-style: none; margin: 0; padding: 0; }
@@ -170,7 +174,6 @@
   const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
   const SVG = "http://www.w3.org/2000/svg";
-  const ROOT = "My puzzles";
   const OPEN_KEY = "fillmein:folders-open";
 
   let here = "";          // the folder being looked at; "" is the top
@@ -487,7 +490,7 @@
       const sure = await window.fillmeinConfirm({
         title: `Delete the folder “${nameOf(folder)}”?`,
         text: inside.length
-          ? `Its ${inside.length} ${inside.length === 1 ? "puzzle moves" : "puzzles move"} to ${out ? `“${nameOf(out)}”` : ROOT}; nothing is lost.`
+          ? `Its ${inside.length} ${inside.length === 1 ? "puzzle moves" : "puzzles move"} to ${out ? `“${nameOf(out)}”` : "the top level"}; nothing is lost.`
           : "The folder is empty, so nothing else changes.",
         confirm: "Delete folder",
       });
@@ -611,7 +614,7 @@
     node.setAttribute("aria-current", String(folder === here));
 
     const kids = childrenOf(folder, folders);
-    const open = !folder || expanded.has(folder);
+    const open = expanded.has(folder);
     const twisty = document.createElement("button");
     twisty.type = "button";
     twisty.className = `twisty${kids.length ? "" : " hidden"}`;
@@ -628,17 +631,17 @@
 
     const label = document.createElement("span");
     label.className = "node-name";
-    label.textContent = folder ? nameOf(folder) : ROOT;
+    label.textContent = nameOf(folder);
     const pill = document.createElement("span");
     pill.className = "tally";
-    pill.textContent = String(folder ? tally(folder, puzzles) : puzzles.length);
+    pill.textContent = String(tally(folder, puzzles));
 
-    node.append(twisty, folderIcon(folder ? 18 : 18), label, pill);
+    node.append(twisty, folderIcon(18), label, pill);
     node.tabIndex = 0;
     node.addEventListener("click", () => {
       here = folder;
       picked = null;
-      if (folder) expanded.add(folder);
+      expanded.add(folder);
       saveOpen();
       render();
     });
@@ -649,7 +652,7 @@
       node.click();
     });
     dropTarget(node, folder);
-    if (folder) dragSource(node, "folder", folder);
+    dragSource(node, "folder", folder);
     line.append(node);
 
     const lines = [line];
@@ -666,10 +669,12 @@
     const names = here.split("/").filter(Boolean);
     names.forEach((_, i) => expanded.add(names.slice(0, i + 1).join("/")));
 
-    // Address bar: My puzzles › a folder › the folder inside it, and every crumb takes a drop.
+    // Address bar: the folder you're in and the folders above it, every crumb taking a drop. At the top
+    // there's nothing to name, so the bar goes away.
     const address = $("address");
     address.replaceChildren();
-    const steps = [{ folder: "", name: ROOT }, ...names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }))];
+    address.hidden = !names.length;
+    const steps = names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }));
     steps.forEach((step, i) => {
       if (i) {
         const sep = document.createElement("span");
@@ -691,8 +696,10 @@
       address.append(crumb);
     });
 
-    // The whole shape of things, down the side.
-    $("tree").replaceChildren(...treeNode("", folders, puzzles, 0));
+    // The whole shape of things, down the side: the folders themselves, with nothing made up above them.
+    // With no folders at all there's nothing to show, and the list takes the whole width.
+    $("tree").replaceChildren(...childrenOf("", folders).flatMap((folder) => treeNode(folder, folders, puzzles, 0)));
+    document.querySelector(".panes").dataset.tree = String(folders.length > 0);
 
     const items = $("items");
     items.replaceChildren();
@@ -842,6 +849,10 @@
   });
   // Dropping on that empty space files something in the folder you are looking at.
   dropTarget($("items"), () => here);
+  // Nothing stands for the top level, so the tree's empty space takes a drop for it, and Up one level
+  // takes one for the folder above.
+  dropTarget($("tree"), "");
+  dropTarget($("up"), () => parentOf(here));
 
   let waiting = 0;
   const later = () => {
