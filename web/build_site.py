@@ -26,7 +26,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "importers.js", "words.js", "social.png")
 # The address behind every page's Contact link. Empty leaves the link out.
-CONTACT = ""
+CONTACT = "nocluexword@gmail.com"
 
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, and each page's inline script by its hash, so an inline
