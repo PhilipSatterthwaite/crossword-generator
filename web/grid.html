@@ -276,6 +276,13 @@
   .list-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
   .list-row .name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
   .list-row .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .confirm-dialog { width: min(380px, calc(100vw - 32px)); }
+  .confirm-body { display: grid; gap: 14px; padding: 26px 26px 22px; }
+  .confirm-body h2 { margin: 0; font: 600 23px / 1.2 var(--serif); }
+  .confirm-text { margin: 0; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+  .confirm-actions { justify-content: flex-end; }
+  .btn.destructive { background: var(--danger); border-color: var(--danger); color: var(--ground); }
+  .btn.destructive:hover:not(:disabled) { background: var(--score-lo); border-color: var(--score-lo); }
   .btn.danger { border-color: var(--danger); color: var(--danger); }
   .btn.danger:hover:not(:disabled) { background: var(--score-lo-bg); border-color: var(--danger); color: var(--score-lo); }
   .lists-empty { margin: 0; font-size: 14px; color: var(--muted); }
@@ -418,6 +425,17 @@
 
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
 </div>
+
+<dialog id="confirm-dialog" class="sign-in confirm-dialog" aria-labelledby="confirm-title">
+  <div class="confirm-body">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-text" class="confirm-text"></p>
+    <div class="actions confirm-actions">
+      <button type="button" class="btn" data-confirm-no>Cancel</button>
+      <button type="button" class="btn destructive" data-confirm-yes>Delete</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="lists-dialog" class="lists-dialog" aria-labelledby="lists-title">
   <div class="lists-body">
@@ -1790,16 +1808,11 @@
           box.select();
         });
         const drop = button("Delete", async () => {
-          if (drop.dataset.armed !== "true") {
-            drop.dataset.armed = "true";
-            drop.textContent = `Delete ${list.name}?`;
-            setTimeout(() => {
-              if (!drop.isConnected) return;
-              delete drop.dataset.armed;
-              drop.textContent = "Delete";
-            }, 4000);
-            return;
-          }
+          const sure = await askFirst({
+            title: `Delete ${list.name}?`,
+            text: `Its ${list.count.toLocaleString()} words go for good, on every device signed in to your account. This can't be undone.`,
+          });
+          if (!sure) return;
           await LISTS.remove(list.id);
           if (listChoice.id === list.id) listChoice = { id: "built-in" };
           save();
@@ -1897,6 +1910,37 @@
   }
 
   if (SYNC) SYNC.onStatus(renderSync);
+
+  /* A yes-or-no popup; resolves true only if they choose the confirming button. */
+  function askFirst({ title, text, confirm = "Delete" }) {
+    const box = $("confirm-dialog");
+    $("confirm-title").textContent = title;
+    $("confirm-text").textContent = text;
+    box.querySelector("[data-confirm-yes]").textContent = confirm;
+    return new Promise((resolve) => {
+      const finish = (answer) => {
+        box.removeEventListener("close", onClose);
+        yes.removeEventListener("click", onYes);
+        no.removeEventListener("click", onNo);
+        if (box.open) box.close();
+        resolve(answer);
+      };
+      const yes = box.querySelector("[data-confirm-yes]");
+      const no = box.querySelector("[data-confirm-no]");
+      const onYes = () => finish(true);
+      const onNo = () => finish(false);
+      const onClose = () => finish(false); // Escape, or a click outside
+      yes.addEventListener("click", onYes);
+      no.addEventListener("click", onNo);
+      box.addEventListener("close", onClose);
+      box.showModal();
+      no.focus();
+    });
+  }
+
+  $("confirm-dialog").addEventListener("click", (event) => {
+    if (event.target === $("confirm-dialog")) $("confirm-dialog").close();
+  });
 
   async function openLists() {
     await refreshWordList({ recheck: false });
