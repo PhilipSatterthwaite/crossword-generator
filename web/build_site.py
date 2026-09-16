@@ -17,7 +17,7 @@ HERE = Path(__file__).parent
 SITE = HERE.parent / "docs"
 DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
-PAGES = ("index.html", "clues.html", "export.html", "solve.html")
+PAGES = ("index.html", "clues.html", "export.html", "solve.html", "explore.html")
 # Scripts and stylesheets the pages load, copied as they are and referenced with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "words.js")
 

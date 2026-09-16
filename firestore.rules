@@ -6,11 +6,14 @@ service cloud.firestore {
     // Puzzles published to be solved by link: anyone can open one, only the owner can publish,
     // change or remove it. The solution is in the document, so anyone with the link can read it.
     match /published/{puzzleId} {
-      allow read: if true;
+      allow get: if true;
+      // Listing only works for a query that asks for listed puzzles, so links shared privately
+      // (listed: false) never show up in Explore.
+      allow list: if resource.data.listed == true;
       allow create, update: if request.auth != null
         && request.resource.data.owner == request.auth.uid
         && (resource == null || resource.data.owner == request.auth.uid)
-        && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated"])
+        && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated", "listed"])
         && request.resource.data.cells.size() <= 2500
         && request.resource.data.title.size() <= 200
         && request.resource.data.author.size() <= 200;

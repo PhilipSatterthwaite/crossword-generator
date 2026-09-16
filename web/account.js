@@ -147,7 +147,7 @@ async function loadFirestore() {
 
 /* Put the puzzle in "published" so anyone with the link can solve it. The document holds the finished
    grid, so whoever has the link can read the answers: it's for sharing with people, not a secret. */
-async function publish(pid) {
+async function publish(pid, { listed = false } = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("Sign in to share a link.");
   const grid = S.loadGrid(pid);
@@ -170,6 +170,7 @@ async function publish(pid) {
     cells: grid.blocks.map((block, i) => (block ? "#" : grid.letters[i])).join(""),
     clues: text,
     updated: Date.now(),
+    listed: Boolean(listed), // shown on the Explore page, as well as reachable by link
   };
   const fs = await loadFirestore();
   await fs.setDoc(fs.doc(db, "published", pid), data);

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explore · fillmein</title>
+<meta name="description" content="Solve crosswords that people have published on fillmein.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { margin: 0; }
+  .wordmark-link { color: inherit; text-decoration: none; }
+  .explore-head { display: grid; gap: 6px; padding-bottom: 16px; border-bottom: 1.5px solid var(--ink); }
+  .explore-head h1 { margin: 0; font: 600 30px / 1.15 var(--serif); }
+  .explore-head p { margin: 0; max-width: 60ch; color: var(--muted); }
+
+  .puzzle-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 18px; }
+  .puzzle-card { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 14px; align-items: start; padding: 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+  .puzzle-card svg { display: block; width: 56px; height: 56px; background: var(--cell); outline: 1.5px solid var(--ink); }
+  .puzzle-card rect { fill: var(--block); }
+  .puzzle-card a { color: var(--ink); font: 600 18px / 1.25 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
+  .puzzle-card a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .puzzle-card .who { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .puzzle-card .size { margin: 2px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
+  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
+  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <div class="puzzle-bar">
+    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
+  </div>
+
+  <div class="explore-head">
+    <h1>Puzzles to solve</h1>
+    <p>Crosswords people have chosen to show here. No account needed to solve one. To add yours, finish it, share a link on its Export tab and tick <b>Show it here</b>.</p>
+  </div>
+
+  <p id="loading" class="status" data-state="busy" role="status">Looking for puzzles…</p>
+
+  <section id="none" class="empty-state" hidden>
+    <h2>Nothing here yet</h2>
+    <p>No one has put a puzzle up to solve so far. Make one and it could be the first.</p>
+    <a class="btn primary" href="index.html">Make a crossword</a>
+  </section>
+
+  <section id="trouble" class="empty-state" hidden>
+    <h2>Couldn't load the puzzles</h2>
+    <p>The list didn't come back. Check your connection and reload the page.</p>
+  </section>
+
+  <ul id="puzzles" class="puzzle-grid" hidden></ul>
+</div>
+
+<script src="filler.js"></script>
+<script src="store.js"></script>
+<script type="module" src="account.js"></script>
+<script type="module">
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const SVG = "http://www.w3.org/2000/svg";
+
+  /* The grid's blocks, drawn small, so a puzzle is recognisable before you open it. */
+  function thumbnail(cells, width, height) {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i] !== "#") continue;
+      const rect = document.createElementNS(SVG, "rect");
+      rect.setAttribute("x", i % width);
+      rect.setAttribute("y", Math.floor(i / width));
+      rect.setAttribute("width", 1);
+      rect.setAttribute("height", 1);
+      svg.append(rect);
+    }
+    return svg;
+  }
+
+  (async () => {
+    let puzzles = [];
+    try {
+      const fs = await window.Fillmein.loadFirestore();
+      const db = fs.getFirestore(window.Fillmein.app);
+      // Only puzzles whose makers chose to show them here; the rules allow no other listing.
+      const found = await fs.getDocs(fs.query(fs.collection(db, "published"), fs.where("listed", "==", true), fs.limit(60)));
+      puzzles = found.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    } catch (error) {
+      $("loading").hidden = true;
+      $("trouble").hidden = false;
+      return;
+    }
+
+    $("loading").hidden = true;
+    if (!puzzles.length) {
+      $("none").hidden = false;
+      return;
+    }
+
+    const list = $("puzzles");
+    for (const puzzle of puzzles) {
+      const cells = String(puzzle.cells || "");
+      const item = document.createElement("li");
+      item.className = "puzzle-card";
+      const thumb = document.createElement("span");
+      if (puzzle.width > 0 && cells.length === puzzle.width * puzzle.height) thumb.append(thumbnail(cells, puzzle.width, puzzle.height));
+      const text = document.createElement("div");
+      const link = document.createElement("a");
+      link.href = `solve.html?p=${encodeURIComponent(puzzle.id)}`;
+      link.textContent = puzzle.title || "Untitled puzzle";
+      text.append(link);
+      if (puzzle.author) {
+        const who = document.createElement("p");
+        who.className = "who";
+        who.textContent = `by ${puzzle.author}`;
+        text.append(who);
+      }
+      const size = document.createElement("p");
+      size.className = "size";
+      size.textContent = `${puzzle.width}×${puzzle.height}`;
+      text.append(size);
+      item.append(thumb, text);
+      list.append(item);
+    }
+    list.hidden = false;
+  })();
+</script>
+</body>
+</html>
