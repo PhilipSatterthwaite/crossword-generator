@@ -102,8 +102,10 @@ def stamp(text, versions):
 
 def contact(text):
     """The Contact link with its address, or no link at all."""
+    # The address is the link's text as well as its target, so it can be read and copied on a machine
+    # with no mail app to hand a mailto: link to.
     if CONTACT:
-        return text.replace('href="mailto:" data-contact', f'href="mailto:{CONTACT}" data-contact')
+        return re.sub(r'<a href="mailto:" data-contact>Contact</a>', f'<span>Contact: <a href="mailto:{CONTACT}" data-contact>{CONTACT}</a></span>', text)
     return re.sub(r'<a href="mailto:" data-contact>Contact</a>', "", text)
 
 
