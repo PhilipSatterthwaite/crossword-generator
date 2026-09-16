@@ -15,6 +15,7 @@
   const LISTS = "lists";
   const SETTINGS = "settings";
   const OVERRIDES = "overrides"; // the single settings record holding per-word edits
+  const TOMBSTONES = "tombstones"; // lists deleted here, still to be deleted in the account
   const MIN_LENGTH = 2;
   const MAX_LENGTH = 25;
   const DEFAULT_SCORE = 50;
@@ -90,8 +91,44 @@
     return { list, skipped };
   }
 
+  /* Drop a list from this browser without asking the account to delete it: for lists that have already
+     gone from the account, deleted on another device. */
+  async function forgetList(id) {
+    await run(LISTS, "readwrite", (store) => store.delete(id));
+    announce();
+  }
+
+  /* A new list from words already in hand: cloning a list, or the built-in one. */
+  async function create(name, words) {
+    const list = {
+      id: newId(),
+      name: String(name || "Word list").slice(0, 120),
+      count: words.length,
+      updated: Date.now(),
+      words: words.map(([word, score]) => [word, score]),
+    };
+    await run(LISTS, "readwrite", (store) => store.put(list));
+    announce();
+    return list;
+  }
+
   async function remove(id) {
     await run(LISTS, "readwrite", (store) => store.delete(id));
+    // Remembered so the deletion reaches the account too, next time it syncs.
+    const gone = await getSetting(TOMBSTONES);
+    await setSetting(TOMBSTONES, [...new Set([...(gone || []), id])]);
+    announce();
+  }
+
+  /* Save a list as it came from the account, keeping its id and time. */
+  async function put(list) {
+    await run(LISTS, "readwrite", (store) => store.put({
+      id: list.id,
+      name: String(list.name || "Word list").slice(0, 120),
+      count: list.count || list.words.length,
+      updated: list.updated || Date.now(),
+      words: list.words,
+    }));
     announce();
   }
 
@@ -108,14 +145,31 @@
 
   const emptyOverrides = () => ({ scores: {}, removed: [] });
 
+  /* Anything else worth keeping on this device: the remembered encryption key, deletions still to
+     reach the account. Values go through IndexedDB, so a CryptoKey can live here as itself. */
+  const getSetting = (key) => run(SETTINGS, "readonly", (store) => store.get(key)).then((row) => (row ? row.value : null));
+  const setSetting = (key, value) =>
+    value === null || value === undefined
+      ? run(SETTINGS, "readwrite", (store) => store.delete(key))
+      : run(SETTINGS, "readwrite", (store) => store.put({ key, value, updated: Date.now() }));
+
+  const tombstones = () => getSetting(TOMBSTONES).then((gone) => gone || []);
+  const clearTombstone = async (id) => {
+    const gone = await tombstones();
+    await setSetting(TOMBSTONES, gone.filter((other) => other !== id));
+  };
+
   async function overrides() {
     const saved = await run(SETTINGS, "readonly", (store) => store.get(OVERRIDES));
     const value = (saved && saved.value) || emptyOverrides();
     return { scores: value.scores || {}, removed: value.removed || [] };
   }
 
-  async function saveOverrides(value) {
-    await run(SETTINGS, "readwrite", (store) => store.put({ key: OVERRIDES, value, updated: Date.now() }));
+  /* When the per-word edits last changed here, so syncing can tell which copy is newer. */
+  const overridesStamp = () => run(SETTINGS, "readonly", (store) => store.get(OVERRIDES)).then((row) => (row && row.updated) || 0);
+
+  async function saveOverrides(value, stamp) {
+    await run(SETTINGS, "readwrite", (store) => store.put({ key: OVERRIDES, value, updated: stamp || Date.now() }));
     announce();
   }
 
@@ -226,8 +280,9 @@
   }
 
   root.FillmeinLists = {
-    parse, all, add, remove, rename,
-    overrides, saveOverrides, setScore, removeWord, restoreWord,
+    parse, all, add, create, put, remove, forgetList, rename,
+    overrides, overridesStamp, saveOverrides, setScore, removeWord, restoreWord,
+    getSetting, setSetting, tombstones, clearTombstone,
     merge, state,
     onChange(listener) {
       listeners.add(listener);

@@ -234,19 +234,22 @@
   /* Each option row: the word (a big click target that previews it) with small edit buttons beside it. */
   .option-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line-soft); }
   .option-row .option { border-bottom: 0; }
-  .option-edit { flex: none; display: flex; align-items: center; gap: 2px; padding-right: 6px; opacity: 0; }
-  .option-row:hover .option-edit, .option-row:focus-within .option-edit { opacity: 1; }
+  .option-edit { flex: none; display: flex; align-items: center; gap: 4px; padding-right: 8px; }
   .option-edit button {
-    padding: 4px 6px;
-    border: 0;
+    padding: 4px 7px;
+    border: 1px solid var(--rule);
     border-radius: 3px;
-    background: transparent;
+    background: var(--surface);
     color: var(--muted);
     font: 600 11px / 1 var(--sans);
     cursor: pointer;
   }
-  .option-edit button:hover { background: var(--hover); color: var(--ink); }
-  .option-edit button.drop:hover { background: var(--score-lo-bg); color: var(--score-lo); }
+  .option-edit button:hover { border-color: var(--ink); background: var(--hover); color: var(--ink); }
+  .option-edit button.drop:hover { border-color: var(--score-lo); background: var(--score-lo-bg); color: var(--score-lo); }
+  .word-actions button { font-size: 13px; }
+  .undo-note { display: inline-flex; align-items: center; gap: 8px; }
+  .undo-note button { padding: 2px 7px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); color: var(--ink); font: 600 11px / 1.5 var(--sans); cursor: pointer; }
+  .undo-note button:hover { border-color: var(--ink); background: var(--hover); }
   .option-score-input { width: 4.2em; padding: 3px 5px; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--cell); color: var(--ink); font: 700 12px / 1 var(--sans); }
 
   /* Word lists dialog. */
@@ -275,6 +278,17 @@
   .list-row .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
   .lists-empty { margin: 0; font-size: 14px; color: var(--muted); }
   .lists-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .sync-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .sync-form input {
+    flex: 1 1 200px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--cell);
+    color: var(--ink);
+    font: 500 14px var(--sans);
+  }
   .file-button { display: inline-flex; align-items: center; gap: 8px; }
   .file-button input { display: none; }
 
@@ -347,7 +361,7 @@
         <button type="button" id="stop" class="btn stop" hidden>Stop</button>
         <button type="button" id="erase" class="btn quiet">Erase pencil</button>
         <button type="button" id="clear" class="btn quiet">Clear all letters</button>
-        <button type="button" id="open-lists" class="btn quiet">Word lists…</button>
+        <label class="field">Word list <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
       </div>
       <p id="status" class="status" data-state="busy" role="status">Loading the word list…</p>
     </div>
@@ -379,6 +393,7 @@
           <button type="button" id="keep" class="btn quiet">Ink the pencil letters</button>
           <button type="button" id="clear-entry" class="btn quiet">Clear entry</button>
         </div>
+        <div id="word-actions" class="actions word-actions" hidden></div>
       </div>
       <section class="options" aria-labelledby="options-title">
         <div class="options-head">
@@ -421,33 +436,38 @@
     </div>
 
     <section>
-      <h3>For this puzzle</h3>
-      <div class="use-choice" id="use-choice">
-        <label><input type="radio" name="use-list" value="built-in"><span>The built-in list <small>(<span id="built-in-count">—</span> scored words)</small></span></label>
-        <label><input type="radio" name="use-list" value="both"><span>Built-in list plus mine <small>(my score wins where both have a word)</small></span></label>
-        <label><input type="radio" name="use-list" value="custom"><span>My lists only <small>(autofill uses nothing else)</small></span></label>
-      </div>
-    </section>
-
-    <section>
-      <h3>My lists</h3>
+      <h3>Lists</h3>
       <ul id="list-rows" class="list-rows"></ul>
-      <p id="lists-empty" class="lists-empty" hidden>Nothing loaded yet.</p>
+      <div class="actions">
+        <label class="file-button">
+          <input type="file" id="list-file" accept=".txt,.dict,.csv,text/plain">
+          <span class="btn">Load a list file…</span>
+        </label>
+        <button type="button" id="clone-list" class="btn quiet">Clone the list in use</button>
+      </div>
       <p class="lists-note" id="lists-note"></p>
-      <label class="file-button">
-        <input type="file" id="list-file" accept=".txt,.dict,.csv,text/plain">
-        <span class="btn">Load a list file…</span>
-      </label>
       <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;60</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
     </section>
 
     <section>
       <h3>Words you've changed</h3>
       <p id="edits-summary" class="lists-empty"></p>
-      <button type="button" id="restore-edits" class="btn quiet small" hidden>Undo all my word changes</button>
+      <ul id="edit-rows" class="list-rows"></ul>
+      <button type="button" id="restore-edits" class="btn quiet small" hidden>Put every word back</button>
     </section>
 
-    <p class="lists-note">Your lists stay in this browser: nothing is uploaded. Syncing them to your account, encrypted so only you can read them, comes next.</p>
+    <section>
+      <h3>Sync to my account</h3>
+      <p id="sync-note" class="lists-note"></p>
+      <div id="sync-actions" class="actions"></div>
+      <div id="sync-form" class="sync-form" hidden>
+        <input id="sync-pass" type="password" autocomplete="current-password" placeholder="Your passphrase" aria-label="Passphrase">
+        <button type="button" id="sync-go" class="btn primary">Unlock</button>
+      </div>
+      <p id="sync-warning" class="lists-note" hidden>Keep this passphrase somewhere safe. Your lists are encrypted with it in this browser, so nobody else can read them — and nobody, this site included, can get them back if you lose it.</p>
+    </section>
+
+    <p class="lists-note">Until you set a passphrase, your lists stay in this browser and are never uploaded.</p>
   </div>
 </dialog>
 
@@ -456,6 +476,7 @@
 <script src="store.js"></script>
 <script src="lists.js"></script>
 <script type="module" src="account.js"></script>
+<script src="lists-sync.js"></script>
 <script>
 (() => {
   "use strict";
@@ -866,7 +887,86 @@
     return { list, total };
   }
 
+  /* The word filled into the selected entry, so it can be added to the list, rescored or dropped. */
+  function renderWordActions() {
+    const box = $("word-actions");
+    if (!box || !LISTS) return;
+    const k = currentSlot();
+    const full = k >= 0 && slots[k].cells.every((i) => ink[i] || pencil[i]);
+    const word = full ? slots[k].cells.map((i) => ink[i] || pencil[i]).join("") : "";
+    box.replaceChildren();
+    box.hidden = !word;
+    if (!word) return;
+    const button = (label, onClick) => {
+      const element = document.createElement("button");
+      element.type = "button";
+      element.className = "btn quiet";
+      element.textContent = label;
+      element.addEventListener("click", onClick);
+      box.append(element);
+    };
+    const scoreBox = () => {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = "100";
+      input.className = "option-score-input";
+      input.value = String(scoreOf(word) ?? 50);
+      input.setAttribute("aria-label", `Score for ${word}`);
+      const finish = async (keep) => {
+        const value = Number(input.value);
+        renderWordActions();
+        if (!keep || !Number.isFinite(value)) return;
+        await LISTS.setScore(word, value);
+        await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
+      };
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") finish(true);
+        else if (event.key === "Escape") finish(false);
+      });
+      input.addEventListener("blur", () => finish(true));
+      box.replaceChildren(input);
+      input.focus();
+      input.select();
+    };
+
+    if (scoreOf(word) === null) {
+      button(`Add ${word} to the list`, async () => {
+        await LISTS.setScore(word, 50);
+        await refreshWordList({ say: `Added ${word} at 50.` });
+      });
+      button("Add with a score…", scoreBox);
+    } else {
+      button(`Remove ${word} from the list`, async () => {
+        await LISTS.removeWord(word);
+        await refreshWordList({ say: `Removed ${word}.` });
+        noteUndo(word);
+      });
+      button("Score it…", scoreBox);
+    }
+  }
+
+  /* An Undo right where the removal happened, as well as the list in the dialog. */
+  function noteUndo(word) {
+    const note = $("options-note");
+    if (!note) return;
+    note.replaceChildren();
+    const wrap = document.createElement("span");
+    wrap.className = "undo-note";
+    wrap.append(`Removed ${word} from your list.`);
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.textContent = "Undo";
+    undo.addEventListener("click", async () => {
+      await LISTS.restoreWord(word);
+      await refreshWordList({ say: `Put ${word} back.` });
+    });
+    wrap.append(undo);
+    note.append(wrap);
+  }
+
   function refreshOptions() {
+    renderWordActions();
     const k = currentSlot();
     if (k < 0) {
       const signature = `none|${blocks[sel]}`;
@@ -1527,20 +1627,33 @@
   // --- custom word lists ---
 
   const LISTS = window.FillmeinLists;
-  let listChoice = { use: "built-in", ids: [] };
+  let listChoice = { id: "built-in" }; // the list this puzzle fills from: "built-in", or one of theirs
+  let builtInWords = 0;
   let listState = { lists: [], edits: { scores: {}, removed: [] } };
 
   const editCount = () => Object.keys(listState.edits.scores).length + listState.edits.removed.length;
 
   /* Rebuild the word list from the puzzle's choice, this browser's lists and the per-word edits, and
      hand it to the solver here and in the worker. */
+  let refreshing = false;
+
   async function refreshWordList({ recheck = true, say = "" } = {}) {
     if (!LISTS) return;
+    refreshing = true;
+    try {
+      await rebuildWordList({ recheck, say });
+    } finally {
+      refreshing = false;
+    }
+  }
+
+  async function rebuildWordList({ recheck, say }) {
     listState = await LISTS.state();
-    const chosen = listState.lists.filter((list) => listChoice.ids.includes(list.id));
-    const use = listChoice.use !== "built-in" && !chosen.length ? "built-in" : listChoice.use;
-    const plain = use === "built-in" && !editCount();
-    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: chosen, edits: listState.edits });
+    const chosen = listState.lists.find((list) => list.id === listChoice.id) || null;
+    if (!chosen && listChoice.id !== "built-in") listChoice = { id: "built-in" }; // it was deleted
+    const use = chosen ? "custom" : "built-in";
+    const plain = !chosen && !editCount();
+    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: chosen ? [chosen] : [], edits: listState.edits });
     wordData = merged;
     lexicon.clear();
     scoreCache.clear();
@@ -1556,68 +1669,278 @@
     if (recheck && ready) resumeCheck();
   }
 
+  // Syncing can add or drop lists underneath the page; when it does, use them.
+  if (LISTS) {
+    LISTS.onChange(() => {
+      if (!refreshing) refreshWordList({ recheck: false });
+    });
+  }
+
+  function builtInCount() {
+    if (!builtInWords) {
+      for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) builtInWords += entry[0].length / Number(length);
+    }
+    return builtInWords;
+  }
+
+  /* The dropdown in the controls: the built-in list, then theirs, then a way into this dialog. */
+  function renderListChoice() {
+    const select = $("list-choice");
+    if (!select) return;
+    select.replaceChildren();
+    const option = (value, label) => {
+      const element = document.createElement("option");
+      element.value = value;
+      element.textContent = label;
+      select.append(element);
+      return element;
+    };
+    option("built-in", `Built-in list (${builtInCount().toLocaleString()})`);
+    for (const list of listState.lists) option(list.id, `${list.name} (${list.count.toLocaleString()})`);
+    option("__manage", "Add or manage lists…");
+    const known = listChoice.id === "built-in" || listState.lists.some((list) => list.id === listChoice.id);
+    select.value = known ? listChoice.id : "built-in";
+  }
+
   function renderLists() {
     if (!LISTS) return;
-    let builtIn = 0;
-    for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) builtIn += entry[0].length / Number(length);
-    $("built-in-count").textContent = builtIn.toLocaleString();
-    for (const radio of document.querySelectorAll('input[name="use-list"]')) radio.checked = radio.value === listChoice.use;
+    renderListChoice();
     const rows = $("list-rows");
     rows.replaceChildren();
-    for (const list of listState.lists) {
+    const entries = [{ id: "built-in", name: "Built-in list", count: builtInCount(), builtIn: true }, ...listState.lists];
+    for (const list of entries) {
       const row = document.createElement("li");
       row.className = "list-row";
-      const on = document.createElement("input");
-      on.type = "checkbox";
-      on.checked = listChoice.ids.includes(list.id);
-      on.setAttribute("aria-label", `Use ${list.name}`);
-      on.addEventListener("change", async () => {
-        listChoice.ids = on.checked ? [...listChoice.ids, list.id] : listChoice.ids.filter((id) => id !== list.id);
-        if (on.checked && listChoice.use === "built-in") listChoice.use = "both";
-        save();
-        await refreshWordList({ say: on.checked ? `Using ${list.name}.` : `Stopped using ${list.name}.` });
-      });
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = list.name;
+      name.textContent = list.name + (listChoice.id === list.id ? " · in use" : "");
       const count = document.createElement("span");
       count.className = "count";
       count.textContent = `${list.count.toLocaleString()} words`;
-      const drop = document.createElement("button");
-      drop.type = "button";
-      drop.className = "btn quiet small";
-      drop.textContent = "Delete";
-      drop.addEventListener("click", async () => {
-        await LISTS.remove(list.id);
-        listChoice.ids = listChoice.ids.filter((id) => id !== list.id);
-        save();
-        await refreshWordList({ say: `Deleted ${list.name}.` });
-      });
-      row.append(on, name, count, drop);
+      row.append(name, count);
+
+      const button = (label, onClick) => {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.className = "btn quiet small";
+        element.textContent = label;
+        element.addEventListener("click", onClick);
+        row.append(element);
+        return element;
+      };
+      if (listChoice.id !== list.id) {
+        button("Use", async () => {
+          listChoice = { id: list.id };
+          save();
+          await refreshWordList({ say: `Filling from ${list.name}.` });
+        });
+      }
+      button("Clone", () => cloneList(list));
+      if (!list.builtIn) {
+        button("Rename", () => {
+          const box = document.createElement("input");
+          box.className = "option-score-input";
+          box.style.width = "10em";
+          box.value = list.name;
+          box.setAttribute("aria-label", `Name for ${list.name}`);
+          const finish = async (keep) => {
+            const value = box.value.trim();
+            if (keep && value && value !== list.name) {
+              await LISTS.rename(list.id, value);
+              await refreshWordList({ recheck: false });
+            } else {
+              renderLists();
+            }
+          };
+          box.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") finish(true);
+            else if (event.key === "Escape") finish(false);
+          });
+          box.addEventListener("blur", () => finish(true));
+          name.replaceChildren(box);
+          box.focus();
+          box.select();
+        });
+        button("Delete", async () => {
+          await LISTS.remove(list.id);
+          if (listChoice.id === list.id) listChoice = { id: "built-in" };
+          save();
+          await refreshWordList({ say: `Deleted ${list.name}.` });
+        });
+      }
       rows.append(row);
     }
-    $("lists-empty").hidden = listState.lists.length > 0;
+
+    // Words taken out or rescored, each able to go back.
+    const editRows = $("edit-rows");
+    editRows.replaceChildren();
+    for (const word of listState.edits.removed) {
+      const row = document.createElement("li");
+      row.className = "list-row";
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = word;
+      const what = document.createElement("span");
+      what.className = "count";
+      what.textContent = "removed";
+      const back = document.createElement("button");
+      back.type = "button";
+      back.className = "btn quiet small";
+      back.textContent = "Put back";
+      back.addEventListener("click", async () => {
+        await LISTS.restoreWord(word);
+        await refreshWordList({ say: `Put ${word} back.` });
+      });
+      row.append(name, what, back);
+      editRows.append(row);
+    }
+    for (const [word, score] of Object.entries(listState.edits.scores)) {
+      const row = document.createElement("li");
+      row.className = "list-row";
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = word;
+      const what = document.createElement("span");
+      what.className = "count";
+      what.textContent = `scored ${score}`;
+      const back = document.createElement("button");
+      back.type = "button";
+      back.className = "btn quiet small";
+      back.textContent = "Reset";
+      back.addEventListener("click", async () => {
+        await LISTS.restoreWord(word);
+        await refreshWordList({ say: `${word} is back to its old score.` });
+      });
+      row.append(name, what, back);
+      editRows.append(row);
+    }
     const edits = editCount();
     $("edits-summary").textContent = edits
-      ? `${listState.edits.removed.length} word${listState.edits.removed.length === 1 ? "" : "s"} removed, ${Object.keys(listState.edits.scores).length} rescored.`
-      : "None yet. Use Score or Remove beside a word in the options list.";
+      ? `${listState.edits.removed.length} removed, ${Object.keys(listState.edits.scores).length} rescored.`
+      : "None yet. Use Score or Remove beside a word in the options list, or on the selected entry.";
     $("restore-edits").hidden = !edits;
   }
 
-  $("open-lists").addEventListener("click", async () => {
+  /* Copy a list (or the built-in one) so it can be edited without touching the original. */
+  async function cloneList(list) {
+    $("lists-note").textContent = `Copying ${list.name}…`;
+    try {
+      let words;
+      if (list.builtIn) {
+        words = [];
+        for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) {
+          const size = Number(length);
+          const scores = entry[1].split(",");
+          for (let i = 0; i < scores.length; i++) words.push([entry[0].substr(i * size, size), Number(scores[i])]);
+        }
+      } else {
+        words = (await LISTS.all()).find((other) => other.id === list.id).words;
+      }
+      const copy = await LISTS.create(`${list.name} copy`, words);
+      listChoice = { id: copy.id };
+      save();
+      $("lists-note").textContent = `Copied ${list.name} into ${copy.name}, now in use.`;
+      await refreshWordList({ say: `Filling from ${copy.name}.` });
+    } catch (error) {
+      $("lists-note").textContent = "That list couldn't be copied.";
+    }
+  }
+
+  // Syncing lists to the account, encrypted with a passphrase (lists-sync.js).
+  const SYNC = window.FillmeinSync;
+  let syncMode = "unlock"; // what the passphrase box is for: "set" the first one, or "unlock" with it
+
+  function renderSync(status) {
+    if (!SYNC) return;
+    const note = $("sync-note");
+    const actions = $("sync-actions");
+    actions.replaceChildren();
+    $("sync-form").hidden = true;
+    $("sync-warning").hidden = true;
+    const button = (label, primary, onClick) => {
+      const element = document.createElement("button");
+      element.type = "button";
+      element.className = primary ? "btn primary small" : "btn quiet small";
+      element.textContent = label;
+      element.addEventListener("click", onClick);
+      actions.append(element);
+    };
+
+    if (!status.signedIn) {
+      note.innerHTML = 'Your lists are on this device only. <button type="button" class="link-button" data-sign-in>Sign in</button> to sync them to your account, encrypted.';
+      return;
+    }
+    if (status.error) note.textContent = status.error;
+    else if (status.busy) note.textContent = "Syncing…";
+    else if (!status.hasPassphrase) note.textContent = "Your lists are on this device only. Choose a passphrase and they'll sync to your account, encrypted so only you can read them.";
+    else if (!status.unlocked) note.textContent = "Your account has encrypted lists. Enter your passphrase to use them on this device.";
+    else note.textContent = status.last ? `Synced, encrypted, at ${new Date(status.last).toLocaleTimeString()}.` : "Syncing is on.";
+
+    if (!status.hasPassphrase) {
+      button("Set a passphrase", true, () => {
+        syncMode = "set";
+        $("sync-form").hidden = false;
+        $("sync-warning").hidden = false;
+        $("sync-go").textContent = "Turn on syncing";
+        $("sync-pass").focus();
+      });
+    } else if (!status.unlocked) {
+      syncMode = "unlock";
+      $("sync-form").hidden = false;
+      $("sync-go").textContent = "Unlock";
+    } else {
+      button("Sync now", false, () => SYNC.syncNow());
+      button("Forget on this device", false, async () => {
+        await SYNC.lock();
+        $("lists-note").textContent = "This device will ask for the passphrase again.";
+      });
+    }
+  }
+
+  if (SYNC) {
+    SYNC.onStatus(renderSync);
+    $("sync-go").addEventListener("click", async () => {
+      const pass = $("sync-pass");
+      const value = pass.value;
+      $("sync-go").disabled = true;
+      $("sync-note").textContent = syncMode === "set" ? "Encrypting your lists…" : "Checking…";
+      try {
+        await (syncMode === "set" ? SYNC.setPassphrase(value) : SYNC.unlock(value));
+        pass.value = "";
+        await refreshWordList({ say: "Lists synced." });
+      } catch (error) {
+        $("sync-note").textContent = error.message || "That didn't work.";
+      } finally {
+        $("sync-go").disabled = false;
+      }
+    });
+    $("sync-pass").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") $("sync-go").click();
+    });
+  }
+
+  async function openLists() {
     await refreshWordList({ recheck: false });
     $("lists-dialog").showModal();
+  }
+
+  $("list-choice").addEventListener("change", async () => {
+    const value = $("list-choice").value;
+    if (value === "__manage") {
+      renderListChoice(); // put the dropdown back to the list actually in use
+      await openLists();
+      return;
+    }
+    listChoice = { id: value };
+    save();
+    await refreshWordList({ say: "Word list changed." });
   });
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });
-  $("use-choice").addEventListener("change", async (event) => {
-    const radio = event.target.closest('input[name="use-list"]');
-    if (!radio) return;
-    listChoice.use = radio.value;
-    if (listChoice.use !== "built-in" && !listChoice.ids.length && listState.lists.length) listChoice.ids = [listState.lists[0].id];
-    save();
-    await refreshWordList({ say: "Word list changed." });
+  $("clone-list").addEventListener("click", () => {
+    const inUse = listState.lists.find((list) => list.id === listChoice.id);
+    cloneList(inUse || { id: "built-in", name: "Built-in list", builtIn: true });
   });
   $("list-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];
@@ -1626,8 +1949,7 @@
     $("lists-note").textContent = `Reading ${file.name}…`;
     try {
       const { list, skipped } = await LISTS.add(file.name.replace(/\.[^.]+$/, ""), await file.text());
-      listChoice.ids = [...listChoice.ids, list.id];
-      if (listChoice.use === "built-in") listChoice.use = "both";
+      listChoice = { id: list.id }; // a list you just loaded is the one you want to fill from
       save();
       $("lists-note").textContent = `Loaded ${list.count.toLocaleString()} words from ${file.name}${skipped ? `, skipping ${skipped.toLocaleString()} line${skipped === 1 ? "" : "s"} that weren't words` : ""}.`;
       await refreshWordList({ say: `Loaded ${list.name}.` });
@@ -1648,7 +1970,8 @@
     const word = action.dataset.word;
     if (action.dataset.wordAction === "remove") {
       await LISTS.removeWord(word);
-      await refreshWordList({ say: `Removed ${word}. Undo it under Word lists.` });
+      await refreshWordList({ say: `Removed ${word}.` });
+      noteUndo(word);
       return;
     }
     const holder = action.parentElement;
@@ -1690,7 +2013,7 @@
       tint: tintEl.checked,
       minScore: minScore(),
       allowPopular: allowPopularEl.checked,
-      lists: { use: listChoice.use, ids: listChoice.ids.slice() },
+      lists: { id: listChoice.id },
     };
   }
 
@@ -1715,10 +2038,10 @@
     if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
     if (data.lists && typeof data.lists === "object") {
-      listChoice = {
-        use: ["built-in", "both", "custom"].includes(data.lists.use) ? data.lists.use : "built-in",
-        ids: Array.isArray(data.lists.ids) ? data.lists.ids.filter((id) => typeof id === "string") : [],
-      };
+      // Older saves named a mode and a set of lists; the first of those lists is the one in use now.
+      const first = Array.isArray(data.lists.ids) ? data.lists.ids.find((id) => typeof id === "string") : null;
+      const id = typeof data.lists.id === "string" ? data.lists.id : data.lists.use === "built-in" ? "built-in" : first;
+      listChoice = { id: id || "built-in" };
     }
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;

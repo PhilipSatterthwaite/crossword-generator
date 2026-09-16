@@ -17,6 +17,20 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
     }
 
+    // Word lists, encrypted in the browser before they get here: the account holds ciphertext, a salt
+    // and timestamps, and nothing else. Only the account can read or write them, and nobody with
+    // database access (including the site's owner) can read what the words are.
+    match /users/{uid}/lists/{listId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /chunks/{chunk} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+    // The salt and check-value for that encryption, plus the encrypted per-word edits.
+    match /users/{uid}/private/{document} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Each account's puzzles: only that account can read or write them.
     match /users/{uid}/puzzles/{puzzleId} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
