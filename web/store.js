@@ -187,49 +187,107 @@
     const saved = (pid && (read(keysFor(pid).details) || (read(keysFor(pid).clues) || {}).meta || (gridData(pid) || {}).meta)) || {};
     const details = {};
     for (const field of META_FIELDS) details[field] = typeof saved[field] === "string" ? saved[field] : "";
-    // Which folder it sits in on the My puzzles page; kept with the details so it follows the puzzle.
+    // The folder path it sits in on the My puzzles page; kept with the details so it follows the puzzle.
     details.folder = typeof saved.folder === "string" ? saved.folder : "";
     return details;
   }
 
-  /* Folders someone has made, whether or not anything is in them yet. Which folder a puzzle is in
-     travels with the puzzle; this list is what keeps an empty folder around on this device. */
+  /* Folders someone has made, whether or not anything is in them yet. A folder is a path, with the
+     names of its parents in front of it ("Themeless/Minis"), so folders can sit inside one another.
+     Which folder a puzzle is in travels with the puzzle; this list is what keeps an empty folder
+     around on this device. */
+  const FOLDER_DEPTH = 8;
+
+  /* A folder path with its names tidied: no blanks, no runaway lengths, no stray slashes. */
+  function cleanPath(path) {
+    return String(path || "")
+      .split("/")
+      .map((name) => name.trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, FOLDER_DEPTH)
+      .join("/");
+  }
+
+  const parentOf = (path) => path.split("/").slice(0, -1).join("/");
+  const nameOf = (path) => path.split("/").pop() || "";
+  /* A folder and everything filed inside it. */
+  const inside = (path, other) => other === path || other.startsWith(`${path}/`);
+
   const folders = () => {
     const index = readIndex();
-    return Array.isArray(index.folders) ? index.folders.slice() : [];
+    const kept = Array.isArray(index.folders) ? index.folders : [];
+    return [...new Set(kept.map(cleanPath).filter(Boolean))];
   };
 
-  function addFolder(name) {
-    const clean = String(name || "").trim().slice(0, 60);
+  function writeFolders(list) {
+    const index = readIndex();
+    index.folders = [...new Set(list.filter(Boolean))];
+    write(INDEX, index);
+    announce("fillmein:changed", "", "folders");
+  }
+
+  /* Add a folder, and its parents with it, so the way down to it always exists. */
+  function addFolder(path) {
+    const clean = cleanPath(path);
     if (!clean) return "";
-    const index = readIndex();
-    const kept = Array.isArray(index.folders) ? index.folders : [];
-    if (!kept.includes(clean)) kept.push(clean);
-    index.folders = kept;
-    write(INDEX, index);
-    announce("fillmein:changed", "", "folders");
+    const names = clean.split("/");
+    const wanted = names.map((_, i) => names.slice(0, i + 1).join("/"));
+    writeFolders([...folders(), ...wanted]);
     return clean;
   }
 
-  function removeFolder(name) {
-    const index = readIndex();
-    index.folders = (Array.isArray(index.folders) ? index.folders : []).filter((other) => other !== name);
-    write(INDEX, index);
-    announce("fillmein:changed", "", "folders");
+  /* Forget a folder and any folders inside it. The puzzles filed there are the caller's to move. */
+  function removeFolder(path) {
+    const clean = cleanPath(path);
+    if (!clean) return;
+    writeFolders(folders().filter((other) => !inside(clean, other)));
   }
 
-  /* Rename a folder, taking the puzzles in it along. */
+  /* Rename or move a folder to a whole new path, taking what's inside it along. */
   function renameFolder(from, to) {
-    const clean = String(to || "").trim().slice(0, 60);
-    if (!clean || clean === from) return from;
-    const index = readIndex();
-    index.folders = [...new Set((Array.isArray(index.folders) ? index.folders : []).map((name) => (name === from ? clean : name)))];
-    write(INDEX, index);
-    for (const [pid] of Object.entries(readIndex().puzzles)) {
-      if (loadDetails(pid).folder === from) setFolder(pid, clean);
+    const was = cleanPath(from);
+    const now = cleanPath(to);
+    if (!was || !now || now === was || inside(was, now)) return was;
+    const moved = (other) => (inside(was, other) ? now + other.slice(was.length) : other);
+    writeFolders([
+      ...folders().map(moved),
+      ...now.split("/").map((_, i, names) => names.slice(0, i + 1).join("/")),
+    ]);
+    for (const pid of Object.keys(readIndex().puzzles)) {
+      const folder = cleanPath(loadDetails(pid).folder);
+      if (folder && inside(was, folder)) setFolder(pid, moved(folder));
     }
-    announce("fillmein:changed", "", "folders");
-    return clean;
+    return now;
+  }
+
+  /* Move a folder into another one (an empty parent means the top level), keeping its own name. */
+  function moveFolder(path, parent) {
+    const was = cleanPath(path);
+    const into = cleanPath(parent);
+    if (!was || inside(was, into)) return was;
+    const now = into ? `${into}/${nameOf(was)}` : nameOf(was);
+    return now === was ? was : renameFolder(was, now);
+  }
+
+  /* A copy of a puzzle, grid, clues and all, filed where the caller asks. */
+  function duplicate(pid, folder) {
+    if (!pid || !readIndex().puzzles[pid]) return "";
+    const copy = create();
+    const from = keysFor(pid);
+    const to = keysFor(copy);
+    for (const part of ["grid", "clues", "details"]) {
+      const value = read(from[part]);
+      if (value) write(to[part], value);
+    }
+    const details = loadDetails(copy);
+    details.folder = cleanPath(folder);
+    write(to.details, details);
+    const index = readIndex();
+    const now = Date.now();
+    index.puzzles[copy] = { created: now, updated: now, parts: { grid: now, clues: now, details: now } };
+    write(INDEX, index);
+    for (const part of ["grid", "clues", "details"]) announce("fillmein:saved", copy, part);
+    return copy;
   }
 
   /* Rename a puzzle from outside its own pages. */
@@ -251,7 +309,7 @@
   function setFolder(pid, folder) {
     if (!pid) return;
     const details = loadDetails(pid);
-    details.folder = String(folder || "").slice(0, 60);
+    details.folder = cleanPath(folder);
     write(keysFor(pid).details, details);
     const index = readIndex();
     const now = Date.now();
@@ -373,7 +431,8 @@
     INDEX, META_FIELDS,
     open, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
-    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, folders, addFolder, removeFolder, renameFolder,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, duplicate,
+    folders, addFolder, removeFolder, renameFolder, moveFolder, cleanPath, parentOf, nameOf,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };
 })(self);

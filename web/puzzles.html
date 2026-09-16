@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My puzzles · fillmein</title>
-<meta name="description" content="Every crossword you have started, in folders you can open, sort and rename.">
+<meta name="description" content="Every crossword you have started, in folders you can open, nest, sort and rename.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,47 +14,81 @@
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
 
-  /* A file explorer: toolbar, address bar, column headings, then the items. */
-  .explorer { border: 1px solid var(--rule); border-radius: 6px; background: var(--cell); overflow: hidden; }
-  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
-  .toolbar .btn { padding: 6px 10px; font-size: 13px; }
-  .toolbar .divider { width: 1px; height: 20px; margin: 0 4px; background: var(--rule); }
+  /* A file explorer, but a rounder and springier one: toolbar, address bar, a tree of folders
+     down the side, and whatever is in the folder you are looking at next to it. */
+  .explorer { border: 1px solid var(--rule); border-radius: 18px; background: var(--cell); overflow: hidden; box-shadow: 0 10px 28px rgb(0 0 0 / 0.07); }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
+  .toolbar .btn { padding: 7px 13px; border-radius: 999px; font-size: 13px; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s, box-shadow 0.16s; }
+  .toolbar .btn:not(:disabled):hover { transform: translateY(-1.5px); box-shadow: 0 4px 12px rgb(0 0 0 / 0.12); }
+  .toolbar .btn:not(:disabled):active { transform: translateY(1px) scale(0.97); box-shadow: none; }
+  .toolbar .divider { width: 1px; height: 20px; margin: 0 3px; background: var(--rule); }
   .toolbar .spacer { flex: 1; }
 
-  .address { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 7px 12px; border-bottom: 1px solid var(--line-soft); background: var(--cell); font-size: 13px; }
-  .crumb { padding: 4px 9px; border: 1px solid transparent; border-radius: 3px; background: none; color: var(--ink); font: 500 13px var(--sans); cursor: pointer; }
-  .crumb:hover { border-color: var(--rule); background: var(--surface); }
-  .crumb[aria-current="page"] { font-weight: 600; cursor: default; }
-  .crumb.over { border-color: var(--focus); background: var(--word); }
+  .address { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); background: var(--cell); font-size: 13px; }
+  .crumb { padding: 5px 12px; border: 0; border-radius: 999px; background: none; color: var(--ink); font: 600 13px var(--sans); cursor: pointer; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s; }
+  .crumb:hover { background: var(--hover); transform: translateY(-1px); }
+  .crumb[aria-current="page"] { background: var(--chip); cursor: default; }
+  .crumb.over { background: var(--word); transform: scale(1.08); box-shadow: inset 0 0 0 2px var(--focus); }
   .address .sep { color: var(--muted); }
 
+  .panes { display: grid; grid-template-columns: 224px minmax(0, 1fr); }
+  .tree-pane { border-right: 1px solid var(--line-soft); background: var(--surface); padding: 10px 8px 14px; }
+  .tree-head { padding: 2px 10px 8px; font: 700 11px var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+  .tree { list-style: none; margin: 0; padding: 0; }
+  .node { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px calc(8px + var(--depth) * 15px); border-radius: 999px; cursor: pointer; user-select: none; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s; animation: pop-in 0.24s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+  .node:hover { background: var(--hover); transform: translateX(2px); }
+  .node[aria-current="true"] { background: var(--word); font-weight: 700; }
+  .node.over { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); transform: scale(1.04); }
+  .node .twisty { flex: none; width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1); }
+  .node .twisty[aria-expanded="true"] { transform: rotate(90deg); }
+  .node .twisty.hidden { visibility: hidden; }
+  .node .node-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .node .tally { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--chip); font: 600 11px var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .node svg { flex: none; transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1); }
+  .node:hover svg { transform: rotate(-7deg) scale(1.1); }
+
   .columns, .item { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) 84px 80px 88px; align-items: center; gap: 12px; }
-  .columns { padding: 6px 12px; border-bottom: 1px solid var(--line-soft); background: var(--surface); font: 600 12px / 1 var(--sans); color: var(--muted); }
+  .columns { padding: 8px 16px; border-bottom: 1px solid var(--line-soft); font: 700 11px / 1 var(--sans); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
   .columns span:not(:first-child), .item .cell { font-variant-numeric: tabular-nums; }
-  .items { list-style: none; margin: 0; padding: 0; min-height: 180px; }
-  .item { padding: 6px 12px; border: 1px solid transparent; cursor: default; user-select: none; }
-  .item:hover { background: var(--hover); }
-  .item[aria-selected="true"] { background: var(--word); border-color: var(--focus); }
-  .item.over { background: var(--word); border-color: var(--focus); border-style: dashed; }
-  .item.dragging { opacity: 0.45; }
-  .name { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .name .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-  .icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; }
-  .icon svg { display: block; }
-  .icon .grid-mark { background: #fff; outline: 1px solid var(--ink); }
+  .items { list-style: none; margin: 0; padding: 8px; min-height: 260px; }
+  .item { padding: 8px 12px; border-radius: 14px; cursor: default; user-select: none; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s, box-shadow 0.16s; animation: pop-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; animation-delay: calc(var(--i, 0) * 22ms); }
+  .item:hover { background: var(--hover); transform: translateX(3px); }
+  .item[aria-selected="true"] { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); }
+  .item.over { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); animation: nudge 0.7s ease-in-out infinite; }
+  .item.dragging { opacity: 0.4; transform: scale(0.98); }
+  .item.cut { opacity: 0.52; }
+  .item.landed { animation: landed 0.5s cubic-bezier(0.2, 1.6, 0.4, 1); }
+  .name { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .name .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+  .icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; }
+  .icon svg { display: block; transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1); }
+  .icon .grid-mark { background: #fff; border-radius: 3px; outline: 1px solid var(--ink); }
+  .item:hover .icon svg { transform: rotate(-7deg) scale(1.12); }
   .cell { font-size: 13px; color: var(--muted); }
-  .rename-input { width: 100%; min-width: 0; padding: 3px 6px; border: 1.5px solid var(--focus); border-radius: 2px; background: var(--cell); color: var(--ink); font: 500 14px var(--sans); }
-  .empty-note { padding: 28px 14px; color: var(--muted); font-size: 14px; text-align: center; }
-  .statusbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--line-soft); background: var(--surface); font-size: 12px; color: var(--muted); }
+  .rename-input { width: 100%; min-width: 0; padding: 4px 9px; border: 2px solid var(--focus); border-radius: 999px; background: var(--cell); color: var(--ink); font: 600 14px var(--sans); }
+  .empty-note { padding: 46px 14px; color: var(--muted); font-size: 14px; text-align: center; }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--line-soft); background: var(--surface); font-size: 12px; color: var(--muted); }
 
-  .menu { position: absolute; z-index: 5; min-width: 168px; padding: 4px; border: 1px solid var(--rule); border-radius: 6px; background: var(--cell); box-shadow: 0 10px 30px rgb(0 0 0 / 0.22); }
-  .menu button { display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 4px; background: none; color: var(--ink); font: 500 13px var(--sans); text-align: left; cursor: pointer; }
-  .menu button:hover { background: var(--hover); }
-  .menu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line-soft); }
+  .menu { position: absolute; z-index: 5; min-width: 178px; padding: 6px; border: 1px solid var(--rule); border-radius: 14px; background: var(--cell); box-shadow: 0 14px 34px rgb(0 0 0 / 0.22); animation: pop-in 0.16s cubic-bezier(0.2, 1.5, 0.4, 1); transform-origin: top left; }
+  .menu button { display: block; width: 100%; padding: 8px 12px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: 600 13px var(--sans); text-align: left; cursor: pointer; }
+  .menu button:hover:not(:disabled) { background: var(--hover); }
+  .menu button:disabled { color: var(--muted); opacity: 0.55; cursor: default; }
+  .menu hr { margin: 5px 8px; border: 0; border-top: 1px solid var(--line-soft); }
 
+  @keyframes pop-in { from { opacity: 0; transform: translateY(7px) scale(0.96); } to { opacity: 1; transform: none; } }
+  @keyframes nudge { 0%, 100% { transform: scale(1.015); } 50% { transform: scale(1.045); } }
+  @keyframes landed { 0% { transform: scale(1); } 45% { transform: scale(1.06) rotate(-1deg); } 100% { transform: scale(1); } }
+
+  @media (max-width: 860px) {
+    .panes { grid-template-columns: minmax(0, 1fr); }
+    .tree-pane { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  }
   @media (max-width: 760px) {
     .columns, .item { grid-template-columns: minmax(0, 1fr) 84px; }
     .columns span:nth-child(2), .item .cell.when, .columns span:nth-child(4), .item .cell.filled, .columns span:nth-child(5), .item .cell.clues { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .item, .node, .menu, .crumb, .toolbar .btn, .icon svg { animation: none !important; transition: none !important; }
   }
 </style>
 </head>
@@ -80,6 +114,10 @@
       <span class="divider" aria-hidden="true"></span>
       <button type="button" id="open" class="btn quiet" disabled>Open</button>
       <button type="button" id="rename" class="btn quiet" disabled>Rename</button>
+      <span class="divider" aria-hidden="true"></span>
+      <button type="button" id="cut" class="btn quiet" title="Ctrl+X" disabled>Cut</button>
+      <button type="button" id="copy" class="btn quiet" title="Ctrl+C" disabled>Copy</button>
+      <button type="button" id="paste" class="btn quiet" title="Ctrl+V" disabled>Paste</button>
       <button type="button" id="remove" class="btn quiet danger" disabled>Delete</button>
       <span class="spacer"></span>
       <button type="button" id="up" class="btn quiet" disabled>Up one level</button>
@@ -87,13 +125,20 @@
 
     <nav id="address" class="address" aria-label="Folder"></nav>
 
-    <div class="columns" aria-hidden="true">
-      <span>Name</span><span>Date modified</span><span>Size</span><span>Filled</span><span>Clues</span>
+    <div class="panes">
+      <aside class="tree-pane">
+        <div class="tree-head">Folders</div>
+        <ul id="tree" class="tree" aria-label="Folder tree"></ul>
+      </aside>
+      <div class="list-pane">
+        <div class="columns" aria-hidden="true">
+          <span>Name</span><span>Date modified</span><span>Size</span><span>Filled</span><span>Clues</span>
+        </div>
+        <ul id="items" class="items" role="listbox" aria-label="Puzzles and folders" tabindex="0"></ul>
+      </div>
     </div>
 
-    <ul id="items" class="items" role="listbox" aria-label="Puzzles and folders" tabindex="0"></ul>
-
-    <div class="statusbar"><span id="count"></span><span id="chosen"></span></div>
+    <div class="statusbar"><span id="count"></span><span id="chosen"></span><span id="clipnote"></span></div>
   </div>
 </div>
 
@@ -108,28 +153,43 @@
   const $ = (id) => document.getElementById(id);
   const SVG = "http://www.w3.org/2000/svg";
   const ROOT = "My puzzles";
+  const OPEN_KEY = "fillmein:folders-open";
 
   let here = "";          // the folder being looked at; "" is the top
-  let picked = null;      // {kind: "folder" | "puzzle", id}
+  let picked = null;      // {kind: "folder" | "puzzle", id} — a folder's id is its whole path
+  let clip = null;        // {mode: "cut" | "copy", kind, id}
   let renaming = null;    // what is being renamed, so a redraw does not interrupt it
+  let landed = null;      // a folder something was just dropped into, so it can bounce
   let menu = null;
+
+  const path = (value) => S.cleanPath(value);
+  const nameOf = (folder) => S.nameOf(folder);
+  const parentOf = (folder) => S.parentOf(folder);
+  /* Is `other` the folder itself, or somewhere inside it? */
+  const within = (folder, other) => Boolean(folder) && (other === folder || other.startsWith(`${folder}/`));
+
+  let expanded = new Set();
+  try { expanded = new Set(JSON.parse(localStorage.getItem(OPEN_KEY)) || []); } catch (error) { /* storage unavailable */ }
+  const saveOpen = () => {
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify([...expanded])); } catch (error) { /* storage unavailable */ }
+  };
 
   const when = (time) => {
     const date = new Date(time);
     return `${date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" })} ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
   };
 
-  function folderIcon() {
+  function folderIcon(size = 26) {
     const svg = document.createElementNS(SVG, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("width", "26");
-    svg.setAttribute("height", "26");
+    svg.setAttribute("width", size);
+    svg.setAttribute("height", size);
     svg.setAttribute("aria-hidden", "true");
     const back = document.createElementNS(SVG, "path");
-    back.setAttribute("d", "M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v2H2z");
+    back.setAttribute("d", "M2.5 7a2.5 2.5 0 0 1 2.5-2.5h4l2 2h8.5A2.5 2.5 0 0 1 22 9v1.5H2.5z");
     back.setAttribute("fill", "#dca430");
     const front = document.createElementNS(SVG, "path");
-    front.setAttribute("d", "M2 9h20v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z");
+    front.setAttribute("d", "M2.5 10h19v7.5a2.5 2.5 0 0 1-2.5 2.5H5a2.5 2.5 0 0 1-2.5-2.5z");
     front.setAttribute("fill", "#f0bf59");
     svg.append(back, front);
     return svg;
@@ -147,6 +207,7 @@
       box.setAttribute("y", "2.5");
       box.setAttribute("width", "17");
       box.setAttribute("height", "19");
+      box.setAttribute("rx", "2.5");
       box.setAttribute("fill", "#fff");
       box.setAttribute("stroke", "currentColor");
       blank.append(box);
@@ -176,7 +237,7 @@
     const details = S.loadDetails(puzzle.id);
     const grid = S.loadGrid(puzzle.id);
     const title = details.title.trim() || "Untitled puzzle";
-    const folder = (details.folder || "").trim();
+    const folder = path(details.folder);
     if (!grid) return { ...puzzle, title, folder, grid: null, size: "—", filled: "—", clues: "—" };
     const clues = S.loadClues(puzzle.id);
     const open = grid.blocks.filter((block) => !block).length;
@@ -194,17 +255,64 @@
   }
 
   const puzzlesNow = () => S.list().map(describe);
-  const foldersNow = (puzzles) => [...new Set([...S.folders(), ...puzzles.map((p) => p.folder).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
+  /* Every folder there is: the ones made here, the ones puzzles remember, and the parents of both. */
+  function foldersNow(puzzles) {
+    const all = new Set();
+    for (const folder of [...S.folders(), ...puzzles.map((puzzle) => puzzle.folder)]) {
+      const names = path(folder).split("/").filter(Boolean);
+      names.forEach((_, i) => all.add(names.slice(0, i + 1).join("/")));
+    }
+    return [...all].sort((a, b) => a.localeCompare(b));
+  }
+  const childrenOf = (folder, folders) => folders.filter((other) => parentOf(other) === folder);
+  /* How many puzzles a folder holds, counting the ones in the folders inside it. */
+  const tally = (folder, puzzles) => puzzles.filter((puzzle) => within(folder, puzzle.folder)).length;
+
+  /* A name nothing else in that folder is using. */
+  function freeName(parent, name, folders) {
+    const taken = new Set(childrenOf(parent, folders).map(nameOf));
+    if (!taken.has(name)) return name;
+    let tried = `${name} copy`;
+    for (let n = 2; taken.has(tried); n++) tried = `${name} copy ${n}`;
+    return tried;
+  }
 
   // --- moving things about ---
 
   function moveInto(kind, id, folder) {
-    if (kind !== "puzzle") return;
-    S.setFolder(id, folder);
+    if (kind === "puzzle") {
+      S.setFolder(id, folder);
+      picked = { kind: "puzzle", id };
+    } else if (kind === "folder") {
+      if (within(id, folder) || parentOf(id) === folder) return;
+      const now = S.moveFolder(id, folder);
+      if (within(id, here)) here = now + here.slice(id.length);
+      picked = { kind: "folder", id: now };
+    } else {
+      return;
+    }
+    if (folder) {
+      landed = folder;
+      expanded.add(folder);
+      saveOpen();
+    }
     render();
   }
 
+  function dragSource(element, kind, id) {
+    element.draggable = true;
+    element.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", `${kind}:${id}`);
+      event.dataTransfer.effectAllowed = "move";
+      element.classList.add("dragging");
+    });
+    element.addEventListener("dragend", () => element.classList.remove("dragging"));
+  }
+
+  /* Somewhere a folder or puzzle can be dropped. `folder` can be a function for a target, like the
+     empty space below the items, that means "wherever we are right now". */
   function dropTarget(element, folder) {
+    const into = () => (typeof folder === "function" ? folder() : folder);
     element.addEventListener("dragover", (event) => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
@@ -215,11 +323,67 @@
     });
     element.addEventListener("drop", (event) => {
       event.preventDefault();
+      event.stopPropagation();
       element.classList.remove("over");
       const moved = event.dataTransfer.getData("text/plain");
-      if (moved && moved.startsWith("puzzle:")) moveInto("puzzle", moved.slice(7), folder);
+      const cut = moved.indexOf(":");
+      if (cut > 0) moveInto(moved.slice(0, cut), moved.slice(cut + 1), into());
     });
   }
+
+  // --- cut, copy and paste ---
+
+  function holdIt(mode) {
+    if (!picked) return;
+    clip = { mode, kind: picked.kind, id: picked.id };
+    render();
+  }
+
+  function pasteInto(folder) {
+    if (!clip) return;
+    const puzzles = puzzlesNow();
+    const folders = foldersNow(puzzles);
+    if (clip.kind === "puzzle") {
+      if (clip.mode === "cut") {
+        S.setFolder(clip.id, folder);
+        picked = { kind: "puzzle", id: clip.id };
+        clip = null;
+      } else {
+        const copy = S.duplicate(clip.id, folder);
+        if (!copy) return;
+        const was = puzzles.find((puzzle) => puzzle.id === clip.id);
+        S.setTitle(copy, `${was ? was.title : "Untitled puzzle"} copy`);
+        picked = { kind: "puzzle", id: copy };
+      }
+    } else {
+      const from = clip.id;
+      if (within(from, folder)) return; // a folder cannot go inside itself
+      if (clip.mode === "cut") {
+        if (parentOf(from) !== folder) picked = { kind: "folder", id: S.moveFolder(from, folder) };
+        clip = null;
+      } else {
+        const target = [folder, freeName(folder, nameOf(from), folders)].filter(Boolean).join("/");
+        S.addFolder(target);
+        for (const other of folders) {
+          if (other !== from && within(from, other)) S.addFolder(target + other.slice(from.length));
+        }
+        for (const puzzle of puzzles) {
+          if (within(from, puzzle.folder)) S.duplicate(puzzle.id, target + puzzle.folder.slice(from.length));
+        }
+        picked = { kind: "folder", id: target };
+      }
+    }
+    if (folder) {
+      landed = folder;
+      expanded.add(folder);
+      saveOpen();
+    }
+    render();
+  }
+
+  /* Pasting with a folder picked out puts things in it; otherwise into the folder you are looking at. */
+  const pasteWhere = () => (picked && picked.kind === "folder" ? picked.id : here);
+  const canPaste = () => Boolean(clip) && !(clip.kind === "folder" && within(clip.id, pasteWhere()));
 
   // --- what you can do with the thing you picked ---
 
@@ -229,16 +393,21 @@
       row.setAttribute("aria-selected", String(Boolean(picked) && row.dataset.kind === picked.kind && row.dataset.id === picked.id));
     }
     const has = Boolean(picked);
-    $("open").disabled = !has;
-    $("rename").disabled = !has;
-    $("remove").disabled = !has;
+    for (const button of ["open", "rename", "remove", "cut", "copy"]) $(button).disabled = !has;
+    $("paste").disabled = !canPaste();
     $("chosen").textContent = has ? "1 selected" : "";
+    $("clipnote").textContent = clip
+      ? `${clip.mode === "cut" ? "Ready to move" : "Ready to copy"}: ${clip.kind === "folder" ? nameOf(clip.id) : "1 puzzle"}`
+      : "";
   }
 
   function openPicked() {
     if (!picked) return;
     if (picked.kind === "folder") {
       here = picked.id;
+      expanded.add(picked.id);
+      saveOpen();
+      picked = null;
       render();
       return;
     }
@@ -267,8 +436,8 @@
         return;
       }
       if (picked.kind === "folder") {
-        const now = S.renameFolder(picked.id, name);
-        if (here === picked.id) here = now;
+        const now = S.renameFolder(picked.id, [parentOf(picked.id), name].filter(Boolean).join("/"));
+        if (within(picked.id, here)) here = now + here.slice(picked.id.length);
         picked = { kind: "folder", id: now };
       } else {
         S.setTitle(picked.id, name);
@@ -289,18 +458,21 @@
   async function deletePicked() {
     if (!picked) return;
     if (picked.kind === "folder") {
-      const inside = puzzlesNow().filter((puzzle) => puzzle.folder === picked.id);
+      const folder = picked.id;
+      const out = parentOf(folder);
+      const inside = puzzlesNow().filter((puzzle) => within(folder, puzzle.folder));
       const sure = await window.fillmeinConfirm({
-        title: `Delete the folder “${picked.id}”?`,
+        title: `Delete the folder “${nameOf(folder)}”?`,
         text: inside.length
-          ? `Its ${inside.length} ${inside.length === 1 ? "puzzle moves" : "puzzles move"} back out to ${ROOT}; nothing is lost.`
+          ? `Its ${inside.length} ${inside.length === 1 ? "puzzle moves" : "puzzles move"} to ${out ? `“${nameOf(out)}”` : ROOT}; nothing is lost.`
           : "The folder is empty, so nothing else changes.",
         confirm: "Delete folder",
       });
       if (!sure) return;
-      for (const puzzle of inside) S.setFolder(puzzle.id, "");
-      S.removeFolder(picked.id);
-      if (here === picked.id) here = "";
+      for (const puzzle of inside) S.setFolder(puzzle.id, out);
+      S.removeFolder(folder);
+      if (within(folder, here)) here = out;
+      if (clip && clip.kind === "folder" && within(folder, clip.id)) clip = null;
       picked = null;
       render();
       return;
@@ -311,6 +483,7 @@
       text: "Its grid, clues and details go for good, on every device signed in to your account. This cannot be undone.",
     });
     if (!sure) return;
+    if (clip && clip.kind === "puzzle" && clip.id === picked.id) clip = null;
     S.remove(picked.id);
     picked = null;
     render();
@@ -327,18 +500,24 @@
     closeMenu();
     menu = document.createElement("div");
     menu.className = "menu";
-    const add = (label, run) => {
+    const add = (label, run, off) => {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = label;
+      button.disabled = Boolean(off);
       button.addEventListener("click", () => {
         closeMenu();
         run();
       });
       menu.append(button);
     };
-    add(picked && picked.kind === "folder" ? "Open" : "Open puzzle", openPicked);
+    const folderPicked = Boolean(picked && picked.kind === "folder");
+    add(folderPicked ? "Open" : "Open puzzle", openPicked);
     add("Rename", renamePicked);
+    menu.append(document.createElement("hr"));
+    add("Cut", () => holdIt("cut"));
+    add("Copy", () => holdIt("copy"));
+    add(folderPicked ? "Paste into folder" : "Paste", () => pasteInto(pasteWhere()), !canPaste());
     menu.append(document.createElement("hr"));
     add("Delete", deletePicked);
     document.body.append(menu);
@@ -351,14 +530,15 @@
 
   // --- drawing it ---
 
-  function row({ kind, id, name, icon, modified, size, filled, clues }) {
+  function row({ kind, id, name, icon, modified, size, filled, clues }, index) {
     const item = document.createElement("li");
     item.className = "item";
+    item.style.setProperty("--i", index);
     item.dataset.kind = kind;
     item.dataset.id = id;
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", "false");
-    item.draggable = kind === "puzzle";
+    if (clip && clip.mode === "cut" && clip.kind === kind && clip.id === id) item.classList.add("cut");
 
     const label = document.createElement("span");
     label.className = "entry-name";
@@ -388,70 +568,118 @@
       choose(kind, id);
       openMenu(event.clientX, event.clientY);
     });
-    if (kind === "puzzle") {
-      item.addEventListener("dragstart", (event) => {
-        event.dataTransfer.setData("text/plain", `puzzle:${id}`);
-        event.dataTransfer.effectAllowed = "move";
-        item.classList.add("dragging");
-      });
-      item.addEventListener("dragend", () => item.classList.remove("dragging"));
-    } else {
+    dragSource(item, kind, id);
+    if (kind === "folder") {
       dropTarget(item, id);
+      if (landed === id) item.classList.add("landed");
     }
     return item;
+  }
+
+  /* One line of the folder tree down the side. Every line takes a drop, so a puzzle two folders deep
+     can be dragged straight up to the top, or across into another folder. */
+  function treeNode(folder, folders, puzzles, depth) {
+    const line = document.createElement("li");
+    const node = document.createElement("div");
+    node.className = "node";
+    node.style.setProperty("--depth", depth);
+    node.dataset.folder = folder;
+    node.setAttribute("aria-current", String(folder === here));
+
+    const kids = childrenOf(folder, folders);
+    const open = !folder || expanded.has(folder);
+    const twisty = document.createElement("button");
+    twisty.type = "button";
+    twisty.className = `twisty${kids.length ? "" : " hidden"}`;
+    twisty.textContent = "▶";
+    twisty.setAttribute("aria-expanded", String(open));
+    twisty.setAttribute("aria-label", open ? "Collapse" : "Expand");
+    twisty.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (expanded.has(folder)) expanded.delete(folder);
+      else expanded.add(folder);
+      saveOpen();
+      render();
+    });
+
+    const label = document.createElement("span");
+    label.className = "node-name";
+    label.textContent = folder ? nameOf(folder) : ROOT;
+    const pill = document.createElement("span");
+    pill.className = "tally";
+    pill.textContent = String(folder ? tally(folder, puzzles) : puzzles.length);
+
+    node.append(twisty, folderIcon(folder ? 18 : 18), label, pill);
+    node.addEventListener("click", () => {
+      here = folder;
+      picked = null;
+      if (folder) expanded.add(folder);
+      saveOpen();
+      render();
+    });
+    dropTarget(node, folder);
+    if (folder) dragSource(node, "folder", folder);
+    line.append(node);
+
+    const lines = [line];
+    if (open) for (const kid of kids) lines.push(...treeNode(kid, folders, puzzles, depth + 1));
+    return lines;
   }
 
   function render() {
     const puzzles = puzzlesNow();
     const folders = foldersNow(puzzles);
     if (here && !folders.includes(here)) here = "";
+    if (clip && clip.kind === "folder" && !folders.includes(clip.id)) clip = null;
+    // Keep the way down to wherever you are open in the tree.
+    const names = here.split("/").filter(Boolean);
+    names.forEach((_, i) => expanded.add(names.slice(0, i + 1).join("/")));
 
-    // Address bar: My puzzles › this folder, and both take a dropped puzzle.
+    // Address bar: My puzzles › a folder › the folder inside it, and every crumb takes a drop.
     const address = $("address");
     address.replaceChildren();
-    const rootCrumb = document.createElement("button");
-    rootCrumb.type = "button";
-    rootCrumb.className = "crumb";
-    rootCrumb.textContent = ROOT;
-    if (!here) rootCrumb.setAttribute("aria-current", "page");
-    rootCrumb.addEventListener("click", () => {
-      here = "";
-      render();
-    });
-    dropTarget(rootCrumb, "");
-    address.append(rootCrumb);
-    if (here) {
-      const sep = document.createElement("span");
-      sep.className = "sep";
-      sep.textContent = "›";
+    const steps = [{ folder: "", name: ROOT }, ...names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }))];
+    steps.forEach((step, i) => {
+      if (i) {
+        const sep = document.createElement("span");
+        sep.className = "sep";
+        sep.textContent = "›";
+        address.append(sep);
+      }
       const crumb = document.createElement("button");
       crumb.type = "button";
       crumb.className = "crumb";
-      crumb.textContent = here;
-      crumb.setAttribute("aria-current", "page");
-      dropTarget(crumb, here);
-      address.append(sep, crumb);
-    }
+      crumb.textContent = step.name;
+      if (step.folder === here) crumb.setAttribute("aria-current", "page");
+      crumb.addEventListener("click", () => {
+        here = step.folder;
+        picked = null;
+        render();
+      });
+      dropTarget(crumb, step.folder);
+      address.append(crumb);
+    });
+
+    // The whole shape of things, down the side.
+    $("tree").replaceChildren(...treeNode("", folders, puzzles, 0));
 
     const items = $("items");
     items.replaceChildren();
-    const inside = puzzles.filter((puzzle) => (here ? puzzle.folder === here : !puzzle.folder));
-    if (!here) {
-      for (const name of folders) {
-        const count = puzzles.filter((puzzle) => puzzle.folder === name).length;
-        items.append(row({
-          kind: "folder",
-          id: name,
-          name,
-          icon: folderIcon(),
-          modified: "",
-          size: `${count} ${count === 1 ? "puzzle" : "puzzles"}`,
-          filled: "",
-          clues: "",
-        }));
-      }
+    let index = 0;
+    for (const folder of childrenOf(here, folders)) {
+      const count = tally(folder, puzzles);
+      items.append(row({
+        kind: "folder",
+        id: folder,
+        name: nameOf(folder),
+        icon: folderIcon(),
+        modified: "",
+        size: `${count} ${count === 1 ? "puzzle" : "puzzles"}`,
+        filled: "",
+        clues: "",
+      }, index++));
     }
-    for (const puzzle of inside) {
+    for (const puzzle of puzzles.filter((puzzle) => puzzle.folder === here)) {
       items.append(row({
         kind: "puzzle",
         id: puzzle.id,
@@ -461,14 +689,15 @@
         size: puzzle.size,
         filled: puzzle.filled,
         clues: puzzle.clues,
-      }));
+      }, index++));
     }
     if (!items.children.length) {
       const empty = document.createElement("li");
       empty.className = "empty-note";
-      empty.textContent = here ? "This folder is empty. Drag puzzles onto it, or onto its name above." : "No puzzles yet.";
+      empty.textContent = here ? "This folder is empty. Drag puzzles onto it, or paste them in." : "No puzzles yet.";
       items.append(empty);
     }
+    landed = null;
 
     // A rename in progress survives a redraw (adding a folder causes one).
     if (renaming) {
@@ -495,26 +724,44 @@
     location.href = `grid.html?p=${encodeURIComponent(id)}`;
   });
   $("new-folder").addEventListener("click", () => {
-    const base = "New folder";
-    const taken = new Set(foldersNow(puzzlesNow()));
-    let name = base;
-    for (let n = 2; taken.has(name); n++) name = `${base} (${n})`;
-    S.addFolder(name);
-    here = "";
-    picked = { kind: "folder", id: name };
+    const folders = foldersNow(puzzlesNow());
+    const taken = new Set(childrenOf(here, folders).map(nameOf));
+    let name = "New folder";
+    for (let n = 2; taken.has(name); n++) name = `New folder (${n})`;
+    picked = { kind: "folder", id: S.addFolder([here, name].filter(Boolean).join("/")) };
     render();
     renamePicked(); // named straight away, the way a new folder is in Explorer
   });
   $("open").addEventListener("click", openPicked);
   $("rename").addEventListener("click", renamePicked);
   $("remove").addEventListener("click", deletePicked);
+  $("cut").addEventListener("click", () => holdIt("cut"));
+  $("copy").addEventListener("click", () => holdIt("copy"));
+  $("paste").addEventListener("click", () => pasteInto(pasteWhere()));
   $("up").addEventListener("click", () => {
-    here = "";
+    here = parentOf(here);
     picked = null;
     render();
   });
 
-  $("items").addEventListener("keydown", (event) => {
+  document.addEventListener("keydown", (event) => {
+    const target = event.target;
+    if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+    if (document.querySelector("dialog[open]")) return;
+    if (event.ctrlKey || event.metaKey) {
+      const key = event.key.toLowerCase();
+      if (key === "c" && picked) {
+        event.preventDefault();
+        holdIt("copy");
+      } else if (key === "x" && picked) {
+        event.preventDefault();
+        holdIt("cut");
+      } else if (key === "v" && canPaste()) {
+        event.preventDefault();
+        pasteInto(pasteWhere());
+      }
+      return;
+    }
     if (event.key === "Enter") {
       event.preventDefault();
       openPicked();
@@ -524,7 +771,13 @@
     } else if (event.key === "F2") {
       event.preventDefault();
       renamePicked();
+    } else if (event.key === "Backspace" && here) {
+      event.preventDefault();
+      here = parentOf(here);
+      picked = null;
+      render();
     } else if (event.key === "Escape") {
+      clip = null;
       choose(null, null);
     }
   });
@@ -532,6 +785,8 @@
   $("items").addEventListener("click", (event) => {
     if (event.target === $("items")) choose(null, null);
   });
+  // Dropping on that empty space files something in the folder you are looking at.
+  dropTarget($("items"), () => here);
 
   let waiting = 0;
   const later = () => {
