@@ -343,6 +343,7 @@
         <span class="label">Autofill</span>
         <label class="field range">Min. word score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
         <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular words below it</label>
+        <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer.">Search for <input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric"> seconds</label>
       </div>
       <div class="control-group">
         <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
@@ -477,6 +478,12 @@
   const symmetryEl = $("symmetry");
   const tintEl = $("tint");
   const minScoreEl = $("min-score");
+  const timeLimitEl = $("time-limit");
+  /* How long the autofill may search, in seconds. Out-of-range or nonsense falls back to 30. */
+  const timeLimit = () => {
+    const asked = Math.round(Number(timeLimitEl.value));
+    return Number.isFinite(asked) && asked > 0 ? Math.min(900, Math.max(5, asked)) : 30;
+  };
   const allowPopularEl = $("allow-popular");
   const MIN_SIZE = 3;
   const MAX_SIZE = 25;
@@ -831,7 +838,7 @@
     $("clear-entry").disabled = running || k < 0 || !slots[k].cells.some((i) => ink[i] || pencil[i]);
     $("erase").disabled = running || !pencil.some(Boolean);
     $("clear").disabled = running || !(pencil.some(Boolean) || ink.some(Boolean));
-    for (const id of ["new-grid", "cols", "rows", "example", "symmetry", "min-score", "allow-popular"]) $(id).disabled = running;
+    for (const id of ["new-grid", "cols", "rows", "example", "symmetry", "min-score", "allow-popular", "time-limit"]) $(id).disabled = running;
   }
 
   function setStatus(state, text) {
@@ -1352,6 +1359,10 @@
     render();
   });
   symmetryEl.addEventListener("change", save);
+  timeLimitEl.addEventListener("change", () => {
+    timeLimitEl.value = timeLimit(); // show what it will actually do
+    save();
+  });
   tintEl.addEventListener("change", render);
   allowPopularEl.addEventListener("change", render);
   $("undo").addEventListener("click", undo);
@@ -1506,7 +1517,9 @@
     fill(grid, options, onProgress, onResult) {
       this.cancelOptions();
       if (this.inline) {
-        setTimeout(() => onResult(G.fill(grid, this.wordList(), { ...options, timeLimit: 10 })), 40);
+        // No worker: the search holds up the page while it runs and Stop can't interrupt it, so it
+        // keeps a short leash however long the page asked for.
+        setTimeout(() => onResult(G.fill(grid, this.wordList(), { ...options, timeLimit: Math.min(options.timeLimit || 30, 10) })), 40);
         return;
       }
       this.onProgress = onProgress;
@@ -1592,14 +1605,14 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: 30, variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2 };
+    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2 };
     runner.fill(
       rows,
       fillOptions,
       (partial, stats) => {
         applyRows(partial, false);
         render();
-        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s, ${plural(stats.failures, "backtrack")}`);
+        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}`);
       },
       (result) => {
         running = false;
@@ -2026,6 +2039,7 @@ await refreshWordList();
       tint: tintEl.checked,
       minScore: minScore(),
       allowPopular: allowPopularEl.checked,
+      timeLimit: timeLimit(),
       lists: { id: listChoice.id },
     };
   }
@@ -2050,6 +2064,7 @@ await refreshWordList();
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
     if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
+    if (Number.isFinite(data.timeLimit)) timeLimitEl.value = data.timeLimit;
     if (data.lists && typeof data.lists === "object") {
       // Older saves named a mode and a set of lists; the first of those lists is the one in use now.
       const first = Array.isArray(data.lists.ids) ? data.lists.ids.find((id) => typeof id === "string") : null;
