@@ -231,6 +231,53 @@
   .w .e { color: var(--rule); }
   .note { margin: 0; max-width: 75ch; font-size: 13px; color: var(--muted); }
 
+  /* Each option row: the word (a big click target that previews it) with small edit buttons beside it. */
+  .option-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line-soft); }
+  .option-row .option { border-bottom: 0; }
+  .option-edit { flex: none; display: flex; align-items: center; gap: 2px; padding-right: 6px; opacity: 0; }
+  .option-row:hover .option-edit, .option-row:focus-within .option-edit { opacity: 1; }
+  .option-edit button {
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    font: 600 11px / 1 var(--sans);
+    cursor: pointer;
+  }
+  .option-edit button:hover { background: var(--hover); color: var(--ink); }
+  .option-edit button.drop:hover { background: var(--score-lo-bg); color: var(--score-lo); }
+  .option-score-input { width: 4.2em; padding: 3px 5px; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--cell); color: var(--ink); font: 700 12px / 1 var(--sans); }
+
+  /* Word lists dialog. */
+  .lists-dialog {
+    width: min(520px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 28px 70px rgb(0 0 0 / 0.3);
+  }
+  .lists-dialog::backdrop { background: rgb(12 15 19 / 0.5); backdrop-filter: blur(4px); }
+  .lists-body { display: grid; gap: 18px; padding: 26px 26px 22px; }
+  .lists-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .lists-head h2 { margin: 0; font: 600 25px / 1.2 var(--serif); }
+  .lists-dialog h3 { margin: 0 0 8px; font: 600 13px / 1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .use-choice { display: grid; gap: 6px; }
+  .use-choice label { display: flex; align-items: baseline; gap: 9px; font-size: 14px; }
+  .use-choice input { margin: 0; accent-color: var(--ink); }
+  .use-choice small { color: var(--muted); }
+  .list-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .list-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+  .list-row .name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .list-row .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .lists-empty { margin: 0; font-size: 14px; color: var(--muted); }
+  .lists-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .file-button { display: inline-flex; align-items: center; gap: 8px; }
+  .file-button input { display: none; }
+
   @media (max-width: 880px) {
     .bench { grid-template-columns: minmax(0, 1fr); }
     .panel { position: static; }
@@ -300,6 +347,7 @@
         <button type="button" id="stop" class="btn stop" hidden>Stop</button>
         <button type="button" id="erase" class="btn quiet">Erase pencil</button>
         <button type="button" id="clear" class="btn quiet">Clear all letters</button>
+        <button type="button" id="open-lists" class="btn quiet">Word lists…</button>
       </div>
       <p id="status" class="status" data-state="busy" role="status">Loading the word list…</p>
     </div>
@@ -365,9 +413,48 @@
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
 </div>
 
+<dialog id="lists-dialog" class="lists-dialog" aria-labelledby="lists-title">
+  <div class="lists-body">
+    <div class="lists-head">
+      <h2 id="lists-title">Word lists</h2>
+      <button type="button" class="btn quiet small" data-close-lists>Close</button>
+    </div>
+
+    <section>
+      <h3>For this puzzle</h3>
+      <div class="use-choice" id="use-choice">
+        <label><input type="radio" name="use-list" value="built-in"><span>The built-in list <small>(<span id="built-in-count">—</span> scored words)</small></span></label>
+        <label><input type="radio" name="use-list" value="both"><span>Built-in list plus mine <small>(my score wins where both have a word)</small></span></label>
+        <label><input type="radio" name="use-list" value="custom"><span>My lists only <small>(autofill uses nothing else)</small></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h3>My lists</h3>
+      <ul id="list-rows" class="list-rows"></ul>
+      <p id="lists-empty" class="lists-empty" hidden>Nothing loaded yet.</p>
+      <p class="lists-note" id="lists-note"></p>
+      <label class="file-button">
+        <input type="file" id="list-file" accept=".txt,.dict,.csv,text/plain">
+        <span class="btn">Load a list file…</span>
+      </label>
+      <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;60</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
+    </section>
+
+    <section>
+      <h3>Words you've changed</h3>
+      <p id="edits-summary" class="lists-empty"></p>
+      <button type="button" id="restore-edits" class="btn quiet small" hidden>Undo all my word changes</button>
+    </section>
+
+    <p class="lists-note">Your lists stay in this browser: nothing is uploaded. Syncing them to your account, encrypted so only you can read them, comes next.</p>
+  </div>
+</dialog>
+
 <script src="words.js"></script>
 <script src="filler.js"></script>
 <script src="store.js"></script>
+<script src="lists.js"></script>
 <script type="module" src="account.js"></script>
 <script>
 (() => {
@@ -414,10 +501,13 @@
 
   // --- word scores, read straight from words.js ---
 
+  // The word list in use: the built-in one, or it rebuilt with the solver's custom lists and per-word edits.
+  let wordData = window.GRIDFILL_WORDS;
+  let wordListVersion = 0; // bumped when lists or per-word edits change, so the options are worked out again
   const lexicon = new Map();
   function lexiconFor(length) {
     if (!lexicon.has(length)) {
-      const data = window.GRIDFILL_WORDS && window.GRIDFILL_WORDS[length];
+      const data = wordData && wordData[length];
       // popular: one bit per word (bit w & 7 of byte w >> 3), as a byte string.
       lexicon.set(length, data ? { letters: data[0], scores: Int16Array.from(data[1].split(","), Number), popular: data[2] ? atob(data[2]) : "" } : null);
     }
@@ -788,7 +878,7 @@
     }
     const slot = slots[k];
     const letters = ink.map((x, i) => x || pencil[i] || ".").join("");
-    const signature = [W, H, blocks.map(Number).join(""), letters, minScore(), allowPopularEl.checked, slot.row, slot.col, slot.direction].join("|");
+    const signature = [W, H, blocks.map(Number).join(""), letters, minScore(), allowPopularEl.checked, slot.row, slot.col, slot.direction, wordListVersion].join("|");
     if (options && options.signature === signature) return;
     cancelCheck();
     if (slot.cells.every((i) => ink[i] || pencil[i])) {
@@ -934,7 +1024,9 @@
     let row = optionRows.get(i);
     if (!row) {
       row = document.createElement("li");
-      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true"></span></button>`;
+      row.className = "option-row";
+      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true"></span></button>` +
+        `<span class="option-edit"><button type="button" data-word-action="score" data-word="${option.word}" title="Give ${option.word} your own score">Score</button><button type="button" class="drop" data-word-action="remove" data-word="${option.word}" title="Take ${option.word} out of your word list">Remove</button></span>`;
       optionRows.set(i, row);
     }
     const button = row.firstChild;
@@ -1217,7 +1309,7 @@
   /* Runs the solver in a worker when the page allows one, otherwise on this thread. */
   const runner = {
     worker: null, inline: false, words: null, count: 0,
-    onProgress: null, onResult: null, optionsId: -1, onOptions: null,
+    onProgress: null, onResult: null, optionsId: -1, onOptions: null, onWords: null,
 
     start() {
       return new Promise((resolve, reject) => {
@@ -1253,7 +1345,14 @@
         };
         worker.onmessage = ({ data }) => {
           if (data.type === "ready") {
-            if (settled) return;
+            if (settled) {
+              // A list swapped in after startup: the worker says what it holds now.
+              this.count = data.count;
+              const swapped = this.onWords;
+              this.onWords = null;
+              if (swapped) swapped(data.error || null);
+              return;
+            }
             settled = true;
             clearTimeout(timer);
             this.worker = worker;
@@ -1274,8 +1373,21 @@
     },
 
     wordList() {
-      if (!this.words) this.words = new G.WordList(window.GRIDFILL_WORDS);
+      if (!this.words) this.words = new G.WordList(wordData);
       return this.words;
+    },
+
+    /* Use a rebuilt word list from here on, and say when it's in place. */
+    setWords(data) {
+      this.words = null;
+      if (this.inline || !this.worker) {
+        this.count = this.wordList().size;
+        return Promise.resolve(null);
+      }
+      return new Promise((resolve) => {
+        this.onWords = resolve;
+        this.worker.postMessage({ type: "words", words: data || undefined });
+      });
     },
 
     fill(grid, options, onProgress, onResult) {
@@ -1412,6 +1524,160 @@
     });
   });
 
+  // --- custom word lists ---
+
+  const LISTS = window.FillmeinLists;
+  let listChoice = { use: "built-in", ids: [] };
+  let listState = { lists: [], edits: { scores: {}, removed: [] } };
+
+  const editCount = () => Object.keys(listState.edits.scores).length + listState.edits.removed.length;
+
+  /* Rebuild the word list from the puzzle's choice, this browser's lists and the per-word edits, and
+     hand it to the solver here and in the worker. */
+  async function refreshWordList({ recheck = true, say = "" } = {}) {
+    if (!LISTS) return;
+    listState = await LISTS.state();
+    const chosen = listState.lists.filter((list) => listChoice.ids.includes(list.id));
+    const use = listChoice.use !== "built-in" && !chosen.length ? "built-in" : listChoice.use;
+    const plain = use === "built-in" && !editCount();
+    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: chosen, edits: listState.edits });
+    wordData = merged;
+    lexicon.clear();
+    scoreCache.clear();
+    runner.words = null;
+    // The options panel keeps finished candidate lists per grid position; they're all out of date now.
+    wordListVersion++;
+    optionCache.clear();
+    options = null;
+    await runner.setWords(plain ? null : merged);
+    renderLists();
+    render();
+    if (say) setStatus("idle", `${say} ${runner.count.toLocaleString()} words in the list now.`);
+    if (recheck && ready) resumeCheck();
+  }
+
+  function renderLists() {
+    if (!LISTS) return;
+    let builtIn = 0;
+    for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) builtIn += entry[0].length / Number(length);
+    $("built-in-count").textContent = builtIn.toLocaleString();
+    for (const radio of document.querySelectorAll('input[name="use-list"]')) radio.checked = radio.value === listChoice.use;
+    const rows = $("list-rows");
+    rows.replaceChildren();
+    for (const list of listState.lists) {
+      const row = document.createElement("li");
+      row.className = "list-row";
+      const on = document.createElement("input");
+      on.type = "checkbox";
+      on.checked = listChoice.ids.includes(list.id);
+      on.setAttribute("aria-label", `Use ${list.name}`);
+      on.addEventListener("change", async () => {
+        listChoice.ids = on.checked ? [...listChoice.ids, list.id] : listChoice.ids.filter((id) => id !== list.id);
+        if (on.checked && listChoice.use === "built-in") listChoice.use = "both";
+        save();
+        await refreshWordList({ say: on.checked ? `Using ${list.name}.` : `Stopped using ${list.name}.` });
+      });
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = list.name;
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = `${list.count.toLocaleString()} words`;
+      const drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "btn quiet small";
+      drop.textContent = "Delete";
+      drop.addEventListener("click", async () => {
+        await LISTS.remove(list.id);
+        listChoice.ids = listChoice.ids.filter((id) => id !== list.id);
+        save();
+        await refreshWordList({ say: `Deleted ${list.name}.` });
+      });
+      row.append(on, name, count, drop);
+      rows.append(row);
+    }
+    $("lists-empty").hidden = listState.lists.length > 0;
+    const edits = editCount();
+    $("edits-summary").textContent = edits
+      ? `${listState.edits.removed.length} word${listState.edits.removed.length === 1 ? "" : "s"} removed, ${Object.keys(listState.edits.scores).length} rescored.`
+      : "None yet. Use Score or Remove beside a word in the options list.";
+    $("restore-edits").hidden = !edits;
+  }
+
+  $("open-lists").addEventListener("click", async () => {
+    await refreshWordList({ recheck: false });
+    $("lists-dialog").showModal();
+  });
+  $("lists-dialog").addEventListener("click", (event) => {
+    if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
+  });
+  $("use-choice").addEventListener("change", async (event) => {
+    const radio = event.target.closest('input[name="use-list"]');
+    if (!radio) return;
+    listChoice.use = radio.value;
+    if (listChoice.use !== "built-in" && !listChoice.ids.length && listState.lists.length) listChoice.ids = [listState.lists[0].id];
+    save();
+    await refreshWordList({ say: "Word list changed." });
+  });
+  $("list-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    $("lists-note").textContent = `Reading ${file.name}…`;
+    try {
+      const { list, skipped } = await LISTS.add(file.name.replace(/\.[^.]+$/, ""), await file.text());
+      listChoice.ids = [...listChoice.ids, list.id];
+      if (listChoice.use === "built-in") listChoice.use = "both";
+      save();
+      $("lists-note").textContent = `Loaded ${list.count.toLocaleString()} words from ${file.name}${skipped ? `, skipping ${skipped.toLocaleString()} line${skipped === 1 ? "" : "s"} that weren't words` : ""}.`;
+      await refreshWordList({ say: `Loaded ${list.name}.` });
+    } catch (error) {
+      $("lists-note").textContent = error.message || "That file couldn't be read.";
+    }
+  });
+  $("restore-edits").addEventListener("click", async () => {
+    await LISTS.saveOverrides({ scores: {}, removed: [] });
+    await refreshWordList({ say: "Put back every word you'd changed." });
+  });
+
+  /* Score and Remove sit beside each option, outside the button that previews the word. */
+  $("options").addEventListener("click", async (event) => {
+    const action = event.target.closest("[data-word-action]");
+    if (!action || !LISTS) return;
+    event.stopPropagation();
+    const word = action.dataset.word;
+    if (action.dataset.wordAction === "remove") {
+      await LISTS.removeWord(word);
+      await refreshWordList({ say: `Removed ${word}. Undo it under Word lists.` });
+      return;
+    }
+    const holder = action.parentElement;
+    if (holder.querySelector("input")) return;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = "100";
+    input.className = "option-score-input";
+    input.value = String(scoreOf(word) ?? 50);
+    input.setAttribute("aria-label", `Score for ${word}`);
+    const previous = [...holder.children];
+    holder.replaceChildren(input);
+    input.focus();
+    input.select();
+    const finish = async (keep) => {
+      const value = Number(input.value);
+      holder.replaceChildren(...previous);
+      if (!keep || !Number.isFinite(value)) return;
+      await LISTS.setScore(word, value);
+      await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
+    };
+    input.addEventListener("keydown", (keys) => {
+      if (keys.key === "Enter") finish(true);
+      else if (keys.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+  }, true);
+
   // --- saving and startup ---
 
   function saved() {
@@ -1424,6 +1690,7 @@
       tint: tintEl.checked,
       minScore: minScore(),
       allowPopular: allowPopularEl.checked,
+      lists: { use: listChoice.use, ids: listChoice.ids.slice() },
     };
   }
 
@@ -1447,6 +1714,12 @@
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
     if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
+    if (data.lists && typeof data.lists === "object") {
+      listChoice = {
+        use: ["built-in", "both", "custom"].includes(data.lists.use) ? data.lists.use : "built-in",
+        ids: Array.isArray(data.lists.ids) ? data.lists.ids.filter((id) => typeof id === "string") : [],
+      };
+    }
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();
@@ -1465,7 +1738,9 @@
     if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(() => saved());
 
     runner.start().then(
-      () => {
+      async () => {
+        // The puzzle may be set to use custom lists, and per-word edits apply to every puzzle.
+        await refreshWordList({ recheck: false });
         ready = true;
         updateButtons();
         if (restored) {

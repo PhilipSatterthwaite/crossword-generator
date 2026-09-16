@@ -1,7 +1,7 @@
 /* Runs fills and word-option checks off the page's main thread so the grid stays responsive. */
 importScripts("words.js", "filler.js");
 
-const words = new Gridfill.WordList(self.GRIDFILL_WORDS);
+let words = new Gridfill.WordList(self.GRIDFILL_WORDS);
 
 // The word-option check in progress, worked on in short slices so new requests get through.
 let job = null;
@@ -46,6 +46,15 @@ self.onmessage = ({ data }) => {
     }
     job = { id: data.id, check };
     slices.port2.postMessage(null);
+  } else if (data.type === "words") {
+    // The page sends a rebuilt list when custom lists or per-word edits change.
+    job = null;
+    try {
+      words = new Gridfill.WordList(data.words || self.GRIDFILL_WORDS);
+      self.postMessage({ type: "ready", count: words.size });
+    } catch (error) {
+      self.postMessage({ type: "ready", count: words.size, error: `That word list didn't load: ${error.message}` });
+    }
   } else if (data.type === "prioritize") {
     if (job && job.id === data.id) job.check.prioritize(data.index, data.seconds);
   } else if (data.type === "cancel") {
