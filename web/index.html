@@ -103,10 +103,7 @@
     <section class="choice" aria-labelledby="new-title">
       <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">Start a new puzzle</h2></div>
       <p>Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.</p>
-      <div class="actions">
-        <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
-        <button type="button" id="try-example" class="btn">See it fill a grid</button>
-      </div>
+      <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
       <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
     </section>
 
@@ -220,10 +217,6 @@
 
   $("start-new").addEventListener("click", () => {
     location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
-  });
-  // The quickest look at what the site does: a themed 15×15, filling itself as soon as it opens.
-  $("try-example").addEventListener("click", () => {
-    location.href = `grid.html?p=${encodeURIComponent(S.create())}&example=themed15&fill=1`;
   });
   $("open-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];

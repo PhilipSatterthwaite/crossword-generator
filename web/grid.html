@@ -2138,20 +2138,6 @@
       loadRows(blank(15));
       save();
     }
-    // From the home page's "See it fill a grid": a new puzzle that starts as an example, and fills
-    // itself as soon as the word list is ready. The address forgets both once they've been used.
-    const asked = new URLSearchParams(location.search);
-    const demo = !restored && EXAMPLES[asked.get("example")] ? asked.get("example") : "";
-    if (demo) {
-      loadRows(EXAMPLES[demo]);
-      save();
-    }
-    const fillOnReady = Boolean(demo) && asked.has("fill");
-    if (asked.has("example") || asked.has("fill")) {
-      asked.delete("example");
-      asked.delete("fill");
-      history.replaceState(history.state, "", `${location.pathname}?${asked}`);
-    }
     if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(() => saved());
 
     runner.start().then(
@@ -2166,7 +2152,6 @@
         } else {
           setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words. Add blocks and letters, or load an example to start from.`);
         }
-        if (fillOnReady) runFill(false);
       },
       () => setStatus("error", "The word list didn't load. Reload the page to try again.")
     );

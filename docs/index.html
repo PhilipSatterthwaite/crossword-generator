@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-7srWdPpznlB1SrwRFcYthYj89gHizlMRi53ZZ7R1GYs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-+1uJSSKXtvelfVsReSJT/KNuLJAegrtfvmkFKR8fnIk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -104,10 +104,7 @@
     <section class="choice" aria-labelledby="new-title">
       <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">Start a new puzzle</h2></div>
       <p>Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.</p>
-      <div class="actions">
-        <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
-        <button type="button" id="try-example" class="btn">See it fill a grid</button>
-      </div>
+      <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
       <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
     </section>
 
@@ -221,10 +218,6 @@
 
   $("start-new").addEventListener("click", () => {
     location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
-  });
-  // The quickest look at what the site does: a themed 15×15, filling itself as soon as it opens.
-  $("try-example").addEventListener("click", () => {
-    location.href = `grid.html?p=${encodeURIComponent(S.create())}&example=themed15&fill=1`;
   });
   $("open-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Db5YTTY9+F/fzhZv9xy5K6sYbOJSEZcnag+fp0LQ+c8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-SGnBwjftLpnSRQluZmLZg9hKpX0ipBJ2MG1cqfSAnLo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <style>
@@ -2152,20 +2152,6 @@
       loadRows(blank(15));
       save();
     }
-    // From the home page's "See it fill a grid": a new puzzle that starts as an example, and fills
-    // itself as soon as the word list is ready. The address forgets both once they've been used.
-    const asked = new URLSearchParams(location.search);
-    const demo = !restored && EXAMPLES[asked.get("example")] ? asked.get("example") : "";
-    if (demo) {
-      loadRows(EXAMPLES[demo]);
-      save();
-    }
-    const fillOnReady = Boolean(demo) && asked.has("fill");
-    if (asked.has("example") || asked.has("fill")) {
-      asked.delete("example");
-      asked.delete("fill");
-      history.replaceState(history.state, "", `${location.pathname}?${asked}`);
-    }
     if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(() => saved());
 
     runner.start().then(
@@ -2180,7 +2166,6 @@
         } else {
           setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words. Add blocks and letters, or load an example to start from.`);
         }
-        if (fillOnReady) runFill(false);
       },
       () => setStatus("error", "The word list didn't load. Reload the page to try again.")
     );
