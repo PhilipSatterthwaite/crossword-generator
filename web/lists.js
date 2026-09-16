@@ -112,13 +112,14 @@
     return list;
   }
 
-  async function remove(id) {
-    await run(LISTS, "readwrite", (store) => store.delete(id));
-    // Remembered so the deletion reaches the account too, next time it syncs.
-    const gone = await getSetting(TOMBSTONES);
-    await setSetting(TOMBSTONES, [...new Set([...(gone || []), id])]);
-    announce();
-  }
+  const remove = (id) =>
+    inTurn(async () => {
+      await run(LISTS, "readwrite", (store) => store.delete(id));
+      // Remembered so the deletion reaches the account too, next time it syncs.
+      const gone = await getSetting(TOMBSTONES);
+      await setSetting(TOMBSTONES, [...new Set([...(gone || []), id])]);
+      announce();
+    });
 
   /* Save a list as it came from the account, keeping its id and time. */
   async function put(list) {
@@ -173,27 +174,39 @@
     announce();
   }
 
-  async function setScore(word, score) {
-    const value = await overrides();
-    value.scores[word] = Math.max(0, Math.min(100, Math.round(score)));
-    value.removed = value.removed.filter((other) => other !== word);
-    await saveOverrides(value);
+  /* Edits read the saved record, change it and write it back, so they have to take turns: three quick
+     clicks at once would otherwise each start from the same copy and only the last would stick. */
+  let queue = Promise.resolve();
+  function inTurn(work) {
+    const next = queue.then(work, work);
+    queue = next.catch(() => {});
+    return next;
   }
 
-  async function removeWord(word) {
-    const value = await overrides();
-    if (!value.removed.includes(word)) value.removed.push(word);
-    delete value.scores[word];
-    await saveOverrides(value);
-  }
+  const setScore = (word, score) =>
+    inTurn(async () => {
+      const value = await overrides();
+      value.scores[word] = Math.max(0, Math.min(100, Math.round(score)));
+      value.removed = value.removed.filter((other) => other !== word);
+      await saveOverrides(value);
+    });
+
+  const removeWord = (word) =>
+    inTurn(async () => {
+      const value = await overrides();
+      if (!value.removed.includes(word)) value.removed.push(word);
+      delete value.scores[word];
+      await saveOverrides(value);
+    });
 
   /* Undo an edit: the word goes back to whatever the lists say. */
-  async function restoreWord(word) {
-    const value = await overrides();
-    delete value.scores[word];
-    value.removed = value.removed.filter((other) => other !== word);
-    await saveOverrides(value);
-  }
+  const restoreWord = (word) =>
+    inTurn(async () => {
+      const value = await overrides();
+      delete value.scores[word];
+      value.removed = value.removed.filter((other) => other !== word);
+      await saveOverrides(value);
+    });
 
   // --- merging ---
 

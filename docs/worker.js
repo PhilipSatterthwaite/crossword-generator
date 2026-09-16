@@ -47,10 +47,27 @@ self.onmessage = ({ data }) => {
     job = { id: data.id, check };
     slices.port2.postMessage(null);
   } else if (data.type === "words") {
-    // The page sends a rebuilt list when custom lists or per-word edits change.
+    // Custom lists or per-word edits changed. Only the word lengths that changed come over, and only
+    // those are indexed again: rebuilding all half a million words to drop one made the page crawl.
     job = null;
     try {
-      words = new Gridfill.WordList(data.words || self.GRIDFILL_WORDS);
+      if (data.reset) {
+        words = new Gridfill.WordList(self.GRIDFILL_WORDS);
+      } else if (data.lengths) {
+        const patch = new Gridfill.WordList(data.lengths);
+        for (const key of Object.keys(data.lengths)) {
+          const length = Number(key);
+          const had = words.lists[length];
+          words.size += patch.lists[length].count - (had ? had.count : 0);
+          words.lists[length] = patch.lists[length];
+        }
+        for (const key of Object.keys(words.lists)) {
+          if (data.all && !data.lengths[key]) {
+            words.size -= words.lists[key].count; // that length has no words left
+            delete words.lists[key];
+          }
+        }
+      }
       self.postMessage({ type: "ready", count: words.size });
     } catch (error) {
       self.postMessage({ type: "ready", count: words.size, error: `That word list didn't load: ${error.message}` });

@@ -1477,8 +1477,9 @@
       return this.words;
     },
 
-    /* Use a rebuilt word list from here on, and say when it's in place. */
-    setWords(data) {
+    /* Use a rebuilt word list from here on, and say when it's in place. Only the lengths that changed
+       are sent; `all` means those lengths are the whole list, so any others are gone. */
+    setWords(lengths, all) {
       this.words = null;
       if (this.inline || !this.worker) {
         this.count = this.wordList().size;
@@ -1486,7 +1487,7 @@
       }
       return new Promise((resolve) => {
         this.onWords = resolve;
-        this.worker.postMessage({ type: "words", words: data || undefined });
+        this.worker.postMessage(lengths ? { type: "words", lengths, all } : { type: "words", reset: true });
       });
     },
 
@@ -1629,6 +1630,7 @@
   const LISTS = window.FillmeinLists;
   let listChoice = { id: "built-in" }; // the list this puzzle fills from: "built-in", or one of theirs
   let builtInWords = 0;
+  let sentLengths = null; // the word lengths the worker currently holds, so only changes are sent
   let listState = { lists: [], edits: { scores: {}, removed: [] } };
 
   const editCount = () => Object.keys(listState.edits.scores).length + listState.edits.removed.length;
@@ -1636,15 +1638,36 @@
   /* Rebuild the word list from the puzzle's choice, this browser's lists and the per-word edits, and
      hand it to the solver here and in the worker. */
   let refreshing = false;
+  let refreshTimer = 0;
+  let refreshWaiting = [];
+  let refreshSay = "";
+  let refreshRecheck = false;
 
-  async function refreshWordList({ recheck = true, say = "" } = {}) {
-    if (!LISTS) return;
-    refreshing = true;
-    try {
-      await rebuildWordList({ recheck, say });
-    } finally {
-      refreshing = false;
-    }
+  /* Rebuilding is the expensive part, so a burst of edits (removing several words quickly) waits a
+     moment and rebuilds once. */
+  function refreshWordList({ recheck = true, say = "" } = {}) {
+    if (!LISTS) return Promise.resolve();
+    if (say) refreshSay = say;
+    refreshRecheck = refreshRecheck || recheck;
+    clearTimeout(refreshTimer);
+    return new Promise((resolve) => {
+      refreshWaiting.push(resolve);
+      refreshTimer = setTimeout(async () => {
+        const waiting = refreshWaiting;
+        const message = refreshSay;
+        const again = refreshRecheck;
+        refreshWaiting = [];
+        refreshSay = "";
+        refreshRecheck = false;
+        refreshing = true;
+        try {
+          await rebuildWordList({ recheck: again, say: message });
+        } finally {
+          refreshing = false;
+        }
+        for (const done of waiting) done();
+      }, 120);
+    });
   }
 
   async function rebuildWordList({ recheck, say }) {
@@ -1662,7 +1685,19 @@
     wordListVersion++;
     optionCache.clear();
     options = null;
-    await runner.setWords(plain ? null : merged);
+    // Only hand over the lengths whose words actually changed.
+    if (plain) {
+      sentLengths = null;
+      await runner.setWords(null);
+    } else {
+      const sameShape = sentLengths && Object.keys(sentLengths).length === Object.keys(merged).length;
+      const changed = {};
+      for (const [length, entry] of Object.entries(merged)) {
+        if (!sameShape || sentLengths[length] !== entry) changed[length] = entry;
+      }
+      sentLengths = merged;
+      await runner.setWords(changed, !sameShape);
+    }
     renderLists();
     render();
     if (say) setStatus("idle", `${say} ${runner.count.toLocaleString()} words in the list now.`);
@@ -1695,8 +1730,12 @@
       select.append(element);
       return element;
     };
-    option("built-in", `Built-in list (${builtInCount().toLocaleString()})`);
-    for (const list of listState.lists) option(list.id, `${list.name} (${list.count.toLocaleString()})`);
+    // The list in use shows what the solver actually has, which your edits change.
+    const live = runner.count || 0;
+    option("built-in", `Built-in list (${(listChoice.id === "built-in" && live ? live : builtInCount()).toLocaleString()})`);
+    for (const list of listState.lists) {
+      option(list.id, `${list.name} (${(listChoice.id === list.id && live ? live : list.count).toLocaleString()})`);
+    }
     option("__manage", "Add or manage lists…");
     const known = listChoice.id === "built-in" || listState.lists.some((list) => list.id === listChoice.id);
     select.value = known ? listChoice.id : "built-in";
