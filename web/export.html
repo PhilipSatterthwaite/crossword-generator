@@ -60,7 +60,6 @@
 
   .share-lede, .share-note { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
   .share-note .link-button { font-size: inherit; }
-  .share-listed { margin-top: 10px; font-size: 14px; }
   .share-link { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .share-link input {
     flex: 1 1 240px;
@@ -194,7 +193,6 @@
           <button type="button" id="share" class="btn primary">Share a link</button>
           <button type="button" id="unshare" class="btn quiet" hidden>Stop sharing</button>
         </div>
-        <label id="share-listed-row" class="check share-listed" hidden><input type="checkbox" id="share-listed"> Show it on the Explore page for anyone to solve</label>
         <div id="share-link-row" class="share-link" hidden>
           <input id="share-link" type="text" readonly aria-label="Link to solve this puzzle">
           <button type="button" id="copy-link" class="btn">Copy</button>
@@ -330,9 +328,7 @@
     $("share-signin").hidden = signedIn;
     $("share-actions").hidden = !signedIn;
     $("share-link-row").hidden = !(signedIn && published);
-    $("share-listed-row").hidden = !(signedIn && published);
     $("unshare").hidden = !(signedIn && published);
-    $("share-listed").checked = Boolean(published && published.listed);
     $("share").textContent = published ? "Update the shared copy" : "Share a link";
     $("share").classList.toggle("primary", !published);
     if (published) $("share-link").value = window.Fillmein.solveUrl(new URLSearchParams(location.search).get("p") || "");
@@ -363,7 +359,7 @@
       $("share").disabled = true;
       $("share-status").textContent = published ? "Updating…" : "Sharing…";
       try {
-        await window.Fillmein.publish(puzzleId(), { listed: $("share-listed").checked });
+        await window.Fillmein.publish(puzzleId());
         published = await window.Fillmein.publishState(puzzleId());
         renderShare(true, published ? "Shared. Anyone with the link can solve it." : "");
       } catch (error) {
@@ -383,20 +379,6 @@
         renderShare(true, "Couldn't stop sharing.");
       } finally {
         $("unshare").disabled = false;
-      }
-    });
-
-    $("share-listed").addEventListener("change", async () => {
-      if (!published) return;
-      $("share-status").textContent = $("share-listed").checked ? "Adding it to Explore…" : "Taking it off Explore…";
-      try {
-        await window.Fillmein.publish(puzzleId(), { listed: $("share-listed").checked });
-        published = await window.Fillmein.publishState(puzzleId());
-        renderShare(true, published && published.listed
-          ? "Shared, and on the Explore page for anyone to find."
-          : "Shared. Only people with the link can open it.");
-      } catch (error) {
-        renderShare(true, error.message || "That didn't work.");
       }
     });
 

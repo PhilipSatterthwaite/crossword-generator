@@ -1,11 +1,12 @@
-/* Syncing custom word lists to the account, encrypted in this browser so nobody else can read them.
+/* Keeping custom word lists in step with the account.
 
-   The passphrase never leaves the browser. It derives a key (PBKDF2, then AES-GCM), and everything that
-   could say anything about a list — its name, its words, the per-word edits — is compressed, encrypted
-   and only then uploaded, split into chunks that fit a Firestore document. The account holds ciphertext,
-   a salt and timestamps; no one with database access, the site's owner included, can read the contents.
+   Signing in is all it takes: the lists in this browser go up, anything the account already has comes
+   down, and from then on every change is sent as it happens. Lists are compressed and split into chunks
+   that fit a Firestore document, which keeps a cloned 500,000-word list manageable.
 
-   Lose the passphrase and the lists are lost with it: there is no copy of the key anywhere.
+   They are stored as they are, not encrypted, so they are readable by anyone with access to the project's
+   database — the site's owner, in other words. They are private from other people using the site, since
+   the rules only let an account read its own, but they are not private from us.
 
    Needs account.js (window.Fillmein) for the signed-in account and Firestore, and lists.js
    (window.FillmeinLists) for the lists themselves. Exposes window.FillmeinSync. */
@@ -13,22 +14,20 @@
   "use strict";
 
   const PRIVATE = "private";
-  const CHECK = "lists"; // the private document holding the salt and check value
-  const EDITS = "edits"; // the private document holding the encrypted per-word edits
-  const ITERATIONS = 250000;
-  const CHUNK = 400000; // bytes of ciphertext per document, well under Firestore's 1MB
-  const KEY_STORE = "fillmein:list-key"; // this device's remembered key lives in IndexedDB, never uploaded
+  const EDITS = "edits"; // one document holding the per-word edits
+  const CHUNK = 400000; // bytes per document, well under Firestore's 1MB
   const SYNCED = "fillmein:synced-lists"; // ids this device has seen in the account
-  const CHECK_TEXT = "fillmein list key";
+  const FORMAT = "gzip"; // how a list's chunks are written, so older shapes can be spotted and skipped
+  const SETTLE = 800; // ms to wait after a change before sending it
 
   const listeners = new Set();
-  let key = null;        // the CryptoKey, once unlocked
-  let state = { signedIn: false, hasPassphrase: false, unlocked: false, busy: false, last: 0, error: "" };
+  let state = { signedIn: false, busy: false, last: 0, error: "" };
+  let timer = null;
 
+  const status = () => ({ ...state });
   const announce = () => {
     for (const listener of listeners) listener(status());
   };
-  const status = () => ({ ...state });
   const setState = (changes) => {
     state = { ...state, ...changes };
     announce();
@@ -55,40 +54,6 @@
   const unsqueeze = async (bytes) =>
     new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
 
-  // --- the key ---
-
-  async function deriveKey(passphrase, salt) {
-    const material = await crypto.subtle.importKey("raw", encoder.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
-      material,
-      { name: "AES-GCM", length: 256 },
-      false, // not extractable: it can be used here but never read out
-      ["encrypt", "decrypt"]
-    );
-  }
-
-  async function encrypt(bytes) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, bytes));
-    return { iv: toBase64(iv), data: toBase64(sealed) };
-  }
-
-  async function decrypt({ iv, data }) {
-    const open = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(iv) }, key, fromBase64(data));
-    return new Uint8Array(open);
-  }
-
-  /* Remember the key on this device so the passphrase is asked for once per browser. IndexedDB keeps the
-     key object itself, which can't be read back out as text by anything, including this code. */
-  async function rememberKey(value) {
-    try {
-      await root.FillmeinLists.setSetting(KEY_STORE, value);
-    } catch (error) { /* a browser that won't store it just asks again next time */ }
-  }
-  const forgetKey = () => root.FillmeinLists.setSetting(KEY_STORE, null).catch(() => {});
-  const rememberedKey = () => root.FillmeinLists.getSetting(KEY_STORE).catch(() => null);
-
   // --- the account's copy ---
 
   const account = () => (root.Fillmein && root.Fillmein.user()) || null;
@@ -98,53 +63,26 @@
     return { fs, db: fs.getFirestore(root.Fillmein.app) };
   }
 
-  const privateDoc = async (name) => {
+  async function upload(list) {
     const { fs, db } = await firestore();
-    return { fs, ref: fs.doc(db, "users", account().uid, PRIVATE, name) };
-  };
-
-  /* The salt and check value, made on the first passphrase and read on every other device. */
-  async function readCheck() {
-    const { fs, ref } = await privateDoc(CHECK);
-    const snapshot = await fs.getDoc(ref);
-    return snapshot.exists() ? snapshot.data() : null;
-  }
-
-  async function writeCheck(salt) {
-    const { fs, ref } = await privateDoc(CHECK);
-    const check = await encrypt(encoder.encode(CHECK_TEXT));
-    await fs.setDoc(ref, { salt: toBase64(salt), check, updated: Date.now() });
-  }
-
-  async function keyWorks(check) {
-    try {
-      return decoder.decode(await decrypt(check)) === CHECK_TEXT;
-    } catch (error) {
-      return false;
+    const packed = await squeeze(encoder.encode(JSON.stringify({ name: list.name, count: list.count, words: list.words })));
+    const ref = fs.doc(db, "users", account().uid, "lists", list.id);
+    const chunks = Math.ceil(packed.length / CHUNK) || 1;
+    await fs.setDoc(ref, { name: list.name, count: list.count, updated: list.updated, chunks, bytes: packed.length, format: FORMAT });
+    for (let i = 0; i < chunks; i++) {
+      await fs.setDoc(fs.doc(ref, "chunks", String(i)), { data: toBase64(packed.subarray(i * CHUNK, (i + 1) * CHUNK)) });
     }
   }
 
-  // --- lists to and from the account ---
-
-  async function upload(list) {
-    const { fs, db } = await firestore();
-    const uid = account().uid;
-    const packed = await squeeze(encoder.encode(JSON.stringify({ name: list.name, count: list.count, words: list.words })));
-    const chunks = [];
-    for (let at = 0; at < packed.length; at += CHUNK) chunks.push(await encrypt(packed.subarray(at, at + CHUNK)));
-    const ref = fs.doc(db, "users", uid, "lists", list.id);
-    await fs.setDoc(ref, { chunks: chunks.length, updated: list.updated, bytes: packed.length });
-    for (const [i, chunk] of chunks.entries()) await fs.setDoc(fs.doc(ref, "chunks", String(i)), chunk);
-  }
-
   async function download(id, meta) {
+    if (meta.format !== FORMAT) throw new Error("that list was saved in an older shape");
     const { fs, db } = await firestore();
     const ref = fs.doc(db, "users", account().uid, "lists", id);
     const parts = [];
     for (let i = 0; i < meta.chunks; i++) {
       const snapshot = await fs.getDoc(fs.doc(ref, "chunks", String(i)));
       if (!snapshot.exists()) throw new Error("a piece of that list is missing");
-      parts.push(await decrypt(snapshot.data()));
+      parts.push(fromBase64(snapshot.data().data));
     }
     const joined = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
     let at = 0;
@@ -166,21 +104,22 @@
   }
 
   async function syncEdits(localEdits, localStamp) {
-    const { fs, ref } = await privateDoc(EDITS);
+    const { fs, db } = await firestore();
+    const ref = fs.doc(db, "users", account().uid, PRIVATE, EDITS);
     const snapshot = await fs.getDoc(ref);
     const remote = snapshot.exists() ? snapshot.data() : null;
-    if (remote && remote.updated > localStamp) {
-      const edits = JSON.parse(decoder.decode(await unsqueeze(await decrypt(remote))));
+    if (remote && remote.data && remote.updated > localStamp) {
+      const edits = JSON.parse(decoder.decode(await unsqueeze(fromBase64(remote.data))));
       await root.FillmeinLists.saveOverrides(edits, remote.updated);
       return;
     }
-    const sealed = await encrypt(await squeeze(encoder.encode(JSON.stringify(localEdits))));
-    await fs.setDoc(ref, { ...sealed, updated: localStamp || Date.now() });
+    const packed = await squeeze(encoder.encode(JSON.stringify(localEdits)));
+    await fs.setDoc(ref, { data: toBase64(packed), updated: localStamp || Date.now(), format: FORMAT });
   }
 
-  /* Push what's newer here, pull what's newer there, and clear anything deleted here. */
+  /* Push what is newer here, pull what is newer there, and clear anything deleted here. */
   async function syncNow() {
-    if (!key || !account()) return;
+    if (!account()) return;
     setState({ busy: true, error: "" });
     try {
       const { fs, db } = await firestore();
@@ -212,7 +151,11 @@
           if (mine.updated > (meta.updated || 0)) await upload(mine);
           continue;
         }
-        await root.FillmeinLists.put(await download(snapshot.id, meta));
+        try {
+          await root.FillmeinLists.put(await download(snapshot.id, meta));
+        } catch (error) {
+          if (mine) await upload(mine); // an older or damaged copy up there: replace it with this one
+        }
       }
       for (const list of lists) {
         if (seen.has(list.id)) continue;
@@ -233,72 +176,17 @@
     }
   }
 
-  // --- what the page calls ---
+  /* A change here reaches the account a moment later, so a burst of edits sends once. */
+  function syncSoon() {
+    if (!account()) return;
+    clearTimeout(timer);
+    timer = setTimeout(syncNow, SETTLE);
+  }
 
-  async function refreshStatus() {
+  function refreshStatus() {
     const user = account();
-    if (!user) {
-      key = null;
-      setState({ signedIn: false, hasPassphrase: false, unlocked: false });
-      return;
-    }
-    let check = null;
-    try {
-      check = await readCheck();
-    } catch (error) {
-      setState({ signedIn: true, error: "Couldn't reach your account." });
-      return;
-    }
-    if (!check) {
-      key = null;
-      setState({ signedIn: true, hasPassphrase: false, unlocked: false });
-      return;
-    }
-    const remembered = await rememberedKey();
-    if (remembered) {
-      key = remembered;
-      if (await keyWorks(check.check)) {
-        setState({ signedIn: true, hasPassphrase: true, unlocked: true });
-        syncNow();
-        return;
-      }
-      key = null;
-      await forgetKey(); // the passphrase changed elsewhere
-    }
-    setState({ signedIn: true, hasPassphrase: true, unlocked: false });
-  }
-
-  /* First passphrase for this account: everything on this device goes up, encrypted. */
-  async function setPassphrase(passphrase) {
-    if (!account()) throw new Error("Sign in first.");
-    if (!passphrase || passphrase.length < 8) throw new Error("Use a passphrase of at least 8 characters.");
-    if (await readCheck()) throw new Error("This account already has a passphrase. Unlock with it instead.");
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    key = await deriveKey(passphrase, salt);
-    await writeCheck(salt);
-    await rememberKey(key);
-    setState({ hasPassphrase: true, unlocked: true });
-    await syncNow();
-  }
-
-  async function unlock(passphrase) {
-    if (!account()) throw new Error("Sign in first.");
-    const check = await readCheck();
-    if (!check) throw new Error("This account has no passphrase yet. Set one instead.");
-    key = await deriveKey(passphrase, fromBase64(check.salt));
-    if (!(await keyWorks(check.check))) {
-      key = null;
-      throw new Error("That passphrase doesn't match this account's lists.");
-    }
-    await rememberKey(key);
-    setState({ hasPassphrase: true, unlocked: true, error: "" });
-    await syncNow();
-  }
-
-  async function lock() {
-    key = null;
-    await forgetKey();
-    setState({ unlocked: false });
+    setState({ signedIn: Boolean(user), error: "" });
+    if (user) syncNow();
   }
 
   root.FillmeinSync = {
@@ -309,18 +197,11 @@
       return () => listeners.delete(listener);
     },
     refreshStatus,
-    setPassphrase,
-    unlock,
-    lock,
     syncNow,
   };
 
   // Follow the account, and send changes up as they happen.
   if (root.Fillmein) root.Fillmein.onUser(() => refreshStatus());
   else root.addEventListener("fillmein:user", () => refreshStatus());
-  if (root.FillmeinLists) {
-    root.FillmeinLists.onChange(() => {
-      if (key && account()) syncNow();
-    });
-  }
+  if (root.FillmeinLists) root.FillmeinLists.onChange(syncSoon);
 })(self);

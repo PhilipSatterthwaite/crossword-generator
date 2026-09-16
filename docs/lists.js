@@ -144,7 +144,12 @@
 
   // --- per-word edits, which apply to any list in use ---
 
-  const emptyOverrides = () => ({ scores: {}, removed: [] });
+  const emptyEdits = () => ({ scores: {}, removed: [], recent: [] });
+  const tidyEdits = (value) => ({
+    scores: (value && value.scores) || {},
+    removed: (value && value.removed) || [],
+    recent: (value && value.recent) || [],
+  });
 
   /* Anything else worth keeping on this device: the remembered encryption key, deletions still to
      reach the account. Values go through IndexedDB, so a CryptoKey can live here as itself. */
@@ -160,11 +165,19 @@
     await setSetting(TOMBSTONES, gone.filter((other) => other !== id));
   };
 
+  /* {list id: {scores, removed, recent}}, where "built-in" is a list id like any other. */
   async function overrides() {
     const saved = await run(SETTINGS, "readonly", (store) => store.get(OVERRIDES));
-    const value = (saved && saved.value) || emptyOverrides();
-    return { scores: value.scores || {}, removed: value.removed || [] };
+    const value = (saved && saved.value) || {};
+    // Edits made before they were kept per list belonged to the built-in list.
+    if (value.scores || value.removed) return { "built-in": tidyEdits(value) };
+    const byList = {};
+    for (const [id, edits] of Object.entries(value)) byList[id] = tidyEdits(edits);
+    return byList;
   }
+
+  /* Just the edits for one list. */
+  const editsFor = async (listId) => tidyEdits((await overrides())[listId]);
 
   /* When the per-word edits last changed here, so syncing can tell which copy is newer. */
   const overridesStamp = () => run(SETTINGS, "readonly", (store) => store.get(OVERRIDES)).then((row) => (row && row.updated) || 0);
@@ -183,29 +196,35 @@
     return next;
   }
 
-  const setScore = (word, score) =>
+  const change = (listId, work) =>
     inTurn(async () => {
-      const value = await overrides();
-      value.scores[word] = Math.max(0, Math.min(100, Math.round(score)));
-      value.removed = value.removed.filter((other) => other !== word);
-      await saveOverrides(value);
+      const all = await overrides();
+      const edits = tidyEdits(all[listId]);
+      work(edits);
+      all[listId] = edits;
+      await saveOverrides(all);
     });
 
-  const removeWord = (word) =>
-    inTurn(async () => {
-      const value = await overrides();
-      if (!value.removed.includes(word)) value.removed.push(word);
-      delete value.scores[word];
-      await saveOverrides(value);
+  const setScore = (listId, word, score) =>
+    change(listId, (edits) => {
+      edits.scores[word] = Math.max(0, Math.min(100, Math.round(score)));
+      edits.removed = edits.removed.filter((other) => other !== word);
+      edits.recent = [word, ...edits.recent.filter((other) => other !== word)].slice(0, 20);
     });
 
-  /* Undo an edit: the word goes back to whatever the lists say. */
-  const restoreWord = (word) =>
-    inTurn(async () => {
-      const value = await overrides();
-      delete value.scores[word];
-      value.removed = value.removed.filter((other) => other !== word);
-      await saveOverrides(value);
+  const removeWord = (listId, word) =>
+    change(listId, (edits) => {
+      if (!edits.removed.includes(word)) edits.removed.push(word);
+      delete edits.scores[word];
+      edits.recent = [word, ...edits.recent.filter((other) => other !== word)].slice(0, 20);
+    });
+
+  /* Undo an edit: the word goes back to whatever that list says. */
+  const restoreWord = (listId, word) =>
+    change(listId, (edits) => {
+      delete edits.scores[word];
+      edits.removed = edits.removed.filter((other) => other !== word);
+      edits.recent = edits.recent.filter((other) => other !== word);
     });
 
   // --- merging ---
@@ -241,7 +260,7 @@
 
   /* The built-in list with custom words, score changes and removals folded in.
      use: "built-in" | "custom" | "both"; lists: the custom lists to use; edits: {scores, removed}. */
-  function merge(base, { use = "built-in", lists = [], edits = emptyOverrides() } = {}) {
+  function merge(base, { use = "built-in", lists = [], edits = emptyEdits() } = {}) {
     const custom = new Map(); // word -> score
     if (use !== "built-in") {
       for (const list of lists) for (const [word, score] of list.words) custom.set(word, score);
@@ -286,15 +305,16 @@
     return merged;
   }
 
-  /* Everything a page needs to build the list it should be using right now. */
-  async function state() {
-    const [lists, edits] = await Promise.all([all(), overrides()]);
-    return { lists, edits };
+  /* Everything a page needs to build the list it should be using right now: every list, and the edits
+     belonging to the one in use. */
+  async function state(listId = "built-in") {
+    const [lists, byList] = await Promise.all([all(), overrides()]);
+    return { lists, edits: tidyEdits(byList[listId]), byList };
   }
 
   root.FillmeinLists = {
     parse, all, add, create, put, remove, forgetList, rename,
-    overrides, overridesStamp, saveOverrides, setScore, removeWord, restoreWord,
+    overrides, editsFor, overridesStamp, saveOverrides, setScore, removeWord, restoreWord,
     getSetting, setSetting, tombstones, clearTombstone,
     merge, state,
     onChange(listener) {

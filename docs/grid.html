@@ -287,19 +287,10 @@
   .list-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
   .list-row .name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
   .list-row .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover:not(:disabled) { background: var(--score-lo-bg); border-color: var(--danger); color: var(--score-lo); }
   .lists-empty { margin: 0; font-size: 14px; color: var(--muted); }
   .lists-note { margin: 0; font-size: 13px; color: var(--muted); }
-  .sync-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .sync-form input {
-    flex: 1 1 200px;
-    min-width: 0;
-    padding: 9px 10px;
-    border: 1px solid var(--rule);
-    border-radius: 6px;
-    background: var(--cell);
-    color: var(--ink);
-    font: 500 14px var(--sans);
-  }
   .file-button { display: inline-flex; align-items: center; gap: 8px; }
   .file-button input { display: none; }
 
@@ -473,23 +464,18 @@
       <h3>Sync to my account</h3>
       <p id="sync-note" class="lists-note"></p>
       <div id="sync-actions" class="actions"></div>
-      <div id="sync-form" class="sync-form" hidden>
-        <input id="sync-pass" type="password" autocomplete="current-password" placeholder="Your passphrase" aria-label="Passphrase">
-        <button type="button" id="sync-go" class="btn primary">Unlock</button>
-      </div>
-      <p id="sync-warning" class="lists-note" hidden>Keep this passphrase somewhere safe. Your lists are encrypted with it in this browser, so nobody else can read them — and nobody, this site included, can get them back if you lose it.</p>
     </section>
 
-    <p class="lists-note">Until you set a passphrase, your lists stay in this browser and are never uploaded.</p>
+    <p class="lists-note">Signed out, your lists stay in this browser. Signed in, they are kept in your account, so they follow you to another device.</p>
   </div>
 </dialog>
 
 <script src="words.js?v=9f774dc43a"></script>
 <script src="filler.js?v=0c1518a0b7"></script>
 <script src="store.js?v=9cd640058c"></script>
-<script src="lists.js?v=2f17008ec7"></script>
+<script src="lists.js?v=637909f467"></script>
 <script type="module" src="account.js?v=d7c4e1f8d7"></script>
-<script src="lists-sync.js?v=71a4782c63"></script>
+<script src="lists-sync.js?v=538e7d11d2"></script>
 <script>
 (() => {
   "use strict";
@@ -930,7 +916,7 @@
         const value = Number(input.value);
         renderWordActions();
         if (!keep || !Number.isFinite(value)) return;
-        await LISTS.setScore(word, value);
+        await LISTS.setScore(listChoice.id, word, value);
         await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
       };
       input.addEventListener("keydown", (event) => {
@@ -945,13 +931,13 @@
 
     if (scoreOf(word) === null) {
       button(`Add ${word} to the list`, async () => {
-        await LISTS.setScore(word, 50);
+        await LISTS.setScore(listChoice.id, word, 50);
         await refreshWordList({ say: `Added ${word} at 50.` });
       });
       button("Add with a score…", scoreBox);
     } else {
       button(`Remove ${word} from the list`, async () => {
-        await LISTS.removeWord(word);
+        await LISTS.removeWord(listChoice.id, word);
         await refreshWordList({ say: `Removed ${word}.` });
         noteUndo(word);
       });
@@ -971,7 +957,7 @@
     undo.type = "button";
     undo.textContent = "Undo";
     undo.addEventListener("click", async () => {
-      await LISTS.restoreWord(word);
+      await LISTS.restoreWord(listChoice.id, word);
       await refreshWordList({ say: `Put ${word} back.` });
     });
     wrap.append(undo);
@@ -1684,7 +1670,7 @@
   }
 
   async function rebuildWordList({ recheck, say }) {
-    listState = await LISTS.state();
+    listState = await LISTS.state(listChoice.id);
     const chosen = listState.lists.find((list) => list.id === listChoice.id) || null;
     if (!chosen && listChoice.id !== "built-in") listChoice = { id: "built-in" }; // it was deleted
     const use = chosen ? "custom" : "built-in";
@@ -1724,6 +1710,13 @@
     });
   }
 
+  /* How many words a list is worth right now: the one in use counts what the solver actually holds,
+     since removing or adding words changes it. Every place that shows a number uses this. */
+  function wordCount(list) {
+    if (listChoice.id === list.id && runner.count) return runner.count;
+    return list.count || 0;
+  }
+
   function builtInCount() {
     if (!builtInWords) {
       for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) builtInWords += entry[0].length / Number(length);
@@ -1743,12 +1736,8 @@
       select.append(element);
       return element;
     };
-    // The list in use shows what the solver actually has, which your edits change.
-    const live = runner.count || 0;
-    option("built-in", `Built-in list (${(listChoice.id === "built-in" && live ? live : builtInCount()).toLocaleString()})`);
-    for (const list of listState.lists) {
-      option(list.id, `${list.name} (${(listChoice.id === list.id && live ? live : list.count).toLocaleString()})`);
-    }
+    option("built-in", `Built-in list (${wordCount({ id: "built-in", count: builtInCount() }).toLocaleString()})`);
+    for (const list of listState.lists) option(list.id, `${list.name} (${wordCount(list).toLocaleString()})`);
     option("__manage", "Add or manage lists…");
     const known = listChoice.id === "built-in" || listState.lists.some((list) => list.id === listChoice.id);
     select.value = known ? listChoice.id : "built-in";
@@ -1768,7 +1757,7 @@
       name.textContent = list.name + (listChoice.id === list.id ? " · in use" : "");
       const count = document.createElement("span");
       count.className = "count";
-      count.textContent = `${list.count.toLocaleString()} words`;
+      count.textContent = `${wordCount(list).toLocaleString()} words`;
       row.append(name, count);
 
       const button = (label, onClick) => {
@@ -1813,20 +1802,38 @@
           box.focus();
           box.select();
         });
-        button("Delete", async () => {
+        const drop = button("Delete", async () => {
+          if (drop.dataset.armed !== "true") {
+            drop.dataset.armed = "true";
+            drop.textContent = `Delete ${list.name}?`;
+            setTimeout(() => {
+              if (!drop.isConnected) return;
+              delete drop.dataset.armed;
+              drop.textContent = "Delete";
+            }, 4000);
+            return;
+          }
           await LISTS.remove(list.id);
           if (listChoice.id === list.id) listChoice = { id: "built-in" };
           save();
           await refreshWordList({ say: `Deleted ${list.name}.` });
         });
+        drop.classList.add("danger");
       }
       rows.append(row);
     }
 
-    // Words taken out or rescored, each able to go back.
+    // The five words changed most recently, each able to go back; the rest are summed up below.
     const editRows = $("edit-rows");
     editRows.replaceChildren();
-    for (const word of listState.edits.removed) {
+    const changed = listState.edits.recent && listState.edits.recent.length
+      ? listState.edits.recent
+      : [...listState.edits.removed, ...Object.keys(listState.edits.scores)];
+    const shown = changed
+      .filter((word) => listState.edits.removed.includes(word) || word in listState.edits.scores)
+      .slice(0, 5);
+    for (const word of shown) {
+      const removed = listState.edits.removed.includes(word);
       const row = document.createElement("li");
       row.className = "list-row";
       const name = document.createElement("span");
@@ -1834,42 +1841,23 @@
       name.textContent = word;
       const what = document.createElement("span");
       what.className = "count";
-      what.textContent = "removed";
+      what.textContent = removed ? "removed" : `scored ${listState.edits.scores[word]}`;
       const back = document.createElement("button");
       back.type = "button";
       back.className = "btn quiet small";
-      back.textContent = "Put back";
+      back.textContent = removed ? "Put back" : "Reset";
       back.addEventListener("click", async () => {
-        await LISTS.restoreWord(word);
-        await refreshWordList({ say: `Put ${word} back.` });
+        await LISTS.restoreWord(listChoice.id, word);
+        await refreshWordList({ say: removed ? `Put ${word} back.` : `${word} is back to its old score.` });
       });
       row.append(name, what, back);
       editRows.append(row);
     }
-    for (const [word, score] of Object.entries(listState.edits.scores)) {
-      const row = document.createElement("li");
-      row.className = "list-row";
-      const name = document.createElement("span");
-      name.className = "name";
-      name.textContent = word;
-      const what = document.createElement("span");
-      what.className = "count";
-      what.textContent = `scored ${score}`;
-      const back = document.createElement("button");
-      back.type = "button";
-      back.className = "btn quiet small";
-      back.textContent = "Reset";
-      back.addEventListener("click", async () => {
-        await LISTS.restoreWord(word);
-        await refreshWordList({ say: `${word} is back to its old score.` });
-      });
-      row.append(name, what, back);
-      editRows.append(row);
-    }
+
     const edits = editCount();
     $("edits-summary").textContent = edits
-      ? `${listState.edits.removed.length} removed, ${Object.keys(listState.edits.scores).length} rescored.`
-      : "None yet. Use Score or Remove beside a word in the options list, or on the selected entry.";
+      ? `${listState.edits.removed.length} removed, ${Object.keys(listState.edits.scores).length} rescored in the list you're using.`
+      : "None yet. Use Score or Remove beside a word in the options list, or on the selected entry. Changes belong to the list you're using.";
     $("restore-edits").hidden = !edits;
   }
 
@@ -1900,76 +1888,28 @@
 
   // Syncing lists to the account, encrypted with a passphrase (lists-sync.js).
   const SYNC = window.FillmeinSync;
-  let syncMode = "unlock"; // what the passphrase box is for: "set" the first one, or "unlock" with it
 
   function renderSync(status) {
     if (!SYNC) return;
     const note = $("sync-note");
     const actions = $("sync-actions");
     actions.replaceChildren();
-    $("sync-form").hidden = true;
-    $("sync-warning").hidden = true;
-    const button = (label, primary, onClick) => {
-      const element = document.createElement("button");
-      element.type = "button";
-      element.className = primary ? "btn primary small" : "btn quiet small";
-      element.textContent = label;
-      element.addEventListener("click", onClick);
-      actions.append(element);
-    };
-
     if (!status.signedIn) {
-      note.innerHTML = 'Your lists are on this device only. <button type="button" class="link-button" data-sign-in>Sign in</button> to sync them to your account, encrypted.';
+      note.innerHTML = 'Your lists are on this device only. <button type="button" class="link-button" data-sign-in>Sign in</button> and they are kept in your account.';
       return;
     }
     if (status.error) note.textContent = status.error;
-    else if (status.busy) note.textContent = "Syncing…";
-    else if (!status.hasPassphrase) note.textContent = "Your lists are on this device only. Choose a passphrase and they'll sync to your account, encrypted so only you can read them.";
-    else if (!status.unlocked) note.textContent = "Your account has encrypted lists. Enter your passphrase to use them on this device.";
-    else note.textContent = status.last ? `Synced, encrypted, at ${new Date(status.last).toLocaleTimeString()}.` : "Syncing is on.";
-
-    if (!status.hasPassphrase) {
-      button("Set a passphrase", true, () => {
-        syncMode = "set";
-        $("sync-form").hidden = false;
-        $("sync-warning").hidden = false;
-        $("sync-go").textContent = "Turn on syncing";
-        $("sync-pass").focus();
-      });
-    } else if (!status.unlocked) {
-      syncMode = "unlock";
-      $("sync-form").hidden = false;
-      $("sync-go").textContent = "Unlock";
-    } else {
-      button("Sync now", false, () => SYNC.syncNow());
-      button("Forget on this device", false, async () => {
-        await SYNC.lock();
-        $("lists-note").textContent = "This device will ask for the passphrase again.";
-      });
-    }
+    else if (status.busy) note.textContent = "Saving to your account...";
+    else note.textContent = status.last ? `Kept in your account, last saved at ${new Date(status.last).toLocaleTimeString()}.` : "Kept in your account.";
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "btn quiet small";
+    again.textContent = "Sync now";
+    again.addEventListener("click", () => SYNC.syncNow());
+    actions.append(again);
   }
 
-  if (SYNC) {
-    SYNC.onStatus(renderSync);
-    $("sync-go").addEventListener("click", async () => {
-      const pass = $("sync-pass");
-      const value = pass.value;
-      $("sync-go").disabled = true;
-      $("sync-note").textContent = syncMode === "set" ? "Encrypting your lists…" : "Checking…";
-      try {
-        await (syncMode === "set" ? SYNC.setPassphrase(value) : SYNC.unlock(value));
-        pass.value = "";
-        await refreshWordList({ say: "Lists synced." });
-      } catch (error) {
-        $("sync-note").textContent = error.message || "That didn't work.";
-      } finally {
-        $("sync-go").disabled = false;
-      }
-    });
-    $("sync-pass").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") $("sync-go").click();
-    });
-  }
+  if (SYNC) SYNC.onStatus(renderSync);
 
   async function openLists() {
     await refreshWordList({ recheck: false });
@@ -2010,7 +1950,9 @@
     }
   });
   $("restore-edits").addEventListener("click", async () => {
-    await LISTS.saveOverrides({ scores: {}, removed: [] });
+    const byList = await LISTS.overrides();
+    delete byList[listChoice.id];
+    await LISTS.saveOverrides(byList);
     await refreshWordList({ say: "Put back every word you'd changed." });
   });
 
@@ -2021,7 +1963,7 @@
     event.stopPropagation();
     const word = action.dataset.word;
     if (action.dataset.wordAction === "remove") {
-      await LISTS.removeWord(word);
+      await LISTS.removeWord(listChoice.id, word);
       await refreshWordList({ say: `Removed ${word}.` });
       noteUndo(word);
       return;
@@ -2043,7 +1985,7 @@
       const value = Number(input.value);
       holder.replaceChildren(...previous);
       if (!keep || !Number.isFinite(value)) return;
-      await LISTS.setScore(word, value);
+      await LISTS.setScore(listChoice.id, word, value);
       await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
     };
     input.addEventListener("keydown", (keys) => {
