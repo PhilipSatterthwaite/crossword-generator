@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My puzzles · fillmein</title>
-<meta name="description" content="Every crossword you have started, sorted into folders.">
+<meta name="description" content="Every crossword you have started, in folders you can open, sort and rename.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,42 +14,47 @@
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
 
-  .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 20px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
-  .head h1 { margin: 0; font: 600 30px / 1.15 var(--serif); }
-  .head .count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .head .actions { margin-left: auto; }
-  .new-folder-input { width: 10em; padding: 7px 9px; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--cell); color: var(--ink); font: 500 14px var(--sans); }
+  /* A file explorer: toolbar, address bar, column headings, then the items. */
+  .explorer { border: 1px solid var(--rule); border-radius: 6px; background: var(--cell); overflow: hidden; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
+  .toolbar .btn { padding: 6px 10px; font-size: 13px; }
+  .toolbar .divider { width: 1px; height: 20px; margin: 0 4px; background: var(--rule); }
+  .toolbar .spacer { flex: 1; }
 
-  .folders { display: grid; gap: 22px; }
-  .folder { display: grid; gap: 8px; padding: 8px 10px 4px; border: 1.5px dashed transparent; border-radius: 8px; }
-  .folder.over { border-color: var(--focus); background: var(--word); }
-  .folder-head { display: flex; align-items: baseline; gap: 10px; }
-  .folder-head h2 { margin: 0; font: 600 13px / 1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .folder-head .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .folder-head .spacer { flex: 1; }
-  .rows { list-style: none; margin: 0; padding: 0; }
-  .row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); cursor: grab; }
-  .row.dragging { opacity: 0.45; }
-  .thumb { display: grid; place-items: center; width: 52px; height: 52px; }
-  .thumb svg { display: block; max-width: 52px; max-height: 52px; background: var(--cell); outline: 1.5px solid var(--ink); }
-  .thumb rect { fill: var(--block); }
-  .thumb .blank { width: 40px; height: 40px; border: 1.5px dashed var(--rule); border-radius: 2px; }
-  .row a.name { color: var(--ink); font: 600 18px / 1.25 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
-  .row a.name:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .row-actions select { font-size: 13px; }
-  .drop-hint { margin: 0; padding: 10px 2px 14px; font-size: 13px; color: var(--muted); }
+  .address { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 7px 12px; border-bottom: 1px solid var(--line-soft); background: var(--cell); font-size: 13px; }
+  .crumb { padding: 4px 9px; border: 1px solid transparent; border-radius: 3px; background: none; color: var(--ink); font: 500 13px var(--sans); cursor: pointer; }
+  .crumb:hover { border-color: var(--rule); background: var(--surface); }
+  .crumb[aria-current="page"] { font-weight: 600; cursor: default; }
+  .crumb.over { border-color: var(--focus); background: var(--word); }
+  .address .sep { color: var(--muted); }
 
-  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
-  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
-  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
+  .columns, .item { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) 84px 80px 88px; align-items: center; gap: 12px; }
+  .columns { padding: 6px 12px; border-bottom: 1px solid var(--line-soft); background: var(--surface); font: 600 12px / 1 var(--sans); color: var(--muted); }
+  .columns span:not(:first-child), .item .cell { font-variant-numeric: tabular-nums; }
+  .items { list-style: none; margin: 0; padding: 0; min-height: 180px; }
+  .item { padding: 6px 12px; border: 1px solid transparent; cursor: default; user-select: none; }
+  .item:hover { background: var(--hover); }
+  .item[aria-selected="true"] { background: var(--word); border-color: var(--focus); }
+  .item.over { background: var(--word); border-color: var(--focus); border-style: dashed; }
+  .item.dragging { opacity: 0.45; }
+  .name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .name .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  .icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; }
+  .icon svg { display: block; }
+  .icon .grid-mark { background: #fff; outline: 1px solid var(--ink); }
+  .cell { font-size: 13px; color: var(--muted); }
+  .rename-input { width: 100%; min-width: 0; padding: 3px 6px; border: 1.5px solid var(--focus); border-radius: 2px; background: var(--cell); color: var(--ink); font: 500 14px var(--sans); }
+  .empty-note { padding: 28px 14px; color: var(--muted); font-size: 14px; text-align: center; }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--line-soft); background: var(--surface); font-size: 12px; color: var(--muted); }
 
-  @media (max-width: 720px) {
-    .row { grid-template-columns: 44px minmax(0, 1fr); }
-    .thumb { width: 44px; height: 44px; }
-    .thumb svg { max-width: 44px; max-height: 44px; }
-    .row-actions { grid-column: 2; }
+  .menu { position: absolute; z-index: 5; min-width: 168px; padding: 4px; border: 1px solid var(--rule); border-radius: 6px; background: var(--cell); box-shadow: 0 10px 30px rgb(0 0 0 / 0.22); }
+  .menu button { display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 4px; background: none; color: var(--ink); font: 500 13px var(--sans); text-align: left; cursor: pointer; }
+  .menu button:hover { background: var(--hover); }
+  .menu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line-soft); }
+
+  @media (max-width: 760px) {
+    .columns, .item { grid-template-columns: minmax(0, 1fr) 84px; }
+    .columns span:nth-child(2), .item .cell.when, .columns span:nth-child(4), .item .cell.filled, .columns span:nth-child(5), .item .cell.clues { display: none; }
   }
 </style>
 </head>
@@ -68,25 +73,32 @@
     <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
   </div>
 
-  <div class="head">
-    <h1>My puzzles</h1>
-    <span id="count" class="count"></span>
-    <div class="actions">
-      <span id="folder-maker"><button type="button" id="add-folder" class="btn quiet">Add folder</button></span>
-      <button type="button" id="new-puzzle" class="btn primary">Start a puzzle</button>
+  <div class="explorer">
+    <div class="toolbar">
+      <button type="button" id="new-puzzle" class="btn primary">New puzzle</button>
+      <button type="button" id="new-folder" class="btn">New folder</button>
+      <span class="divider" aria-hidden="true"></span>
+      <button type="button" id="open" class="btn quiet" disabled>Open</button>
+      <button type="button" id="rename" class="btn quiet" disabled>Rename</button>
+      <button type="button" id="remove" class="btn quiet danger" disabled>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" id="up" class="btn quiet" disabled>Up one level</button>
     </div>
+
+    <nav id="address" class="address" aria-label="Folder"></nav>
+
+    <div class="columns" aria-hidden="true">
+      <span>Name</span><span>Date modified</span><span>Size</span><span>Filled</span><span>Clues</span>
+    </div>
+
+    <ul id="items" class="items" role="listbox" aria-label="Puzzles and folders" tabindex="0"></ul>
+
+    <div class="statusbar"><span id="count"></span><span id="chosen"></span></div>
   </div>
-
-  <section id="none" class="empty-state" hidden>
-    <h2>No puzzles yet</h2>
-    <p>Start one and it will show up here, where you can drag your puzzles into folders.</p>
-  </section>
-
-  <div id="folders" class="folders"></div>
 </div>
 
 <script src="filler.js?v=0c1518a0b7"></script>
-<script src="store.js?v=36b815ba4e"></script>
+<script src="store.js?v=a9ac4a15e4"></script>
 <script src="confirm.js?v=a8285e5eec"></script>
 <script type="module" src="account.js?v=d7c4e1f8d7"></script>
 <script>
@@ -95,20 +107,57 @@
   const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
   const SVG = "http://www.w3.org/2000/svg";
-  const UNFILED = "Not in a folder";
-  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-  const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+  const ROOT = "My puzzles";
 
-  const ago = (time) => {
-    const seconds = (time - Date.now()) / 1000;
-    for (const [unit, size] of UNITS) if (Math.abs(seconds) >= size) return relative.format(Math.round(seconds / size), unit);
-    return "just now";
+  let here = "";          // the folder being looked at; "" is the top
+  let picked = null;      // {kind: "folder" | "puzzle", id}
+  let renaming = null;    // what is being renamed, so a redraw does not interrupt it
+  let menu = null;
+
+  const when = (time) => {
+    const date = new Date(time);
+    return `${date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" })} ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
   };
 
-  function thumbnail(grid) {
+  function folderIcon() {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "26");
+    svg.setAttribute("height", "26");
+    svg.setAttribute("aria-hidden", "true");
+    const back = document.createElementNS(SVG, "path");
+    back.setAttribute("d", "M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v2H2z");
+    back.setAttribute("fill", "#dca430");
+    const front = document.createElementNS(SVG, "path");
+    front.setAttribute("d", "M2 9h20v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z");
+    front.setAttribute("fill", "#f0bf59");
+    svg.append(back, front);
+    return svg;
+  }
+
+  function gridIcon(grid) {
+    if (!grid) {
+      const blank = document.createElementNS(SVG, "svg");
+      blank.setAttribute("viewBox", "0 0 24 24");
+      blank.setAttribute("width", "24");
+      blank.setAttribute("height", "24");
+      blank.setAttribute("aria-hidden", "true");
+      const box = document.createElementNS(SVG, "rect");
+      box.setAttribute("x", "3.5");
+      box.setAttribute("y", "2.5");
+      box.setAttribute("width", "17");
+      box.setAttribute("height", "19");
+      box.setAttribute("fill", "#fff");
+      box.setAttribute("stroke", "currentColor");
+      blank.append(box);
+      return blank;
+    }
     const svg = document.createElementNS(SVG, "svg");
     svg.setAttribute("viewBox", `0 0 ${grid.W} ${grid.H}`);
+    svg.setAttribute("width", "26");
+    svg.setAttribute("height", "26");
     svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("class", "grid-mark");
     svg.setAttribute("aria-hidden", "true");
     grid.blocks.forEach((block, i) => {
       if (!block) return;
@@ -117,232 +166,373 @@
       rect.setAttribute("y", Math.floor(i / grid.W));
       rect.setAttribute("width", 1);
       rect.setAttribute("height", 1);
+      rect.setAttribute("fill", "#14171C");
       svg.append(rect);
     });
     return svg;
   }
 
-  /* Everything the page shows about one puzzle. */
   function describe(puzzle) {
     const details = S.loadDetails(puzzle.id);
     const grid = S.loadGrid(puzzle.id);
     const title = details.title.trim() || "Untitled puzzle";
     const folder = (details.folder || "").trim();
-    if (!grid) return { ...puzzle, title, folder, grid: null, meta: `Nothing on the grid yet · edited ${ago(puzzle.updated)}` };
+    if (!grid) return { ...puzzle, title, folder, grid: null, size: "—", filled: "—", clues: "—" };
     const clues = S.loadClues(puzzle.id);
     const open = grid.blocks.filter((block) => !block).length;
-    const filled = grid.letters.filter((letter, i) => letter && !grid.blocks[i]).length;
+    const done = grid.letters.filter((letter, i) => letter && !grid.blocks[i]).length;
     const clued = grid.slots.filter((slot) => S.hasClue(clues, slot)).length;
-    const meta = [
-      `${grid.W}×${grid.H}`,
-      `${open ? Math.round((100 * filled) / open) : 100}% filled`,
-      `${clued}/${grid.slots.length} clues`,
-      `edited ${ago(puzzle.updated)}`,
-    ].join(" · ");
-    return { ...puzzle, title, folder, grid, meta };
-  }
-
-  function moveMenu(puzzle, folders) {
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", `Folder for ${puzzle.title}`);
-    const option = (value, label) => {
-      const element = document.createElement("option");
-      element.value = value;
-      element.textContent = label;
-      select.append(element);
+    return {
+      ...puzzle,
+      title,
+      folder,
+      grid,
+      size: `${grid.W}×${grid.H}`,
+      filled: `${open ? Math.round((100 * done) / open) : 100}%`,
+      clues: `${clued}/${grid.slots.length}`,
     };
-    option("", UNFILED);
-    for (const name of folders) option(name, name);
-    select.value = puzzle.folder || "";
-    select.addEventListener("change", () => {
-      S.setFolder(puzzle.id, select.value);
-      render();
-    });
-    return select;
   }
 
-  function puzzleRow(puzzle, folders) {
-    const row = document.createElement("li");
-    row.className = "row";
-    row.draggable = true;
-    row.dataset.puzzle = puzzle.id;
-    row.addEventListener("dragstart", (event) => {
-      event.dataTransfer.setData("text/plain", puzzle.id);
-      event.dataTransfer.effectAllowed = "move";
-      row.classList.add("dragging");
-    });
-    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+  const puzzlesNow = () => S.list().map(describe);
+  const foldersNow = (puzzles) => [...new Set([...S.folders(), ...puzzles.map((p) => p.folder).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
 
-    const thumb = document.createElement("span");
-    thumb.className = "thumb";
-    if (puzzle.grid) {
-      thumb.append(thumbnail(puzzle.grid));
-    } else {
-      const blank = document.createElement("span");
-      blank.className = "blank";
-      thumb.append(blank);
-    }
+  // --- moving things about ---
 
-    const text = document.createElement("div");
-    const link = document.createElement("a");
-    link.className = "name";
-    link.href = `grid.html?p=${encodeURIComponent(puzzle.id)}`;
-    link.textContent = puzzle.title;
-    link.draggable = false;
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = puzzle.meta;
-    text.append(link, meta);
-
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    actions.append(moveMenu(puzzle, folders));
-    const drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "btn quiet small danger";
-    drop.textContent = "Delete";
-    drop.addEventListener("click", async () => {
-      const sure = await window.fillmeinConfirm({
-        title: `Delete “${puzzle.title}”?`,
-        text: "Its grid, clues and details go for good, on every device signed in to your account. This cannot be undone.",
-      });
-      if (!sure) return;
-      S.remove(puzzle.id);
-      render();
-    });
-    actions.append(drop);
-
-    row.append(thumb, text, actions);
-    return row;
+  function moveInto(kind, id, folder) {
+    if (kind !== "puzzle") return;
+    S.setFolder(id, folder);
+    render();
   }
 
-  /* Each folder, including the unfiled one, takes puzzles dropped onto it. */
-  function folderSection(name, inFolder, folders) {
-    const section = document.createElement("section");
-    section.className = "folder";
-    section.dataset.folder = name;
-
-    const head = document.createElement("div");
-    head.className = "folder-head";
-    const heading = document.createElement("h2");
-    heading.textContent = name || UNFILED;
-    const howMany = document.createElement("span");
-    howMany.className = "n";
-    howMany.textContent = `${inFolder.length}`;
-    const spacer = document.createElement("span");
-    spacer.className = "spacer";
-    head.append(heading, howMany, spacer);
-
-    if (name) {
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "btn quiet small";
-      remove.textContent = "Delete folder";
-      remove.addEventListener("click", async () => {
-        const sure = await window.fillmeinConfirm({
-          title: `Delete the folder “${name}”?`,
-          text: inFolder.length
-            ? `Its ${inFolder.length} ${inFolder.length === 1 ? "puzzle stays" : "puzzles stay"}, and moves out of the folder.`
-            : "The folder is empty, so nothing else changes.",
-          confirm: "Delete folder",
-        });
-        if (!sure) return;
-        for (const puzzle of inFolder) S.setFolder(puzzle.id, "");
-        S.removeFolder(name);
-        render();
-      });
-      head.append(remove);
-    }
-    section.append(head);
-
-    const rows = document.createElement("ul");
-    rows.className = "rows";
-    for (const puzzle of inFolder) rows.append(puzzleRow(puzzle, folders));
-    section.append(rows);
-
-    if (!inFolder.length) {
-      const hint = document.createElement("p");
-      hint.className = "drop-hint";
-      hint.textContent = "Drag puzzles here.";
-      section.append(hint);
-    }
-
-    section.addEventListener("dragover", (event) => {
+  function dropTarget(element, folder) {
+    element.addEventListener("dragover", (event) => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
-      section.classList.add("over");
+      element.classList.add("over");
     });
-    section.addEventListener("dragleave", (event) => {
-      if (!section.contains(event.relatedTarget)) section.classList.remove("over");
+    element.addEventListener("dragleave", (event) => {
+      if (!element.contains(event.relatedTarget)) element.classList.remove("over");
     });
-    section.addEventListener("drop", (event) => {
+    element.addEventListener("drop", (event) => {
       event.preventDefault();
-      section.classList.remove("over");
-      const id = event.dataTransfer.getData("text/plain");
-      if (!id) return;
-      S.setFolder(id, name);
-      render();
+      element.classList.remove("over");
+      const moved = event.dataTransfer.getData("text/plain");
+      if (moved && moved.startsWith("puzzle:")) moveInto("puzzle", moved.slice(7), folder);
     });
-    return section;
   }
 
-  function render() {
-    const puzzles = S.list().map(describe);
-    $("count").textContent = puzzles.length ? `${puzzles.length} ${puzzles.length === 1 ? "puzzle" : "puzzles"}` : "";
-    $("none").hidden = puzzles.length > 0;
+  // --- what you can do with the thing you picked ---
 
-    const used = puzzles.map((puzzle) => puzzle.folder).filter(Boolean);
-    const folders = [...new Set([...S.folders(), ...used])].sort((a, b) => a.localeCompare(b));
-
-    const holder = $("folders");
-    holder.replaceChildren();
-    const unfiled = puzzles.filter((puzzle) => !puzzle.folder);
-    if (unfiled.length || !folders.length) holder.append(folderSection("", unfiled, folders));
-    for (const name of folders) {
-      holder.append(folderSection(name, puzzles.filter((puzzle) => puzzle.folder === name), folders));
+  function choose(kind, id) {
+    picked = kind ? { kind, id } : null;
+    for (const row of document.querySelectorAll(".item")) {
+      row.setAttribute("aria-selected", String(Boolean(picked) && row.dataset.kind === picked.kind && row.dataset.id === picked.id));
     }
-    if (folders.length && !unfiled.length) holder.append(folderSection("", unfiled, folders));
+    const has = Boolean(picked);
+    $("open").disabled = !has;
+    $("rename").disabled = !has;
+    $("remove").disabled = !has;
+    $("chosen").textContent = has ? "1 selected" : "";
   }
 
-  /* Add folder: name it in place, and it stays until something is dragged in or it is deleted. */
-  $("add-folder").addEventListener("click", () => {
-    const maker = $("folder-maker");
+  function openPicked() {
+    if (!picked) return;
+    if (picked.kind === "folder") {
+      here = picked.id;
+      render();
+      return;
+    }
+    location.href = `grid.html?p=${encodeURIComponent(picked.id)}`;
+  }
+
+  function renamePicked() {
+    if (!picked) return;
+    renaming = { ...picked };
+    const row = document.querySelector(`.item[data-kind="${picked.kind}"][data-id="${CSS.escape(picked.id)}"]`);
+    if (!row) {
+      renaming = null;
+      return;
+    }
+    const label = row.querySelector(".entry-name");
+    const was = label.textContent;
     const input = document.createElement("input");
-    input.className = "new-folder-input";
-    input.placeholder = "Folder name";
-    input.setAttribute("aria-label", "New folder name");
+    input.className = "rename-input";
+    input.value = was;
+    input.setAttribute("aria-label", "New name");
     const finish = (keep) => {
       const name = input.value.trim();
-      maker.replaceChildren($("add-folder") || makeButton());
-      if (keep && name) {
-        S.addFolder(name);
+      renaming = null;
+      if (!keep || !name || name === was) {
         render();
+        return;
       }
+      if (picked.kind === "folder") {
+        const now = S.renameFolder(picked.id, name);
+        if (here === picked.id) here = now;
+        picked = { kind: "folder", id: now };
+      } else {
+        S.setTitle(picked.id, name);
+      }
+      render();
     };
     input.addEventListener("keydown", (event) => {
+      event.stopPropagation();
       if (event.key === "Enter") finish(true);
       else if (event.key === "Escape") finish(false);
     });
     input.addEventListener("blur", () => finish(true));
-    maker.replaceChildren(input);
+    label.replaceChildren(input);
     input.focus();
-  });
-
-  function makeButton() {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.id = "add-folder";
-    button.className = "btn quiet";
-    button.textContent = "Add folder";
-    button.addEventListener("click", () => $("add-folder").dispatchEvent(new Event("click")));
-    return button;
+    input.select();
   }
 
+  async function deletePicked() {
+    if (!picked) return;
+    if (picked.kind === "folder") {
+      const inside = puzzlesNow().filter((puzzle) => puzzle.folder === picked.id);
+      const sure = await window.fillmeinConfirm({
+        title: `Delete the folder “${picked.id}”?`,
+        text: inside.length
+          ? `Its ${inside.length} ${inside.length === 1 ? "puzzle moves" : "puzzles move"} back out to ${ROOT}; nothing is lost.`
+          : "The folder is empty, so nothing else changes.",
+        confirm: "Delete folder",
+      });
+      if (!sure) return;
+      for (const puzzle of inside) S.setFolder(puzzle.id, "");
+      S.removeFolder(picked.id);
+      if (here === picked.id) here = "";
+      picked = null;
+      render();
+      return;
+    }
+    const puzzle = puzzlesNow().find((other) => other.id === picked.id);
+    const sure = await window.fillmeinConfirm({
+      title: `Delete “${puzzle ? puzzle.title : "this puzzle"}”?`,
+      text: "Its grid, clues and details go for good, on every device signed in to your account. This cannot be undone.",
+    });
+    if (!sure) return;
+    S.remove(picked.id);
+    picked = null;
+    render();
+  }
+
+  // --- the right-click menu ---
+
+  function closeMenu() {
+    if (menu) menu.remove();
+    menu = null;
+  }
+
+  function openMenu(x, y) {
+    closeMenu();
+    menu = document.createElement("div");
+    menu.className = "menu";
+    const add = (label, run) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        closeMenu();
+        run();
+      });
+      menu.append(button);
+    };
+    add(picked && picked.kind === "folder" ? "Open" : "Open puzzle", openPicked);
+    add("Rename", renamePicked);
+    menu.append(document.createElement("hr"));
+    add("Delete", deletePicked);
+    document.body.append(menu);
+    menu.style.left = `${Math.min(x, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.style.top = `${Math.min(y + window.scrollY, window.scrollY + window.innerHeight - menu.offsetHeight - 8)}px`;
+  }
+
+  document.addEventListener("click", closeMenu);
+  document.addEventListener("scroll", closeMenu, true);
+
+  // --- drawing it ---
+
+  function row({ kind, id, name, icon, modified, size, filled, clues }) {
+    const item = document.createElement("li");
+    item.className = "item";
+    item.dataset.kind = kind;
+    item.dataset.id = id;
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", "false");
+    item.draggable = kind === "puzzle";
+
+    const label = document.createElement("span");
+    label.className = "entry-name";
+    label.textContent = name;
+    const nameCell = document.createElement("span");
+    nameCell.className = "name";
+    const iconBox = document.createElement("span");
+    iconBox.className = "icon";
+    iconBox.append(icon);
+    nameCell.append(iconBox, label);
+
+    const cell = (text, className) => {
+      const span = document.createElement("span");
+      span.className = `cell ${className}`;
+      span.textContent = text;
+      return span;
+    };
+    item.append(nameCell, cell(modified, "when"), cell(size, "size"), cell(filled, "filled"), cell(clues, "clues"));
+
+    item.addEventListener("click", () => choose(kind, id));
+    item.addEventListener("dblclick", () => {
+      choose(kind, id);
+      openPicked();
+    });
+    item.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      choose(kind, id);
+      openMenu(event.clientX, event.clientY);
+    });
+    if (kind === "puzzle") {
+      item.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData("text/plain", `puzzle:${id}`);
+        event.dataTransfer.effectAllowed = "move";
+        item.classList.add("dragging");
+      });
+      item.addEventListener("dragend", () => item.classList.remove("dragging"));
+    } else {
+      dropTarget(item, id);
+    }
+    return item;
+  }
+
+  function render() {
+    const puzzles = puzzlesNow();
+    const folders = foldersNow(puzzles);
+    if (here && !folders.includes(here)) here = "";
+
+    // Address bar: My puzzles › this folder, and both take a dropped puzzle.
+    const address = $("address");
+    address.replaceChildren();
+    const rootCrumb = document.createElement("button");
+    rootCrumb.type = "button";
+    rootCrumb.className = "crumb";
+    rootCrumb.textContent = ROOT;
+    if (!here) rootCrumb.setAttribute("aria-current", "page");
+    rootCrumb.addEventListener("click", () => {
+      here = "";
+      render();
+    });
+    dropTarget(rootCrumb, "");
+    address.append(rootCrumb);
+    if (here) {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "›";
+      const crumb = document.createElement("button");
+      crumb.type = "button";
+      crumb.className = "crumb";
+      crumb.textContent = here;
+      crumb.setAttribute("aria-current", "page");
+      dropTarget(crumb, here);
+      address.append(sep, crumb);
+    }
+
+    const items = $("items");
+    items.replaceChildren();
+    const inside = puzzles.filter((puzzle) => (here ? puzzle.folder === here : !puzzle.folder));
+    if (!here) {
+      for (const name of folders) {
+        const count = puzzles.filter((puzzle) => puzzle.folder === name).length;
+        items.append(row({
+          kind: "folder",
+          id: name,
+          name,
+          icon: folderIcon(),
+          modified: "",
+          size: `${count} ${count === 1 ? "puzzle" : "puzzles"}`,
+          filled: "",
+          clues: "",
+        }));
+      }
+    }
+    for (const puzzle of inside) {
+      items.append(row({
+        kind: "puzzle",
+        id: puzzle.id,
+        name: puzzle.title,
+        icon: gridIcon(puzzle.grid),
+        modified: when(puzzle.updated),
+        size: puzzle.size,
+        filled: puzzle.filled,
+        clues: puzzle.clues,
+      }));
+    }
+    if (!items.children.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-note";
+      empty.textContent = here ? "This folder is empty. Drag puzzles onto it, or onto its name above." : "No puzzles yet.";
+      items.append(empty);
+    }
+
+    // A rename in progress survives a redraw (adding a folder causes one).
+    if (renaming) {
+      const again = renaming;
+      renaming = null;
+      picked = again;
+      requestAnimationFrame(() => {
+        picked = again;
+        renamePicked();
+      });
+    }
+
+    const shown = items.querySelectorAll(".item").length;
+    $("count").textContent = `${shown} ${shown === 1 ? "item" : "items"}`;
+    choose(picked && items.querySelector(`.item[data-kind="${picked.kind}"][data-id="${CSS.escape(picked.id)}"]`) ? picked.kind : null, picked ? picked.id : null);
+    $("up").disabled = !here;
+  }
+
+  // --- toolbar and keys ---
+
   $("new-puzzle").addEventListener("click", () => {
-    location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+    const id = S.create();
+    if (here) S.setFolder(id, here);
+    location.href = `grid.html?p=${encodeURIComponent(id)}`;
+  });
+  $("new-folder").addEventListener("click", () => {
+    const base = "New folder";
+    const taken = new Set(foldersNow(puzzlesNow()));
+    let name = base;
+    for (let n = 2; taken.has(name); n++) name = `${base} (${n})`;
+    S.addFolder(name);
+    here = "";
+    picked = { kind: "folder", id: name };
+    render();
+    renamePicked(); // named straight away, the way a new folder is in Explorer
+  });
+  $("open").addEventListener("click", openPicked);
+  $("rename").addEventListener("click", renamePicked);
+  $("remove").addEventListener("click", deletePicked);
+  $("up").addEventListener("click", () => {
+    here = "";
+    picked = null;
+    render();
   });
 
-  // Keep up with changes from another tab, or from the account.
+  $("items").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      openPicked();
+    } else if (event.key === "Delete") {
+      event.preventDefault();
+      deletePicked();
+    } else if (event.key === "F2") {
+      event.preventDefault();
+      renamePicked();
+    } else if (event.key === "Escape") {
+      choose(null, null);
+    }
+  });
+  // Clicking the empty space below the items clears the selection, as Explorer does.
+  $("items").addEventListener("click", (event) => {
+    if (event.target === $("items")) choose(null, null);
+  });
+
   let waiting = 0;
   const later = () => {
     cancelAnimationFrame(waiting);

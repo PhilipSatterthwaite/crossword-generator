@@ -218,6 +218,35 @@
     announce("fillmein:changed", "", "folders");
   }
 
+  /* Rename a folder, taking the puzzles in it along. */
+  function renameFolder(from, to) {
+    const clean = String(to || "").trim().slice(0, 60);
+    if (!clean || clean === from) return from;
+    const index = readIndex();
+    index.folders = [...new Set((Array.isArray(index.folders) ? index.folders : []).map((name) => (name === from ? clean : name)))];
+    write(INDEX, index);
+    for (const [pid] of Object.entries(readIndex().puzzles)) {
+      if (loadDetails(pid).folder === from) setFolder(pid, clean);
+    }
+    announce("fillmein:changed", "", "folders");
+    return clean;
+  }
+
+  /* Rename a puzzle from outside its own pages. */
+  function setTitle(pid, title) {
+    if (!pid) return;
+    const details = loadDetails(pid);
+    details.title = String(title || "").slice(0, 120);
+    write(keysFor(pid).details, details);
+    const index = readIndex();
+    const now = Date.now();
+    const entry = { created: now, ...index.puzzles[pid], updated: now };
+    entry.parts = { ...entry.parts, details: now };
+    index.puzzles[pid] = entry;
+    write(INDEX, index);
+    announce("fillmein:saved", pid, "details");
+  }
+
   /* Put a puzzle in a folder (an empty name means no folder). */
   function setFolder(pid, folder) {
     if (!pid) return;
@@ -344,7 +373,7 @@
     INDEX, META_FIELDS,
     open, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
-    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, folders, addFolder, removeFolder,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, folders, addFolder, removeFolder, renameFolder,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };
 })(self);
