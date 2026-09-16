@@ -58,6 +58,20 @@
     box-shadow: 0 1px 2px rgba(20, 23, 28, 0.18), 0 10px 28px rgba(20, 23, 28, 0.12);
   }
 
+  .share-lede, .share-note { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+  .share-note .link-button { font-size: inherit; }
+  .share-link { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .share-link input {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--cell);
+    color: var(--ink);
+    font: 500 13px var(--sans);
+  }
+
   .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
   .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
   .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
@@ -169,6 +183,21 @@
         </div>
         <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://fillmein.org/">fillmein.org</a>.</p>
         <p id="export-status" class="export-status" role="status"></p>
+      </section>
+
+      <section aria-labelledby="share-title">
+        <h2 id="share-title">Share a link</h2>
+        <p class="share-lede">Send the puzzle to someone and they can solve it in their browser. No account needed to solve.</p>
+        <p id="share-signin" class="share-note" hidden><button type="button" class="link-button" data-sign-in>Sign in</button> to share a link to this puzzle.</p>
+        <div id="share-actions" class="actions" hidden>
+          <button type="button" id="share" class="btn primary">Share a link</button>
+          <button type="button" id="unshare" class="btn quiet" hidden>Stop sharing</button>
+        </div>
+        <div id="share-link-row" class="share-link" hidden>
+          <input id="share-link" type="text" readonly aria-label="Link to solve this puzzle">
+          <button type="button" id="copy-link" class="btn">Copy</button>
+        </div>
+        <p id="share-status" class="export-status" role="status"></p>
       </section>
 
       <p class="save-note">Your grid, clues and details save automatically as you work: to your account when you're signed in, and in this browser either way. Download an .ipuz to keep a copy anywhere else.</p>
@@ -290,6 +319,80 @@
     $("export-elsewhere").hidden = false;
     $("formats").hidden = true;
   }
+
+  // --- sharing a link to solve ---
+
+  let published = null; // what the account has published for this puzzle, or null
+
+  function renderShare(signedIn, note = "") {
+    $("share-signin").hidden = signedIn;
+    $("share-actions").hidden = !signedIn;
+    $("share-link-row").hidden = !(signedIn && published);
+    $("unshare").hidden = !(signedIn && published);
+    $("share").textContent = published ? "Update the shared copy" : "Share a link";
+    $("share").classList.toggle("primary", !published);
+    if (published) $("share-link").value = window.Fillmein.solveUrl(new URLSearchParams(location.search).get("p") || "");
+    if (note !== null) $("share-status").textContent = note;
+  }
+
+  function whenReady(run) {
+    if (window.Fillmein) run();
+    else window.addEventListener("load", () => window.Fillmein && run(), { once: true });
+  }
+
+  whenReady(() => {
+    const puzzleId = () => new URLSearchParams(location.search).get("p") || "";
+    window.Fillmein.onUser(async (user) => {
+      published = null;
+      renderShare(Boolean(user), "");
+      if (!user || !puzzleId()) return;
+      try {
+        published = await window.Fillmein.publishState(puzzleId());
+      } catch (error) {
+        renderShare(true, "Couldn't check whether this puzzle is shared.");
+        return;
+      }
+      renderShare(true, published ? "Shared. Anyone with the link can solve it." : "");
+    });
+
+    $("share").addEventListener("click", async () => {
+      $("share").disabled = true;
+      $("share-status").textContent = published ? "Updating…" : "Sharing…";
+      try {
+        await window.Fillmein.publish(puzzleId());
+        published = await window.Fillmein.publishState(puzzleId());
+        renderShare(true, published ? "Shared. Anyone with the link can solve it." : "");
+      } catch (error) {
+        renderShare(Boolean(window.Fillmein.user()), error.message || "Sharing didn't work.");
+      } finally {
+        $("share").disabled = false;
+      }
+    });
+
+    $("unshare").addEventListener("click", async () => {
+      $("unshare").disabled = true;
+      try {
+        await window.Fillmein.unpublish(puzzleId());
+        published = null;
+        renderShare(true, "Stopped sharing. The link no longer opens the puzzle.");
+      } catch (error) {
+        renderShare(true, "Couldn't stop sharing.");
+      } finally {
+        $("unshare").disabled = false;
+      }
+    });
+
+    $("copy-link").addEventListener("click", async () => {
+      const link = $("share-link");
+      link.select();
+      try {
+        await navigator.clipboard.writeText(link.value);
+        $("share-status").textContent = "Link copied.";
+      } catch (error) {
+        $("share-status").textContent = "Press Ctrl+C to copy the selected link.";
+      }
+    });
+  });
 
   // --- staying in step with the other tabs ---
 

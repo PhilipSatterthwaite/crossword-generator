@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solve · fillmein</title>
+<meta name="description" content="Solve a crossword someone made with fillmein.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css?v=a8d6cb596b">
+<style>
+  body { margin: 0; }
+  .wordmark-link { color: inherit; text-decoration: none; }
+
+  .solve-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
+  .solve-head h1 { margin: 0; font: 600 30px / 1.15 var(--serif); }
+  .byline { margin: 0; font-size: 14px; color: var(--muted); }
+  .solve-meta { margin-left: auto; display: flex; align-items: baseline; gap: 16px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .solve-meta b { color: var(--ink); }
+
+  .clue-bar { display: flex; align-items: baseline; gap: 10px; min-height: 30px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .clue-bar .where { flex: none; font: 600 13px / 1.4 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .clue-bar .what { font: 500 18px / 1.35 var(--serif); }
+
+  .solve-desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 380px); gap: 30px 44px; align-items: start; }
+  .board { min-width: 0; }
+  .grid-wrap { --cols: 15; --rows: 15; position: relative; width: min(100%, 620px, calc(78vh * var(--cols) / var(--rows))); }
+  #solve-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    background: var(--cell);
+    border: 2px solid var(--ink);
+    container-type: inline-size;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .grid-wrap:focus-within #solve-grid { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .sc {
+    position: relative;
+    box-sizing: border-box;
+    aspect-ratio: 1;
+    min-width: 0;
+    display: grid;
+    place-items: center;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--cell);
+    color: var(--ink);
+    font: 700 calc(100cqi / var(--cols) * 0.56) / 1 var(--sans);
+    cursor: pointer;
+  }
+  .sc.edge-right { border-right: 0; }
+  .sc.edge-bottom { border-bottom: 0; }
+  .sc .num { position: absolute; top: 0.14em; left: 0.2em; font: 500 max(7px, 0.4em) / 1 var(--sans); }
+  .sc.block { background: var(--block); border-color: var(--block); cursor: default; }
+  .sc.in-word { background: var(--word); }
+  .sc.selected { background: var(--select); color: var(--on-select); }
+  .sc.revealed { color: var(--pencil); }
+  .sc.wrong::after {
+    content: "";
+    position: absolute;
+    inset: 8%;
+    border-top: 2px solid var(--danger);
+    transform: rotate(-45deg);
+    transform-origin: center;
+  }
+  .sc.done-flash { animation: solved 0.6s ease-out both; animation-delay: var(--d, 0ms); }
+  @keyframes solved { 50% { background: var(--works-bg); } }
+
+  #solve-input { position: absolute; margin: 0; padding: 0; border: 0; opacity: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 16px; pointer-events: none; }
+
+  .clue-cols { display: grid; gap: 22px; min-width: 0; }
+  .clue-cols h2 { margin: 0 0 6px; font: 600 20px / 1.2 var(--serif); }
+  .clue-list { list-style: none; margin: 0; padding: 0; max-height: min(34vh, 320px); overflow-y: auto; }
+  .clue-list li {
+    display: grid;
+    grid-template-columns: 2.4ch minmax(0, 1fr);
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font: 400 15px / 1.4 var(--serif);
+    cursor: pointer;
+  }
+  .clue-list li:hover { background: var(--hover); }
+  .clue-list li.current { background: var(--word); }
+  .clue-list li.filled { color: var(--muted); }
+  .clue-list .n { font: 600 13px / 1.5 var(--sans); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+
+  .solve-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 16px; border-top: 1px solid var(--rule); }
+  .solve-status { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+  .done {
+    display: grid;
+    gap: 6px;
+    padding: 16px 18px;
+    border: 1.5px solid var(--works-ink);
+    border-radius: 8px;
+    background: var(--works-bg);
+    color: var(--works-ink);
+  }
+  .done h2 { margin: 0; font: 600 22px / 1.2 var(--serif); }
+  .done p { margin: 0; font-size: 14px; }
+  .done a { color: inherit; }
+
+  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
+  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
+  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
+
+  @media (max-width: 900px) {
+    .solve-desk { grid-template-columns: minmax(0, 1fr); }
+    .clue-list { max-height: 240px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <p id="loading" class="status" data-state="busy" role="status">Opening the puzzle…</p>
+
+  <section id="not-found" class="empty-state" hidden>
+    <h2>That link doesn't open a puzzle</h2>
+    <p>The puzzle may have been unshared by whoever made it, or the link may be incomplete. Ask them for a fresh link.</p>
+    <a class="btn primary" href="index.html">Make your own crossword</a>
+  </section>
+
+  <main id="solve" hidden>
+    <div class="solve-head">
+      <h1 id="solve-title">Untitled puzzle</h1>
+      <p id="solve-author" class="byline" hidden></p>
+      <p class="solve-meta"><span>Time <b id="timer">0:00</b></span><span><b id="progress">0</b> of <b id="total">0</b> squares</span></p>
+    </div>
+
+    <p class="clue-bar"><span id="clue-where" class="where"></span><span id="clue-what" class="what">Click a square to start.</span></p>
+
+    <div class="solve-desk">
+      <div class="board">
+        <div id="grid-wrap" class="grid-wrap">
+          <div id="solve-grid" role="grid" aria-label="Crossword grid"></div>
+          <input id="solve-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Type letters into the grid">
+        </div>
+        <div class="solve-actions">
+          <button type="button" id="check" class="btn">Check puzzle</button>
+          <button type="button" id="reveal-word" class="btn quiet">Reveal this answer</button>
+          <button type="button" id="reveal-all" class="btn quiet">Reveal everything</button>
+          <button type="button" id="clear-solve" class="btn quiet">Start over</button>
+        </div>
+        <p id="solve-status" class="solve-status" role="status"></p>
+        <section id="done" class="done" hidden>
+          <h2>Solved!</h2>
+          <p id="done-time"></p>
+          <p><a href="index.html">Make your own crossword with fillmein</a></p>
+        </section>
+      </div>
+
+      <div class="clue-cols">
+        <section aria-labelledby="across-title">
+          <h2 id="across-title">Across</h2>
+          <ol id="across" class="clue-list"></ol>
+        </section>
+        <section aria-labelledby="down-title">
+          <h2 id="down-title">Down</h2>
+          <ol id="down" class="clue-list"></ol>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="filler.js?v=0c1518a0b7"></script>
+<script src="store.js?v=9cd640058c"></script>
+<script type="module" src="account.js?v=b17a4365ac"></script>
+<script type="module">
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const id = new URLSearchParams(location.search).get("p") || "";
+  const PROGRESS = `fillmein:solve:${id}`;
+
+  let puzzle = null;      // what was published
+  let slots = [];         // entries, from filler.js
+  let numbers = [];       // square number or 0
+  let letters = [];       // what the solver has typed
+  let revealed = new Set();
+  let wrong = new Set();
+  let cells = [];         // the square elements
+  let sel = 0, dir = "across";
+  let elapsed = 0, done = false, ticking = null;
+  let armedReveal = false;
+  let touched = false; // whether the solver has picked a square yet
+
+  const isBlock = (i) => puzzle.cells[i] === "#";
+  const at = (row, col) => row * puzzle.width + col;
+  const slotsAt = { across: [], down: [] };
+
+  const save = () => {
+    try {
+      // A dot per empty square, so the letters keep their places.
+      localStorage.setItem(PROGRESS, JSON.stringify({ letters: letters.map((letter) => letter || ".").join(""), revealed: [...revealed], elapsed, done }));
+    } catch (error) { /* storage unavailable: solving still works, it just won't come back */ }
+  };
+  const restore = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PROGRESS));
+      if (!saved || typeof saved.letters !== "string" || saved.letters.length !== puzzle.cells.length) return;
+      letters = Array.from(saved.letters, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
+      revealed = new Set(Array.isArray(saved.revealed) ? saved.revealed : []);
+      elapsed = Number(saved.elapsed) || 0;
+      done = Boolean(saved.done);
+    } catch (error) { /* nothing saved */ }
+  };
+
+  const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+
+  function build() {
+    const rows = [];
+    for (let r = 0; r < puzzle.height; r++) rows.push(puzzle.cells.slice(r * puzzle.width, (r + 1) * puzzle.width).replace(/[^#]/g, "."));
+    const parsed = window.Gridfill.parseGrid(rows);
+    slots = parsed.slots;
+    numbers = new Array(puzzle.cells.length).fill(0);
+    slotsAt.across = new Array(puzzle.cells.length).fill(-1);
+    slotsAt.down = new Array(puzzle.cells.length).fill(-1);
+    slots.forEach((slot, index) => {
+      numbers[at(slot.row, slot.col)] = slot.number;
+      for (const i of slot.cells) slotsAt[slot.direction][i] = index;
+    });
+    if (!letters.length) letters = new Array(puzzle.cells.length).fill("");
+
+    const wrap = $("grid-wrap");
+    wrap.style.setProperty("--cols", puzzle.width);
+    wrap.style.setProperty("--rows", puzzle.height);
+    $("solve-grid").style.setProperty("--cols", puzzle.width);
+    const grid = $("solve-grid");
+    grid.replaceChildren();
+    cells = puzzle.cells.split("").map((cell, i) => {
+      const square = document.createElement("div");
+      square.className = cell === "#" ? "sc block" : "sc";
+      if ((i + 1) % puzzle.width === 0) square.classList.add("edge-right");
+      if (i >= puzzle.cells.length - puzzle.width) square.classList.add("edge-bottom");
+      square.dataset.i = i;
+      if (cell !== "#") {
+        if (numbers[i]) {
+          const number = document.createElement("span");
+          number.className = "num";
+          number.textContent = numbers[i];
+          square.append(number);
+        }
+        const letter = document.createElement("span");
+        letter.className = "ch";
+        square.append(letter);
+      }
+      grid.append(square);
+      return square;
+    });
+    $("total").textContent = puzzle.cells.replace(/#/g, "").length;
+    sel = puzzle.cells.split("").findIndex((cell) => cell !== "#");
+    renderClues();
+  }
+
+  function renderClues() {
+    for (const direction of ["across", "down"]) {
+      const list = $(direction);
+      list.replaceChildren();
+      for (const [index, slot] of slots.entries()) {
+        if (slot.direction !== direction) continue;
+        const item = document.createElement("li");
+        item.dataset.slot = index;
+        const number = document.createElement("span");
+        number.className = "n";
+        number.textContent = slot.number;
+        const text = document.createElement("span");
+        text.textContent = puzzle.clues[`${slot.direction}:${slot.row},${slot.col}`] || "—";
+        item.append(number, text);
+        item.addEventListener("click", () => {
+          dir = direction;
+          sel = slot.cells[0];
+          focusGrid();
+          render();
+        });
+        list.append(item);
+      }
+    }
+  }
+
+  const currentSlot = () => slotsAt[dir][sel] >= 0 ? slots[slotsAt[dir][sel]] : (slotsAt[other()][sel] >= 0 ? slots[slotsAt[other()][sel]] : null);
+  const other = () => (dir === "across" ? "down" : "across");
+
+  function render() {
+    const slot = currentSlot();
+    const inWord = new Set(slot ? slot.cells : []);
+    let filled = 0;
+    cells.forEach((square, i) => {
+      if (isBlock(i)) return;
+      if (letters[i]) filled++;
+      square.classList.toggle("in-word", inWord.has(i) && i !== sel);
+      square.classList.toggle("selected", i === sel);
+      square.classList.toggle("revealed", revealed.has(i));
+      square.classList.toggle("wrong", wrong.has(i));
+      square.querySelector(".ch").textContent = letters[i] || "";
+    });
+    $("progress").textContent = filled;
+    if (slot) {
+      $("clue-where").textContent = `${slot.number} ${slot.direction === "across" ? "Across" : "Down"}`;
+      $("clue-what").textContent = puzzle.clues[`${slot.direction}:${slot.row},${slot.col}`] || "(no clue was written for this entry)";
+    }
+    for (const item of document.querySelectorAll(".clue-list li")) {
+      const entry = slots[Number(item.dataset.slot)];
+      item.classList.toggle("current", slot === entry);
+      item.classList.toggle("filled", entry.cells.every((i) => letters[i]));
+    }
+    save();
+  }
+
+  function focusGrid() {
+    const input = $("solve-input");
+    const square = cells[sel];
+    if (square) {
+      input.style.left = `${square.offsetLeft}px`;
+      input.style.top = `${square.offsetTop}px`;
+      input.style.width = `${square.offsetWidth}px`;
+      input.style.height = `${square.offsetHeight}px`;
+    }
+    input.focus({ preventScroll: true });
+  }
+
+  function step(delta) {
+    const slot = currentSlot();
+    if (!slot) return;
+    const at = slot.cells.indexOf(sel);
+    const next = at + delta;
+    if (next >= 0 && next < slot.cells.length) sel = slot.cells[next];
+  }
+
+  function move(rowDelta, colDelta) {
+    let row = Math.floor(sel / puzzle.width) + rowDelta;
+    let col = (sel % puzzle.width) + colDelta;
+    while (row >= 0 && row < puzzle.height && col >= 0 && col < puzzle.width) {
+      const i = at(row, col);
+      if (!isBlock(i)) {
+        sel = i;
+        return;
+      }
+      row += rowDelta;
+      col += colDelta;
+    }
+  }
+
+  function typeLetter(letter) {
+    if (revealed.has(sel)) return;
+    letters[sel] = letter;
+    wrong.delete(sel);
+    step(1);
+    checkDone();
+  }
+
+  function checkDone() {
+    if (done) return;
+    const solved = puzzle.cells.split("").every((cell, i) => cell === "#" || letters[i] === cell);
+    if (!solved) return;
+    done = true;
+    stopClock();
+    $("done").hidden = false;
+    $("done-time").textContent = revealed.size
+      ? `Finished in ${clock(elapsed)}, with ${revealed.size} ${revealed.size === 1 ? "square" : "squares"} revealed.`
+      : `Finished in ${clock(elapsed)} with no reveals. Nicely done.`;
+    cells.forEach((square, i) => {
+      if (isBlock(i)) return;
+      square.style.setProperty("--d", `${(i % puzzle.width) * 22 + Math.floor(i / puzzle.width) * 22}ms`);
+      square.classList.add("done-flash");
+    });
+  }
+
+  function startClock() {
+    if (ticking || done) return;
+    ticking = setInterval(() => {
+      elapsed += 1;
+      $("timer").textContent = clock(elapsed);
+      if (elapsed % 5 === 0) save();
+    }, 1000);
+  }
+  function stopClock() {
+    clearInterval(ticking);
+    ticking = null;
+    save();
+  }
+
+  // --- what the solver does ---
+
+  $("solve-grid").addEventListener("mousedown", (event) => {
+    const square = event.target.closest(".sc");
+    if (!square) return;
+    event.preventDefault();
+    const i = Number(square.dataset.i);
+    if (isBlock(i)) return;
+    // Clicking the square you're already on turns the corner, but the first click of all just starts there.
+    if (touched && i === sel && slotsAt[other()][i] >= 0) dir = other();
+    else if (slotsAt[dir][i] < 0) dir = other();
+    touched = true;
+    sel = i;
+    focusGrid();
+    render();
+    startClock();
+  });
+
+  $("solve-input").addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const key = event.key;
+    if (/^[a-zA-Z]$/.test(key)) {
+      event.preventDefault();
+      typeLetter(key.toUpperCase());
+      startClock();
+    } else if (key === "Backspace") {
+      event.preventDefault();
+      if (letters[sel] && !revealed.has(sel)) letters[sel] = "";
+      else {
+        step(-1);
+        if (!revealed.has(sel)) letters[sel] = "";
+      }
+      wrong.delete(sel);
+    } else if (key === "ArrowLeft") { event.preventDefault(); dir === "across" ? move(0, -1) : (dir = "across"); }
+    else if (key === "ArrowRight") { event.preventDefault(); dir === "across" ? move(0, 1) : (dir = "across"); }
+    else if (key === "ArrowUp") { event.preventDefault(); dir === "down" ? move(-1, 0) : (dir = "down"); }
+    else if (key === "ArrowDown") { event.preventDefault(); dir === "down" ? move(1, 0) : (dir = "down"); }
+    else if (key === " ") { event.preventDefault(); if (slotsAt[other()][sel] >= 0) dir = other(); }
+    else if (key === "Tab" || key === "Enter") {
+      event.preventDefault();
+      const here = currentSlot();
+      const order = slots.filter((slot) => slot.direction === dir);
+      const next = order[(order.indexOf(here) + (event.shiftKey ? order.length - 1 : 1)) % order.length];
+      if (next) sel = next.cells.find((i) => !letters[i]) ?? next.cells[0];
+    } else return;
+    render();
+  });
+
+  $("solve-input").addEventListener("input", (event) => {
+    // Phone keyboards insert text rather than sending key presses.
+    const typed = event.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
+    event.target.value = "";
+    for (const letter of typed) typeLetter(letter);
+    if (typed) {
+      startClock();
+      render();
+    }
+  });
+
+  $("check").addEventListener("click", () => {
+    wrong = new Set();
+    let mistakes = 0;
+    puzzle.cells.split("").forEach((cell, i) => {
+      if (cell === "#" || !letters[i]) return;
+      if (letters[i] !== cell) {
+        wrong.add(i);
+        mistakes++;
+      }
+    });
+    $("solve-status").textContent = mistakes
+      ? `${mistakes} ${mistakes === 1 ? "square is" : "squares are"} wrong, marked in red. Typing over one clears its mark.`
+      : "Everything you've filled in so far is right.";
+    render();
+  });
+
+  $("reveal-word").addEventListener("click", () => {
+    const slot = currentSlot();
+    if (!slot) return;
+    for (const i of slot.cells) {
+      if (letters[i] !== puzzle.cells[i]) {
+        letters[i] = puzzle.cells[i];
+        revealed.add(i);
+      }
+      wrong.delete(i);
+    }
+    $("solve-status").textContent = "Revealed this answer.";
+    checkDone();
+    render();
+  });
+
+  $("reveal-all").addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    if (!armedReveal) {
+      armedReveal = true;
+      button.textContent = "Really reveal everything?";
+      button.classList.add("stop");
+      setTimeout(() => {
+        armedReveal = false;
+        button.textContent = "Reveal everything";
+        button.classList.remove("stop");
+      }, 4000);
+      return;
+    }
+    armedReveal = false;
+    button.textContent = "Reveal everything";
+    button.classList.remove("stop");
+    puzzle.cells.split("").forEach((cell, i) => {
+      if (cell === "#") return;
+      if (letters[i] !== cell) revealed.add(i);
+      letters[i] = cell;
+    });
+    wrong = new Set();
+    $("solve-status").textContent = "Revealed the whole puzzle.";
+    checkDone();
+    render();
+  });
+
+  $("clear-solve").addEventListener("click", () => {
+    letters = new Array(puzzle.cells.length).fill("");
+    revealed = new Set();
+    wrong = new Set();
+    done = false;
+    elapsed = 0;
+    $("done").hidden = true;
+    $("timer").textContent = "0:00";
+    for (const square of cells) square.classList.remove("done-flash");
+    $("solve-status").textContent = "Cleared. The clock starts again with your next letter.";
+    stopClock();
+    render();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") stopClock();
+  });
+
+  // --- open the puzzle ---
+
+  (async () => {
+    if (!id) {
+      $("loading").hidden = true;
+      $("not-found").hidden = false;
+      return;
+    }
+    try {
+      const fs = await window.Fillmein.loadFirestore();
+      const snapshot = await fs.getDoc(fs.doc(fs.getFirestore(window.Fillmein.app), "published", id));
+      if (!snapshot.exists()) throw new Error("not published");
+      const data = snapshot.data();
+      puzzle = {
+        title: data.title || "Untitled puzzle",
+        author: data.author || "",
+        width: data.width,
+        height: data.height,
+        cells: String(data.cells || ""),
+        clues: data.clues || {},
+      };
+      if (!(puzzle.width > 0 && puzzle.height > 0) || puzzle.cells.length !== puzzle.width * puzzle.height) throw new Error("damaged puzzle");
+    } catch (error) {
+      $("loading").hidden = true;
+      $("not-found").hidden = false;
+      return;
+    }
+
+    document.title = `${puzzle.title} · fillmein`;
+    $("solve-title").textContent = puzzle.title;
+    if (puzzle.author) {
+      $("solve-author").textContent = `by ${puzzle.author}`;
+      $("solve-author").hidden = false;
+    }
+    restore();
+    build();
+    $("loading").hidden = true;
+    $("solve").hidden = false;
+    if (done) {
+      $("done").hidden = false;
+      $("done-time").textContent = `Finished in ${clock(elapsed)}.`;
+    }
+    $("timer").textContent = clock(elapsed);
+    render();
+  })();
+</script>
+</body>
+</html>

@@ -3,6 +3,20 @@ rules_version = '2';
 // and Publish whenever this file changes; web/account.js is what reads and writes these documents.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Puzzles published to be solved by link: anyone can open one, only the owner can publish,
+    // change or remove it. The solution is in the document, so anyone with the link can read it.
+    match /published/{puzzleId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.resource.data.owner == request.auth.uid
+        && (resource == null || resource.data.owner == request.auth.uid)
+        && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated"])
+        && request.resource.data.cells.size() <= 2500
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.author.size() <= 200;
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+    }
+
     // Each account's puzzles: only that account can read or write them.
     match /users/{uid}/puzzles/{puzzleId} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;

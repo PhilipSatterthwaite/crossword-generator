@@ -135,9 +135,78 @@ function applyDoc(pid, data) {
   }
 }
 
-async function startSync(user) {
+/* The Firestore module, loaded once and shared with pages that need it (the Export page's share
+   controls, the solve page). */
+async function loadFirestore() {
   firestore = firestore || (await import(FIRESTORE));
   db = db || firestore.getFirestore(app);
+  return firestore;
+}
+
+// --- sharing a puzzle to solve by link ---
+
+/* Put the puzzle in "published" so anyone with the link can solve it. The document holds the finished
+   grid, so whoever has the link can read the answers: it's for sharing with people, not a secret. */
+async function publish(pid) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in to share a link.");
+  const grid = S.loadGrid(pid);
+  if (!grid) throw new Error("There's no grid to share yet.");
+  const empty = grid.letters.filter((letter, i) => !letter && !grid.blocks[i]).length;
+  if (empty) throw new Error(`Fill every square first: ${empty} ${empty === 1 ? "is" : "are"} still empty.`);
+  const clues = S.loadClues(pid);
+  const details = S.loadDetails(pid);
+  const text = {};
+  for (const slot of grid.slots) {
+    const clue = clues[S.clueKey(slot)];
+    if (clue && clue.text.trim()) text[S.clueKey(slot)] = clue.text.trim().slice(0, 300);
+  }
+  const data = {
+    owner: user.uid,
+    title: (details.title || "").trim().slice(0, 200),
+    author: (details.author || "").trim().slice(0, 200),
+    width: grid.W,
+    height: grid.H,
+    cells: grid.blocks.map((block, i) => (block ? "#" : grid.letters[i])).join(""),
+    clues: text,
+    updated: Date.now(),
+  };
+  const fs = await loadFirestore();
+  await fs.setDoc(fs.doc(db, "published", pid), data);
+  return data;
+}
+
+async function unpublish(pid) {
+  const fs = await loadFirestore();
+  await fs.deleteDoc(fs.doc(db, "published", pid));
+}
+
+/* What's published for this puzzle, or null. */
+async function publishState(pid) {
+  const fs = await loadFirestore();
+  const snapshot = await fs.getDoc(fs.doc(db, "published", pid));
+  return snapshot.exists() ? snapshot.data() : null;
+}
+
+const solveUrl = (pid) => new URL(`solve.html?p=${encodeURIComponent(pid)}`, location.href).href;
+
+/* What pages can use: the app itself, Firestore on demand, who's signed in, and sharing. */
+window.Fillmein = {
+  app,
+  loadFirestore,
+  user: () => auth.currentUser,
+  onUser(callback) {
+    window.addEventListener("fillmein:user", (event) => callback(event.detail.user));
+    callback(auth.currentUser);
+  },
+  publish,
+  unpublish,
+  publishState,
+  solveUrl,
+};
+
+async function startSync(user) {
+  await loadFirestore();
   if (uid !== user.uid) return; // signed out or switched accounts while Firestore loaded
   const previous = readAccount();
   if (previous && previous !== user.uid) forgetPuzzlesOf(previous); // left behind by another account
@@ -169,6 +238,7 @@ onAuthStateChanged(auth, (user) => {
   known.clear();
   uid = user ? user.uid : null;
   renderAccount(user);
+  window.dispatchEvent(new CustomEvent("fillmein:user", { detail: { user } }));
   if (user) startSync(user).catch(showError);
 });
 
