@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=a8d6cb596b">
+<link rel="stylesheet" href="theme.css?v=da43c1842c">
 <style>
   body { margin: 0; }
   .home-title { margin: 0; line-height: 0; }
@@ -98,6 +98,7 @@
       <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">Keep working</h2></div>
       <p id="no-puzzles">Puzzles you start show up here, so you can pick up where you left off.</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
+      <a id="manage-link" class="btn quiet" href="puzzles.html" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
       <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to save your puzzles to your account and pick them up on any device. Until then they're saved in this browser.</p>
       <p class="note" data-signed-in hidden>Saved to your account, so they're here on every device you sign in on.</p>
@@ -112,7 +113,7 @@
 </div>
 
 <script src="filler.js?v=0c1518a0b7"></script>
-<script src="store.js?v=9cd640058c"></script>
+<script src="store.js?v=a569b14a40"></script>
 <script type="module" src="account.js?v=d7c4e1f8d7"></script>
 <script>
 (() => {
@@ -165,12 +166,17 @@
     return { title, grid, meta };
   }
 
+  const RECENT = 3; // the home page shows the last few; the rest live on the My puzzles page
+
   function renderPuzzles() {
-    const puzzles = S.list();
+    const puzzles = S.list().slice(0, RECENT);
+    const total = S.list().length;
     const list = $("puzzles");
     list.replaceChildren();
     list.hidden = !puzzles.length;
     $("no-puzzles").hidden = puzzles.length > 0;
+    $("manage-link").hidden = !total;
+    $("manage-link").textContent = total > RECENT ? `Manage all ${total} puzzles and folders` : "Manage puzzles and folders";
     for (const puzzle of puzzles) {
       const { title, grid, meta } = describe(puzzle);
       const item = document.createElement("li");
@@ -186,42 +192,13 @@
       info.className = "meta";
       info.textContent = meta;
       text.append(link, info);
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "btn quiet small";
-      remove.dataset.remove = puzzle.id;
-      remove.textContent = "Delete";
-      remove.setAttribute("aria-label", `Delete ${title}`);
-      item.append(thumb, text, remove);
+      item.append(thumb, text);
       list.append(item);
     }
   }
 
   $("start-new").addEventListener("click", () => {
     location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
-  });
-
-  // Deleting takes a second click, within a few seconds of the first.
-  $("puzzles").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-remove]");
-    if (!button) return;
-    if (button.dataset.armed) {
-      const title = button.getAttribute("aria-label").replace(/^Delete /, "");
-      S.remove(button.dataset.remove);
-      renderPuzzles();
-      $("home-status").textContent = `Deleted “${title}”.`;
-      $("start-new").focus();
-      return;
-    }
-    button.dataset.armed = "true";
-    button.textContent = "Delete for good?";
-    button.classList.add("confirm");
-    setTimeout(() => {
-      if (!button.isConnected) return;
-      delete button.dataset.armed;
-      button.textContent = "Delete";
-      button.classList.remove("confirm");
-    }, 4000);
   });
 
   // Keep the list current when a puzzle changes in another tab, comes down from the account, or the

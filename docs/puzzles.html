@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My puzzles · fillmein</title>
+<meta name="description" content="Every crossword you have started, sorted into folders.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css?v=da43c1842c">
+<style>
+  body { margin: 0; }
+  .wordmark-link { color: inherit; text-decoration: none; }
+
+  .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 20px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
+  .head h1 { margin: 0; font: 600 30px / 1.15 var(--serif); }
+  .head .count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .head .actions { margin-left: auto; }
+
+  .folder { display: grid; gap: 10px; }
+  .folder h2 { display: flex; align-items: baseline; gap: 10px; margin: 0; font: 600 13px / 1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .folder h2 .n { font-size: 12px; letter-spacing: 0; text-transform: none; }
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
+  .thumb { display: grid; place-items: center; width: 52px; height: 52px; }
+  .thumb svg { display: block; max-width: 52px; max-height: 52px; background: var(--cell); outline: 1.5px solid var(--ink); }
+  .thumb rect { fill: var(--block); }
+  .thumb .blank { width: 40px; height: 40px; border: 1.5px dashed var(--rule); border-radius: 2px; }
+  .row a.name { color: var(--ink); font: 600 18px / 1.25 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
+  .row a.name:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row-actions select { font-size: 13px; }
+  .folder-input { width: 9em; padding: 5px 7px; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--cell); color: var(--ink); font: 500 13px var(--sans); }
+
+  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
+  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
+  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
+  .status-line { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .row { grid-template-columns: 44px minmax(0, 1fr); }
+    .thumb { width: 44px; height: 44px; }
+    .thumb svg { max-width: 44px; max-height: 44px; }
+    .row-actions { grid-column: 2; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <div class="puzzle-bar">
+    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
+  </div>
+
+  <div class="head">
+    <h1>My puzzles</h1>
+    <span id="count" class="count"></span>
+    <div class="actions"><button type="button" id="new-puzzle" class="btn primary">Start a puzzle</button></div>
+  </div>
+
+  <p id="status" class="status-line" role="status"></p>
+
+  <section id="none" class="empty-state" hidden>
+    <h2>No puzzles yet</h2>
+    <p>Start one and it will show up here, where you can sort your puzzles into folders.</p>
+  </section>
+
+  <div id="folders"></div>
+</div>
+
+<script src="filler.js?v=0c1518a0b7"></script>
+<script src="store.js?v=a569b14a40"></script>
+<script src="confirm.js?v=a8285e5eec"></script>
+<script type="module" src="account.js?v=d7c4e1f8d7"></script>
+<script>
+(() => {
+  "use strict";
+  const S = window.GridfillStore;
+  const $ = (id) => document.getElementById(id);
+  const SVG = "http://www.w3.org/2000/svg";
+  const UNFILED = "Not in a folder";
+  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+
+  const ago = (time) => {
+    const seconds = (time - Date.now()) / 1000;
+    for (const [unit, size] of UNITS) if (Math.abs(seconds) >= size) return relative.format(Math.round(seconds / size), unit);
+    return "just now";
+  };
+
+  function thumbnail(grid) {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", `0 0 ${grid.W} ${grid.H}`);
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("aria-hidden", "true");
+    grid.blocks.forEach((block, i) => {
+      if (!block) return;
+      const rect = document.createElementNS(SVG, "rect");
+      rect.setAttribute("x", i % grid.W);
+      rect.setAttribute("y", Math.floor(i / grid.W));
+      rect.setAttribute("width", 1);
+      rect.setAttribute("height", 1);
+      svg.append(rect);
+    });
+    return svg;
+  }
+
+  /* Everything the page shows about one puzzle. */
+  function describe(puzzle) {
+    const details = S.loadDetails(puzzle.id);
+    const grid = S.loadGrid(puzzle.id);
+    const title = details.title.trim() || "Untitled puzzle";
+    const folder = (details.folder || "").trim();
+    if (!grid) return { ...puzzle, title, folder, grid: null, meta: `Nothing on the grid yet · edited ${ago(puzzle.updated)}` };
+    const clues = S.loadClues(puzzle.id);
+    const open = grid.blocks.filter((block) => !block).length;
+    const filled = grid.letters.filter((letter, i) => letter && !grid.blocks[i]).length;
+    const clued = grid.slots.filter((slot) => S.hasClue(clues, slot)).length;
+    const meta = [
+      `${grid.W}×${grid.H}`,
+      `${open ? Math.round((100 * filled) / open) : 100}% filled`,
+      `${clued}/${grid.slots.length} clues`,
+      `edited ${ago(puzzle.updated)}`,
+    ].join(" · ");
+    return { ...puzzle, title, folder, grid, meta };
+  }
+
+  const say = (text) => { $("status").textContent = text; };
+
+  function moveControl(puzzle, folders) {
+    const wrap = document.createElement("span");
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", `Folder for ${puzzle.title}`);
+    const option = (value, label) => {
+      const element = document.createElement("option");
+      element.value = value;
+      element.textContent = label;
+      select.append(element);
+    };
+    option("", UNFILED);
+    for (const name of folders) option(name, name);
+    option("__new", "New folder…");
+    select.value = puzzle.folder || "";
+
+    select.addEventListener("change", async () => {
+      if (select.value !== "__new") {
+        S.setFolder(puzzle.id, select.value);
+        say(select.value ? `Moved “${puzzle.title}” to ${select.value}.` : `Took “${puzzle.title}” out of its folder.`);
+        render();
+        return;
+      }
+      // Name the new folder in place, then move the puzzle into it.
+      const input = document.createElement("input");
+      input.className = "folder-input";
+      input.placeholder = "Folder name";
+      input.setAttribute("aria-label", "New folder name");
+      const finish = (keep) => {
+        const name = input.value.trim().slice(0, 60);
+        if (keep && name) {
+          S.setFolder(puzzle.id, name);
+          say(`Moved “${puzzle.title}” to ${name}.`);
+        }
+        render();
+      };
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") finish(true);
+        else if (event.key === "Escape") finish(false);
+      });
+      input.addEventListener("blur", () => finish(true));
+      wrap.replaceChildren(input);
+      input.focus();
+    });
+    wrap.append(select);
+    return wrap;
+  }
+
+  function render() {
+    const puzzles = S.list().map(describe);
+    $("count").textContent = puzzles.length ? `${puzzles.length} ${puzzles.length === 1 ? "puzzle" : "puzzles"}` : "";
+    $("none").hidden = puzzles.length > 0;
+
+    const folders = [...new Set(puzzles.map((puzzle) => puzzle.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const groups = [["", puzzles.filter((puzzle) => !puzzle.folder)]];
+    for (const name of folders) groups.push([name, puzzles.filter((puzzle) => puzzle.folder === name)]);
+
+    const holder = $("folders");
+    holder.replaceChildren();
+    for (const [name, inFolder] of groups) {
+      if (!inFolder.length) continue;
+      const section = document.createElement("section");
+      section.className = "folder";
+      const heading = document.createElement("h2");
+      heading.textContent = name || UNFILED;
+      const howMany = document.createElement("span");
+      howMany.className = "n";
+      howMany.textContent = `${inFolder.length}`;
+      heading.append(howMany);
+      const rows = document.createElement("ul");
+      rows.className = "rows";
+
+      for (const puzzle of inFolder) {
+        const row = document.createElement("li");
+        row.className = "row";
+        const thumb = document.createElement("span");
+        thumb.className = "thumb";
+        if (puzzle.grid) {
+          thumb.append(thumbnail(puzzle.grid));
+        } else {
+          const blank = document.createElement("span");
+          blank.className = "blank";
+          thumb.append(blank);
+        }
+        const text = document.createElement("div");
+        const link = document.createElement("a");
+        link.className = "name";
+        link.href = `grid.html?p=${encodeURIComponent(puzzle.id)}`;
+        link.textContent = puzzle.title;
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = puzzle.meta;
+        text.append(link, meta);
+
+        const actions = document.createElement("div");
+        actions.className = "row-actions";
+        actions.append(moveControl(puzzle, folders));
+        const drop = document.createElement("button");
+        drop.type = "button";
+        drop.className = "btn quiet small danger";
+        drop.textContent = "Delete";
+        drop.addEventListener("click", async () => {
+          const sure = await window.fillmeinConfirm({
+            title: `Delete “${puzzle.title}”?`,
+            text: "Its grid, clues and details go for good, on every device signed in to your account. This cannot be undone.",
+          });
+          if (!sure) return;
+          S.remove(puzzle.id);
+          say(`Deleted “${puzzle.title}”.`);
+          render();
+        });
+        actions.append(drop);
+
+        row.append(thumb, text, actions);
+        rows.append(row);
+      }
+      section.append(heading, rows);
+      holder.append(section);
+    }
+  }
+
+  $("new-puzzle").addEventListener("click", () => {
+    location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+  });
+
+  // Keep up with changes from another tab, or from the account.
+  let waiting = 0;
+  const later = () => {
+    cancelAnimationFrame(waiting);
+    waiting = requestAnimationFrame(render);
+  };
+  window.addEventListener("fillmein:changed", later);
+  window.addEventListener("storage", (event) => {
+    if (event.key === null || event.key.startsWith("fillmein:")) later();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") later();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

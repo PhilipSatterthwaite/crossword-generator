@@ -187,7 +187,24 @@
     const saved = (pid && (read(keysFor(pid).details) || (read(keysFor(pid).clues) || {}).meta || (gridData(pid) || {}).meta)) || {};
     const details = {};
     for (const field of META_FIELDS) details[field] = typeof saved[field] === "string" ? saved[field] : "";
+    // Which folder it sits in on the My puzzles page; kept with the details so it follows the puzzle.
+    details.folder = typeof saved.folder === "string" ? saved.folder : "";
     return details;
+  }
+
+  /* Put a puzzle in a folder (an empty name means no folder). */
+  function setFolder(pid, folder) {
+    if (!pid) return;
+    const details = loadDetails(pid);
+    details.folder = String(folder || "").slice(0, 60);
+    write(keysFor(pid).details, details);
+    const index = readIndex();
+    const now = Date.now();
+    const entry = { created: now, ...index.puzzles[pid], updated: now };
+    entry.parts = { ...entry.parts, details: now };
+    index.puzzles[pid] = entry;
+    write(INDEX, index);
+    announce("fillmein:saved", pid, "details");
   }
 
   function saveDetails(details) {
@@ -249,7 +266,7 @@
         answer: answerOf(grid, slot),
         clue: clues[clueKey(slot)] ? clues[clueKey(slot)].text : "",
       })),
-      ...details,
+      ...Object.fromEntries(META_FIELDS.map((field) => [field, details[field] || ""])),
     };
   }
 
@@ -301,7 +318,7 @@
     INDEX, META_FIELDS,
     open, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
-    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };
 })(self);
