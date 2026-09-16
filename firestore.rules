@@ -67,6 +67,20 @@ service cloud.firestore {
         && request.resource.data.get("lists", {}) is map;
     }
 
+    // Error reports from the pages (account.js): anyone may leave one, nobody reads them here; the
+    // Firebase console is where they're read. Each names an account only if that account is signed in.
+    match /errors/{report} {
+      allow create: if request.resource.data.keys().hasOnly(["kind", "message", "stack", "page", "agent", "at", "uid"])
+        && request.resource.data.kind is string && request.resource.data.kind.size() <= 20
+        && request.resource.data.message is string && request.resource.data.message.size() <= 500
+        && request.resource.data.stack is string && request.resource.data.stack.size() <= 2000
+        && request.resource.data.page is string && request.resource.data.page.size() <= 200
+        && request.resource.data.agent is string && request.resource.data.agent.size() <= 200
+        && request.resource.data.at is number
+        && request.resource.data.uid is string
+        && (request.resource.data.uid == "" || (signedIn() && request.resource.data.uid == request.auth.uid));
+    }
+
     // Each account's puzzles: only that account can read or write them.
     match /users/{uid}/puzzles/{puzzleId} {
       allow read, delete: if owns(uid);

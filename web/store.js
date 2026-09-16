@@ -300,6 +300,42 @@
     return copy;
   }
 
+  /* A puzzle read from a file (importers.js) becomes a new saved puzzle, filed in a folder: its letters
+     go in as ink, each clue is written for the answer it came with, and whether the blocks are symmetric
+     decides whether the Grid page mirrors them. Returns the new id. */
+  function importPuzzle(puzzle, folder = "") {
+    const { width: W, height: H, cells } = puzzle;
+    const pid = create();
+    const to = keysFor(pid);
+    const symmetry = cells.every((cell, i) => (cell === "#") === (cells[W * H - 1 - i] === "#"));
+    write(to.grid, {
+      v: 2, W, H, sel: Math.max(0, cells.findIndex((cell) => cell !== "#")), dir: "across",
+      blocks: cells.map((cell) => (cell === "#" ? "#" : ".")).join(""),
+      ink: cells.map((cell) => (/^[A-Z]$/.test(cell) ? cell : ".")).join(""),
+      pencil: ".".repeat(W * H),
+      symmetry, tint: true, minScore: 50, allowPopular: false, timeLimit: 30, lists: { id: "built-in" },
+    });
+    const grid = loadGrid(pid);
+    const clues = {};
+    for (const slot of grid.slots) {
+      const text = puzzle.clues[clueKey(slot)];
+      if (typeof text !== "string" || !text.trim()) continue;
+      const answer = answerOf(grid, slot);
+      clues[clueKey(slot)] = { text: text.trim(), answer: answer.length === slot.cells.length ? answer : "" };
+    }
+    write(to.clues, { v: 1, clues });
+    const details = {};
+    for (const field of META_FIELDS) details[field] = String(puzzle[field] || "").slice(0, field === "title" ? 120 : 2000);
+    details.folder = cleanPath(folder);
+    write(to.details, details);
+    const index = readIndex();
+    const now = Date.now();
+    index.puzzles[pid] = { created: now, updated: now, parts: { grid: now, clues: now, details: now } };
+    write(INDEX, index);
+    for (const part of ["grid", "clues", "details"]) announce("fillmein:saved", pid, part);
+    return pid;
+  }
+
   /* Rename a puzzle from outside its own pages. */
   function setTitle(pid, title) {
     if (!pid) return;
@@ -417,13 +453,17 @@
   function bindTitle(input) {
     if (!input) return;
     input.disabled = !id;
+    const pageName = document.title; // "Grid · fillmein": the puzzle's name goes in front, so tabs tell apart
     const show = () => {
-      if (document.activeElement !== input) input.value = loadDetails().title;
+      const title = loadDetails().title;
+      if (document.activeElement !== input) input.value = title;
+      document.title = title.trim() ? `${title.trim()} · ${pageName}` : pageName;
     };
     input.addEventListener("input", () => {
       const details = loadDetails();
       details.title = input.value;
       saveDetails(details);
+      show();
     });
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") input.blur();
@@ -443,7 +483,7 @@
     INDEX, META_FIELDS,
     open, missing: () => missing, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
-    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, duplicate,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, duplicate, importPuzzle,
     folders, addFolder, removeFolder, renameFolder, moveFolder, cleanPath, parentOf, nameOf,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };

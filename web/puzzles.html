@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My puzzles · fillmein</title>
 <meta name="description" content="Every crossword you have started, in folders you can open, nest, sort and rename.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="My puzzles · fillmein">
+<meta property="og:description" content="Every crossword you have started, in folders.">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,6 +30,9 @@
   .toolbar .btn:not(:disabled):hover { transform: translateY(-1.5px); box-shadow: 0 4px 12px rgb(0 0 0 / 0.12); }
   .toolbar .btn:not(:disabled):active { transform: translateY(1px) scale(0.97); box-shadow: none; }
   .toolbar .divider { width: 1px; height: 20px; margin: 0 3px; background: var(--rule); }
+  .toolbar label.btn { position: relative; display: inline-block; }
+  .toolbar label.btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .toolbar label.btn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .toolbar .spacer { flex: 1; }
 
   .address { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); background: var(--cell); font-size: 13px; }
@@ -115,6 +126,7 @@
     <div class="toolbar">
       <button type="button" id="new-puzzle" class="btn primary">New puzzle</button>
       <button type="button" id="new-folder" class="btn">New folder</button>
+      <label class="btn" title="A .puz, .ipuz or .jpz file">Open a file…<input type="file" id="import-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label>
       <span class="divider" aria-hidden="true"></span>
       <button type="button" id="open" class="btn quiet" disabled>Open</button>
       <button type="button" id="rename" class="btn quiet" disabled>Rename</button>
@@ -144,9 +156,11 @@
 
     <div class="statusbar"><span id="count"></span><span id="chosen"></span><span id="clipnote"></span></div>
   </div>
+  <footer class="site-foot"><a href="privacy.html">Privacy</a><a href="mailto:" data-contact>Contact</a></footer>
 </div>
 
 <script src="filler.js"></script>
+<script src="importers.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
@@ -748,6 +762,17 @@
     picked = { kind: "folder", id: S.addFolder([here, name].filter(Boolean).join("/")) };
     render();
     renamePicked(); // named straight away, the way a new folder is in Explorer
+  });
+  $("import-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const puzzle = window.GridImport.read(file.name, await file.arrayBuffer());
+      location.href = `grid.html?p=${encodeURIComponent(S.importPuzzle(puzzle, here))}`;
+    } catch (error) {
+      await window.fillmeinChoose({ title: "That file couldn't be opened", text: error.message || "", choices: [{ value: "ok", label: "OK" }] });
+    }
   });
   $("open").addEventListener("click", openPicked);
   $("rename").addEventListener("click", renamePicked);

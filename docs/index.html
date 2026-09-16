@@ -2,15 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-mnyEGmIatlOAvdc75NFqP5QofBkFS2mia63NoWztkMQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-7srWdPpznlB1SrwRFcYthYj89gHizlMRi53ZZ7R1GYs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="fillmein · make crosswords">
+<meta property="og:description" content="Build crosswords with a scored word list and an autofill that knows real crossword fill. Free, in your browser.">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=307e75cbe7">
+<link rel="stylesheet" href="theme.css?v=704d02e142">
 <style>
   body { margin: 0; }
   .home-title { margin: 0; line-height: 0; }
@@ -66,6 +74,9 @@
   .home-status { margin: 0; font-size: 13px; color: var(--muted); }
   .home-status:empty { display: none; }
   .fine { margin: 0; font-size: 12px; color: var(--muted); }
+  .file-link { position: relative; cursor: pointer; }
+  .file-link input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-link:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 
   @media (max-width: 640px) {
     .choice.keep { grid-row: auto; }
@@ -93,7 +104,11 @@
     <section class="choice" aria-labelledby="new-title">
       <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">Start a new puzzle</h2></div>
       <p>Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.</p>
-      <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
+      <div class="actions">
+        <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
+        <button type="button" id="try-example" class="btn">See it fill a grid</button>
+      </div>
+      <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
     </section>
 
     <section class="choice keep" aria-labelledby="keep-title">
@@ -114,12 +129,14 @@
   </main>
 
   <p class="fine">Page views on the construction pages are counted with Google Analytics. A shared puzzle's solve page isn't.</p>
+  <footer class="site-foot"><a href="privacy.html">Privacy</a></footer>
 </div>
 
 <script src="filler.js?v=3d9133dd4d"></script>
-<script src="store.js?v=e713c5b54c"></script>
+<script src="importers.js?v=9a8eef9d6b"></script>
+<script src="store.js?v=20f8670730"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script type="module" src="account.js?v=aa47ad20f8"></script>
+<script type="module" src="account.js?v=72f64f9dd7"></script>
 <script>
 (() => {
   "use strict";
@@ -204,6 +221,21 @@
 
   $("start-new").addEventListener("click", () => {
     location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+  });
+  // The quickest look at what the site does: a themed 15×15, filling itself as soon as it opens.
+  $("try-example").addEventListener("click", () => {
+    location.href = `grid.html?p=${encodeURIComponent(S.create())}&example=themed15&fill=1`;
+  });
+  $("open-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const puzzle = window.GridImport.read(file.name, await file.arrayBuffer());
+      location.href = `grid.html?p=${encodeURIComponent(S.importPuzzle(puzzle))}`;
+    } catch (error) {
+      $("home-status").textContent = error.message || "That file couldn't be opened.";
+    }
   });
 
   // Keep the list current when a puzzle changes in another tab, comes down from the account, or the

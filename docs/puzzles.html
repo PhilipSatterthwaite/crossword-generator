@@ -2,15 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-PJsRMeZQ14ZvIMFXqdWNWtOxBCky5xVmnZuPfFiUEqk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-sk/ViHxNftvmu+wfFPo7gKEtsYmMIhK1HuHHrijxjFk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My puzzles · fillmein</title>
 <meta name="description" content="Every crossword you have started, in folders you can open, nest, sort and rename.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="My puzzles · fillmein">
+<meta property="og:description" content="Every crossword you have started, in folders.">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=307e75cbe7">
+<link rel="stylesheet" href="theme.css?v=704d02e142">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -23,6 +31,9 @@
   .toolbar .btn:not(:disabled):hover { transform: translateY(-1.5px); box-shadow: 0 4px 12px rgb(0 0 0 / 0.12); }
   .toolbar .btn:not(:disabled):active { transform: translateY(1px) scale(0.97); box-shadow: none; }
   .toolbar .divider { width: 1px; height: 20px; margin: 0 3px; background: var(--rule); }
+  .toolbar label.btn { position: relative; display: inline-block; }
+  .toolbar label.btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .toolbar label.btn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .toolbar .spacer { flex: 1; }
 
   .address { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); background: var(--cell); font-size: 13px; }
@@ -116,6 +127,7 @@
     <div class="toolbar">
       <button type="button" id="new-puzzle" class="btn primary">New puzzle</button>
       <button type="button" id="new-folder" class="btn">New folder</button>
+      <label class="btn" title="A .puz, .ipuz or .jpz file">Open a file…<input type="file" id="import-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label>
       <span class="divider" aria-hidden="true"></span>
       <button type="button" id="open" class="btn quiet" disabled>Open</button>
       <button type="button" id="rename" class="btn quiet" disabled>Rename</button>
@@ -145,12 +157,14 @@
 
     <div class="statusbar"><span id="count"></span><span id="chosen"></span><span id="clipnote"></span></div>
   </div>
+  <footer class="site-foot"><a href="privacy.html">Privacy</a></footer>
 </div>
 
 <script src="filler.js?v=3d9133dd4d"></script>
-<script src="store.js?v=e713c5b54c"></script>
+<script src="importers.js?v=9a8eef9d6b"></script>
+<script src="store.js?v=20f8670730"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script type="module" src="account.js?v=aa47ad20f8"></script>
+<script type="module" src="account.js?v=72f64f9dd7"></script>
 <script>
 (() => {
   "use strict";
@@ -749,6 +763,17 @@
     picked = { kind: "folder", id: S.addFolder([here, name].filter(Boolean).join("/")) };
     render();
     renamePicked(); // named straight away, the way a new folder is in Explorer
+  });
+  $("import-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const puzzle = window.GridImport.read(file.name, await file.arrayBuffer());
+      location.href = `grid.html?p=${encodeURIComponent(S.importPuzzle(puzzle, here))}`;
+    } catch (error) {
+      await window.fillmeinChoose({ title: "That file couldn't be opened", text: error.message || "", choices: [{ value: "ok", label: "OK" }] });
+    }
   });
   $("open").addEventListener("click", openPicked);
   $("rename").addEventListener("click", renamePicked);

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · fillmein</title>
+<meta name="description" content="What fillmein keeps, where, who can see it, and how to delete it.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="Privacy · fillmein">
+<meta property="og:description" content="What fillmein keeps, where, who can see it, and how to delete it.">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { margin: 0; }
+  .prose { max-width: 66ch; display: grid; gap: 14px; }
+  .prose h1 { margin: 0 0 6px; font: 600 32px / 1.15 var(--serif); }
+  .prose h2 { margin: 18px 0 0; font: 600 22px / 1.2 var(--serif); }
+  .prose p, .prose li { margin: 0; line-height: 1.55; }
+  .prose ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .prose .when { font-size: 13px; color: var(--muted); }
+  .account-box { display: grid; gap: 10px; justify-items: start; padding: 18px 20px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+  .account-box p { margin: 0; }
+  #delete-status { margin: 0; font-size: 14px; }
+  #delete-status[data-tone="error"] { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <div class="puzzle-bar">
+    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
+  </div>
+
+  <main class="prose">
+    <h1>Privacy</h1>
+    <p class="when">What fillmein keeps, where it goes, and how to get rid of it. Last changed 17 September 2026.</p>
+
+    <h2>Without an account</h2>
+    <p>Your puzzles, word lists and settings are saved in your own browser and nowhere else. Clearing the browser's site data removes them. Nothing you type reaches our team.</p>
+
+    <h2>With an account</h2>
+    <p>Signing in stores your puzzles and word lists in the site's database (Google Firebase) so they follow you between devices, along with the email address of the account. They are stored as they are, not encrypted, so our team, who run the database, can read them. Nobody else using the site can: each account can only reach its own.</p>
+
+    <h2>Puzzles you share</h2>
+    <p>Sharing a link publishes that puzzle's grid, answers, clues, title and author name. Anyone with the link can read all of it, along with an identifier for your account. Stop sharing on the puzzle's Export tab and the link stops working.</p>
+
+    <h2>Counting visits</h2>
+    <p>The construction pages count page views with Google Analytics and Cloudflare Web Analytics, which see the page address and the usual details a browser sends. The page where a shared puzzle is solved is not counted by either, so the link to a puzzle shared privately reaches neither.</p>
+
+    <h2>When something breaks</h2>
+    <p>If a page hits an error, it sends a short report: the error's text, the page's name (not the puzzle), the browser's name and version, and your account identifier if you're signed in. Only our team can read these, and they exist so that faults get fixed.</p>
+
+    <h2>Deleting everything</h2>
+    <ul>
+      <li>Puzzles in your browser: delete them on the My puzzles page.</li>
+      <li>A shared puzzle: Stop sharing on its Export tab.</li>
+      <li>Your account, with every puzzle, word list and setting stored in it: the button below. It can't be undone, and it doesn't touch the copies in this browser.</li>
+    </ul>
+
+    <div class="account-box">
+      <p data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to delete your account.</p>
+      <p data-signed-in hidden>Deleting the account removes it and everything stored in it, on every device, for good.</p>
+      <button type="button" id="delete-account" class="btn danger" data-signed-in hidden>Delete my account</button>
+      <p id="delete-status" role="status"></p>
+    </div>
+
+    <p>Questions about any of this go to our team through the Contact link below.</p>
+  </main>
+
+  <footer class="site-foot"><a href="privacy.html" aria-current="page">Privacy</a><a href="mailto:" data-contact>Contact</a></footer>
+</div>
+
+<script src="filler.js"></script>
+<script src="store.js"></script>
+<script src="confirm.js"></script>
+<script src="lists.js"></script>
+<script type="module" src="account.js"></script>
+<script>
+(() => {
+  "use strict";
+  const status = document.getElementById("delete-status");
+  document.getElementById("delete-account").addEventListener("click", async () => {
+    const sure = await window.fillmeinConfirm({
+      title: "Delete your account?",
+      text: "Every puzzle, word list and setting stored in it goes for good, on every device. The copies in this browser stay. This cannot be undone.",
+      confirm: "Delete my account",
+    });
+    if (!sure) return;
+    status.dataset.tone = "";
+    status.textContent = "Deleting…";
+    try {
+      await window.Fillmein.deleteAccount();
+      status.textContent = "";
+      location.href = "index.html";
+    } catch (error) {
+      status.dataset.tone = "error";
+      status.textContent = error.message || "That didn't work. Try again.";
+    }
+  });
+})();
+</script>
+</body>
+</html>

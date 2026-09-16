@@ -12,7 +12,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
+  createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const FIRESTORE = "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js"; // loaded once someone signs in
@@ -221,6 +221,78 @@ async function publishState(pid) {
 
 const solveUrl = (pid) => new URL(`solve.html?p=${encodeURIComponent(pid)}`, location.href).href;
 
+// --- taking an account away ---
+
+/* Remove everything the account holds (shared puzzles, puzzles, word lists, edits), then the sign-in
+   itself. Firebase only removes a sign-in that happened recently; if it refuses, the data is already
+   gone and the caller is told to sign in again and repeat. This browser keeps its own copies, as its
+   own again rather than the account's. */
+async function deleteAccount() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign in first.");
+  const fs = await loadFirestore();
+  const account = user.uid;
+  if (stopListening) stopListening();
+  stopListening = null;
+  const gone = (ref) => fs.deleteDoc(ref).catch(() => { /* not there, or not this account's */ });
+  const puzzles = await fs.getDocs(fs.collection(db, "users", account, "puzzles"));
+  for (const snapshot of puzzles.docs) {
+    await gone(fs.doc(db, "published", snapshot.id));
+    await gone(snapshot.ref);
+  }
+  for (const pid of Object.keys(S.entries())) await gone(fs.doc(db, "published", pid)); // shared from here, since deleted there
+  const lists = await fs.getDocs(fs.collection(db, "users", account, "lists"));
+  for (const snapshot of lists.docs) {
+    const chunks = snapshot.data().chunks || 0;
+    for (let i = 0; i < chunks; i++) await gone(fs.doc(snapshot.ref, "chunks", String(i)));
+    await gone(snapshot.ref);
+  }
+  await gone(fs.doc(db, "users", account, "private", "edits"));
+  try {
+    await deleteUser(user);
+  } catch (error) {
+    if (error.code !== "auth/requires-recent-login") throw error;
+    await signOut(auth);
+    throw new Error("Everything stored in the account is gone, but removing the sign-in itself needs a fresh sign-in. Sign in again and press Delete once more.");
+  }
+  for (const [pid, entry] of Object.entries(S.entries())) if (entry.owner === account) S.setOwner(pid, null);
+  writeAccount(null);
+  if (window.FillmeinLists) await window.FillmeinLists.setSetting("fillmein:synced-lists", null).catch(() => {});
+}
+
+// --- when a page breaks ---
+
+/* An error on a page becomes a short report in the "errors" collection, which the rules let anyone
+   create and only the project's console read: what broke, on which page (never which puzzle: the
+   address's query string stays out), in which browser, and for which account if any. A few per page
+   load at most, none from automated browsers, and never for a failure in the reporting itself. */
+const REPORTS_MOST = 5;
+let reports = 0;
+const reported = new Set();
+async function report(kind, message, stack) {
+  const text = String(message || "").slice(0, 500);
+  if (navigator.webdriver || reports >= REPORTS_MOST || !text || reported.has(text)) return;
+  reported.add(text);
+  reports++;
+  try {
+    const fs = await loadFirestore();
+    await fs.addDoc(fs.collection(db, "errors"), {
+      kind,
+      message: text,
+      stack: String(stack || "").slice(0, 2000),
+      page: location.pathname.slice(0, 200),
+      agent: navigator.userAgent.slice(0, 200),
+      at: Date.now(),
+      uid: auth.currentUser ? auth.currentUser.uid : "",
+    });
+  } catch (error) { /* reporting mustn't become the next error */ }
+}
+window.addEventListener("error", (event) => report("error", event.message, event.error && event.error.stack));
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  report("rejection", reason && (reason.message || String(reason)), reason && reason.stack);
+});
+
 /* What pages can use: the app itself, Firestore on demand, who's signed in, and sharing. */
 window.Fillmein = {
   app,
@@ -234,6 +306,7 @@ window.Fillmein = {
   unpublish,
   publishState,
   solveUrl,
+  deleteAccount,
 };
 
 async function startSync(user) {

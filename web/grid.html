@@ -1,5 +1,13 @@
 <title>Grid · fillmein</title>
 <meta name="description" content="Build a crossword grid, see scored word options for any entry, and fill the rest with real crossword words.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="Grid · fillmein">
+<meta property="og:description" content="Build a crossword grid, see scored word options for any entry, and fill the rest with real crossword words.">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" href="words.js" as="script">
@@ -161,6 +169,7 @@
   .option-word { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .option-mark { flex: none; width: 1.1em; text-align: center; font-weight: 700; letter-spacing: 0; }
   .tag { flex: none; font: 600 10px / 1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .tag.dupe { margin-left: 6px; color: var(--danger); letter-spacing: 0.04em; }
   .options-note { margin: 0; min-height: 1.5em; font-size: 13px; color: var(--muted); }
 
   .score {
@@ -436,6 +445,7 @@
   </section>
 
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list.</p>
+  <footer class="site-foot"><a href="privacy.html">Privacy</a><a href="mailto:" data-contact>Contact</a></footer>
 </div>
 
 <dialog id="lists-dialog" class="lists-dialog" aria-labelledby="lists-title">
@@ -793,6 +803,14 @@
       if (tintEl.checked && score !== null && score < WEAK) for (const i of slot.cells) weak.add(i);
     }
     const scoreBySlot = new Map(complete.map((entry) => [entry.slot, entry.score]));
+    // The same word in two entries. The autofill never does it, but inked answers can.
+    const uses = new Map();
+    for (const entry of complete) uses.set(entry.word, [...(uses.get(entry.word) || []), entry.slot]);
+    const repeated = new Map(); // slot -> the other slots with the same word
+    for (const together of uses.values()) {
+      if (together.length > 1) for (const slot of together) repeated.set(slot, together.filter((other) => other !== slot));
+    }
+    const alsoAt = (slot) => (repeated.has(slot) ? repeated.get(slot).map((other) => other.name).join(", ") : "");
 
     for (let i = 0; i < cellEls.length; i++) {
       const el = cellEls[i];
@@ -818,7 +836,7 @@
     // Selected entry
     if (k >= 0) {
       const slot = slots[k];
-      $("sel-name").textContent = `${slot.name} · ${slot.cells.length} letters`;
+      $("sel-name").textContent = `${slot.name} · ${slot.cells.length} letters${repeated.has(slot) ? ` · also at ${alsoAt(slot)}` : ""}`;
       $("sel-score").innerHTML = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
       $("sel-letters").innerHTML = slot.cells.map((i) => `<span class="${ink[i] ? "k" : pencil[i] ? "p" : "e"}">${ink[i] || pencil[i]}</span>`).join("");
     } else {
@@ -831,8 +849,9 @@
     const lists = { across: [], down: [] };
     slots.forEach((slot, j) => {
       const chip = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
+      const twice = repeated.has(slot) ? `<span class="tag dupe" title="Also at ${alsoAt(slot)}">also at ${alsoAt(slot)}</span>` : "";
       lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}</span>${chip}</button></li>`
+        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}${twice}</span>${chip}</button></li>`
       );
     });
     $("across").innerHTML = lists.across.join("");
@@ -2119,6 +2138,20 @@
       loadRows(blank(15));
       save();
     }
+    // From the home page's "See it fill a grid": a new puzzle that starts as an example, and fills
+    // itself as soon as the word list is ready. The address forgets both once they've been used.
+    const asked = new URLSearchParams(location.search);
+    const demo = !restored && EXAMPLES[asked.get("example")] ? asked.get("example") : "";
+    if (demo) {
+      loadRows(EXAMPLES[demo]);
+      save();
+    }
+    const fillOnReady = Boolean(demo) && asked.has("fill");
+    if (asked.has("example") || asked.has("fill")) {
+      asked.delete("example");
+      asked.delete("fill");
+      history.replaceState(history.state, "", `${location.pathname}?${asked}`);
+    }
     if (window.claude?.hot?.snapshot) window.claude.hot.snapshot(() => saved());
 
     runner.start().then(
@@ -2133,6 +2166,7 @@
         } else {
           setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words. Add blocks and letters, or load an example to start from.`);
         }
+        if (fillOnReady) runFill(false);
       },
       () => setStatus("error", "The word list didn't load. Reload the page to try again.")
     );

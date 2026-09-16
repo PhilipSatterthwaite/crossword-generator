@@ -21,9 +21,12 @@ DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
 # explore.html is written but not shipped: puzzles will be chosen for it later, rather than every
 # shared puzzle appearing there.
-PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html")
-# Scripts and stylesheets the pages load, copied as they are and referenced with a version stamp.
-ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "words.js")
+PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html", "404.html")
+# Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
+# with a version stamp.
+ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "importers.js", "words.js", "social.png")
+# The address behind every page's Contact link. Empty leaves the link out.
+CONTACT = ""
 
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, and each page's inline script by its hash, so an inline
@@ -91,10 +94,17 @@ def secure(path):
 
 
 def stamp(text, versions):
-    """Every quoted reference to a versioned file, as "name?v=hash"."""
+    """Every quoted reference to a versioned file, as "name?v=hash" (404.html spells them from the root)."""
     for name, digest in versions.items():
-        text = text.replace(f'"{name}"', f'"{name}?v={digest}"')
+        text = text.replace(f'"{name}"', f'"{name}?v={digest}"').replace(f'"/{name}"', f'"/{name}?v={digest}"')
     return text
+
+
+def contact(text):
+    """The Contact link with its address, or no link at all."""
+    if CONTACT:
+        return text.replace('href="mailto:" data-contact', f'href="mailto:{CONTACT}" data-contact')
+    return re.sub(r'<a href="mailto:" data-contact>Contact</a>', "", text)
 
 
 def main():
@@ -118,7 +128,7 @@ def main():
     versions["worker.js"] = version(SITE / "worker.js")
     for name in PAGES + ("grid.html",):
         path = SITE / name
-        path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
+        path.write_text(contact(stamp(path.read_text(encoding="utf-8"), versions)), encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included
 
@@ -136,6 +146,8 @@ def main():
     shutil.rmtree(moved, ignore_errors=True)  # a stub for a page that no longer ships shouldn't linger
     moved.mkdir(exist_ok=True)
     for name in PAGES:
+        if name == "404.html":
+            continue
         target = "/" if name == "index.html" else f"/{name}"
         (moved / name).write_text(
             f'<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url={target}">\n'
