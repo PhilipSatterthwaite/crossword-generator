@@ -25,6 +25,22 @@
   const FIRST_BUDGET = 100;  // failures allowed before the first restart
   const BUDGET_GROWTH = 1.5; // each restart allows this many times more
   const RESTART_NOISE = 1.0; // random jitter in word ranking after a restart
+  /* Word score counts for more in a long slot than a short one: a weak three lost in the corner
+     matters far less than a weak fifteen across the middle. At LENGTH_PIVOT letters the score
+     counts as much as qualityWeight says; each letter either side moves it by LENGTH_SLOPE, held
+     between LENGTH_FLOOR and LENGTH_CEILING. */
+  /* A long entry is also held to a higher score than the grid's minimum: LONG_FROM letters and up,
+     each further letter asking LONG_STEP more, up to LONG_MOST above the minimum. A length with too
+     few words left to work with (LONG_ENOUGH) keeps the plain minimum instead. */
+  const LONG_FROM = 6;
+  const LONG_STEP = 4;
+  const LONG_MOST = 30;
+  const LONG_ENOUGH = 400;
+  const STRICT_SHARE = 0.6; // how much of the time limit the higher floors get before settling
+  const LENGTH_PIVOT = 5;
+  const LENGTH_SLOPE = 0.15;
+  const LENGTH_FLOOR = 0.4;
+  const LENGTH_CEILING = 2.5;
   const SCAN_SAMPLE = 3000;  // most words per slot the hardness scan looks at
   const RESTART = { restart: true };
   const OUT_OF_TIME = { outOfTime: true };
@@ -203,7 +219,8 @@
   // --- search ---
 
   class Search {
-    constructor(grid, words, heuristic, minScore, allowPopular) {
+    constructor(grid, words, heuristic, minScore, allowPopular, longStep = LONG_STEP) {
+      this.longStep = longStep;
       const { height, width, cells, slots } = parseGrid(grid);
       this.height = height;
       this.width = width;
@@ -252,7 +269,7 @@
           );
         }
         this.list[s] = list;
-        const cut = words.atLeast(length, minScore, allowPopular);
+        const cut = this.cutFor(words, length, minScore, allowPopular);
         if (!cut.count) {
           throw new GridError(`No ${length}-letter word scores ${minScore} or more, so ${slot.name} can't be filled. Lower the minimum word score.`);
         }
@@ -693,6 +710,25 @@
       return best;
     }
 
+    /* The words a slot of this length may use. A weak three in a corner costs the puzzle little; a
+       weak fifteen across the middle is the thing people notice, so long entries are held to a
+       higher score than the grid's minimum — unless that leaves them too little to work with. */
+    cutFor(words, length, minScore, allowPopular) {
+      const over = Math.max(0, length - LONG_FROM);
+      const raised = Math.min(100, minScore + Math.min(LONG_MOST, this.longStep * over));
+      if (raised > minScore) {
+        const strict = words.atLeast(length, raised, allowPopular);
+        if (strict.count >= LONG_ENOUGH) return strict;
+      }
+      return words.atLeast(length, minScore, allowPopular);
+    }
+
+    /* How much word score counts for a slot of this length, as a multiple of qualityWeight. */
+    lengthWeight(length) {
+      const weight = 1 + this.lengthSlope * (length - LENGTH_PIVOT);
+      return Math.min(LENGTH_CEILING, Math.max(LENGTH_FLOOR, weight));
+    }
+
     /* Slot s's words, best first: popular, and leaving crossing slots the most options. */
     orderedWords(s) {
       const cells = this.slots[s].cells;
@@ -717,12 +753,16 @@
       const checked = tables.length || 1;
       const keys = new Float64Array(ids.length);
       const { codes, scores } = list;
+      // How much a good word is worth here. The jitter that shakes up a restart grows with it, so
+      // a long slot can still be reshuffled rather than trying the same best words for ever.
+      const quality = this.qualityWeight * this.lengthWeight(length);
+      const shake = this.noise ? this.noise * (quality / this.qualityWeight || 1) : 0;
       for (let k = 0; k < ids.length; k++) {
         const id = ids[k];
         let flex = 0;
         for (let j = 0; j < tables.length; j++) flex += tables[j][codes[id * length + positions[j]]];
-        const jitter = this.noise ? this.noise * this.random() : 0;
-        keys[k] = flex / checked + this.qualityWeight * scores[id] + jitter;
+        const jitter = shake ? shake * this.random() : 0;
+        keys[k] = flex / checked + quality * scores[id] + jitter;
       }
       const order = Uint32Array.from(ids.keys());
       order.sort((a, b) => keys[b] - keys[a] || ids[b] - ids[a]);
@@ -819,15 +859,17 @@
   /* Set up a search over grid and propagate the given letters. Returns {search}, or
      {error} (with the search when it was built) if the grid can't be filled as drawn.
      options: minScore (0-100), allowPopular (also allow popular words scoring under
-     minScore), qualityWeight, seed, variety (shuffle from the start for
+     minScore), qualityWeight, lengthSlope (how much more a good word counts per letter over five;
+     0 weighs every length the same), longStep (how much higher the score floor climbs per letter
+     past six; 0 holds every length to the same floor), seed, variety (shuffle from the start for
      a different fill), heuristic ("wdeg" or "mrv"), lookahead (how much scanned hardness
      counts when picking the next slot; 0 turns the scan off) and layers (how many crossings
      deep the scan looks). */
   function prepare(grid, words, options = {}) {
-    const { minScore = 0, allowPopular = false, qualityWeight = 0.035, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1 } = options;
+    const { minScore = 0, allowPopular = false, qualityWeight = 0.035, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1 } = options;
     let search;
     try {
-      search = new Search(grid, words, heuristic, minScore, allowPopular);
+      search = new Search(grid, words, heuristic, minScore, allowPopular, longStep);
     } catch (error) {
       if (error instanceof GridError) return { error: error.message };
       throw error;
@@ -836,6 +878,7 @@
       started: now(),
       deadline: Infinity,
       qualityWeight,
+      lengthSlope,
       random: mulberry32(seed),
       baseNoise: variety ? RESTART_NOISE : 0,
       onProgress: null,
@@ -853,13 +896,30 @@
      {success, grid, reason, stats}. options: those of prepare, plus timeLimit (seconds),
      onProgress(rows, stats) and progressInterval (seconds). */
   function fill(grid, words, options = {}) {
-    const { timeLimit = 30, onProgress = null, progressInterval = 0.25 } = options;
-    const { search, error } = prepare(grid, words, options);
+    const { timeLimit = 30, onProgress = null, progressInterval = 0.25, longStep = LONG_STEP } = options;
+    const started = now();
+    const deadline = started + timeLimit * 1000;
+
+    /* Aim high first: hold the long entries above the grid's minimum score and see if that fills.
+       If it can't, in the share of the time set aside for it, settle for the plain minimum rather
+       than leave the grid empty — a tidy fill beats a perfect one that never arrives. */
+    const attempt = (step, until) => {
+      const { search, error } = prepare(grid, words, { ...options, longStep: step });
+      if (error) return { search, error };
+      search.onProgress = onProgress;
+      search.progressInterval = progressInterval * 1000;
+      search.started = started; // one clock across both attempts, so progress and stats add up
+      search.nextReport = now() + search.progressInterval;
+      return { search, solved: search.solve(until) };
+    };
+
+    let attempted = longStep > 0 ? attempt(longStep, Math.min(deadline, started + timeLimit * 1000 * STRICT_SHARE)) : null;
+    if (attempted && attempted.solved) {
+      return { success: true, grid: attempted.search.gridRows(), reason: "", stats: attempted.search.stats() };
+    }
+    // Either the raised floors made it impossible, or they ran out of their share of the time.
+    const { search, error, solved } = attempt(0, deadline);
     if (error) return { success: false, grid: null, reason: error, stats: search ? search.stats() : {} };
-    search.onProgress = onProgress;
-    search.progressInterval = progressInterval * 1000;
-    search.nextReport = search.started + search.progressInterval;
-    const solved = search.solve(search.started + timeLimit * 1000);
     if (solved) return { success: true, grid: search.gridRows(), reason: "", stats: search.stats() };
     const reason = solved === false
       ? "No fill exists for this grid with these words. Try moving a block, removing a letter, or lowering the minimum word score."
@@ -879,7 +939,9 @@
      - prioritize(index, seconds): check that word next, allowing it seconds. */
   function checkOptions(grid, words, target, candidates, options = {}) {
     const { perWordSeconds = 0.5 } = options;
-    const { search, error } = prepare(grid, words, options);
+    // Picking a word by hand is the constructor's call, so the higher floor long entries get from
+    // the autofill doesn't apply here: nothing legal is hidden from the options list.
+    const { search, error } = prepare(grid, words, { longStep: 0, ...options });
     if (!search) return { error };
     const s = search.slots.findIndex((slot) => slot.row === target.row && slot.col === target.col && slot.direction === target.direction);
     if (s < 0) return { error: "That entry isn't in the grid any more." };
