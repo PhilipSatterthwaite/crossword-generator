@@ -26,20 +26,31 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "words.js")
 
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
-# Scripts: the site's own, Firebase from gstatic, Analytics from googletagmanager, and each page's inline
-# script by its hash, so an inline handler such as onerror= in someone's text could never run. Styles
-# allow inline because the pages set them from script (a cell's position, a grid's column count).
+# Scripts: the site's own, Firebase from gstatic, and each page's inline script by its hash, so an inline
+# handler such as onerror= in someone's text could never run. Styles allow inline because the pages set
+# them from script (a cell's position, a grid's column count).
 CSP = (
     "default-src 'self'; "
-    "script-src 'self' https://www.gstatic.com https://www.googletagmanager.com {hashes}; "
+    "script-src 'self' https://www.gstatic.com{counting_script} {hashes}; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src https://fonts.gstatic.com; "
-    "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; "
-    "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com "
-    "https://*.googletagmanager.com https://*.firebaseio.com wss://*.firebaseio.com; "
+    "img-src 'self' data:{counting_img}; "
+    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com{counting_connect}; "
     "frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
     "worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
 )
+# Counting visitors: Google Analytics, loaded by account.js, and the beacon Cloudflare puts in the page
+# itself when Web Analytics is on for the domain. Both are left out of the solve page's policy, so the id
+# of a puzzle shared privately by link reaches neither of them. (Cloudflare still adds its beacon to that
+# page; the policy is what stops it running, which the browser console says on every visit. Excluding
+# /solve.html in the Cloudflare dashboard as well would keep that console quiet.)
+COUNTING = {
+    "counting_script": " https://www.googletagmanager.com https://static.cloudflareinsights.com",
+    "counting_img": " https://*.google-analytics.com https://*.googletagmanager.com",
+    "counting_connect": " https://*.google-analytics.com https://*.analytics.google.com"
+                        " https://*.googletagmanager.com https://cloudflareinsights.com",
+}
+UNCOUNTED = {key: "" for key in COUNTING}
 INLINE_SCRIPT = re.compile(rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", re.DOTALL)
 
 HEAD = """<!doctype html>
@@ -73,7 +84,9 @@ def secure(path):
     if marker not in page:
         raise SystemExit(f"{path} has no charset meta to put the policy after")
     newline = b"\r\n" if b"\r\n" in page else b"\n"
-    meta = f'<meta http-equiv="Content-Security-Policy" content="{CSP.format(hashes=" ".join(hashes))}">'.encode()
+    counting = UNCOUNTED if path.name == "solve.html" else COUNTING
+    policy = CSP.format(hashes=" ".join(hashes), **counting)
+    meta = f'<meta http-equiv="Content-Security-Policy" content="{policy}">'.encode()
     path.write_bytes(page.replace(marker, marker + newline + meta, 1))
 
 
