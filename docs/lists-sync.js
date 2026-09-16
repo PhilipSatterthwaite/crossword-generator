@@ -65,7 +65,7 @@
 
   async function upload(list) {
     const { fs, db } = await firestore();
-    const packed = await squeeze(encoder.encode(JSON.stringify({ name: list.name, count: list.count, words: list.words })));
+    const packed = await squeeze(encoder.encode(JSON.stringify({ name: list.name, count: list.count, basedOn: list.basedOn || "", words: list.words })));
     const ref = fs.doc(db, "users", account().uid, "lists", list.id);
     const chunks = Math.ceil(packed.length / CHUNK) || 1;
     await fs.setDoc(ref, { name: list.name, count: list.count, updated: list.updated, chunks, bytes: packed.length, format: FORMAT });
@@ -90,8 +90,8 @@
       joined.set(part, at);
       at += part.length;
     }
-    const { name, count, words } = JSON.parse(decoder.decode(await unsqueeze(joined)));
-    return { id, name, count, words, updated: meta.updated };
+    const { name, count, words, basedOn } = JSON.parse(decoder.decode(await unsqueeze(joined)));
+    return { id, name, count, words, basedOn: basedOn || "", updated: meta.updated };
   }
 
   async function removeRemote(id) {

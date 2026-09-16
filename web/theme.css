@@ -157,6 +157,10 @@ body {
 .confirm-body h2 { margin: 0; font: 600 23px / 1.2 var(--serif); }
 .confirm-text { margin: 0; font-size: 14px; color: var(--muted); text-wrap: pretty; }
 .confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.confirm-choices { display: grid; gap: 8px; }
+.confirm-choices .btn { display: grid; gap: 2px; justify-items: start; padding: 12px 15px; border-radius: 12px; text-align: left; }
+.confirm-choices .choice-label { font-weight: 600; }
+.confirm-choices .choice-note { font-size: 12px; font-weight: 400; opacity: 0.78; }
 .btn.destructive { background: var(--danger); border-color: var(--danger); color: var(--ground); }
 .btn.destructive:hover:not(:disabled) { background: var(--score-lo); border-color: var(--score-lo); }
 .btn.danger { border-color: var(--danger); color: var(--danger); }

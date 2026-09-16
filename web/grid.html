@@ -917,18 +917,45 @@
 
     if (scoreOf(word) === null) {
       button(`Add ${word} to the list`, async () => {
+        if (!(await ensureEditable())) return;
         await LISTS.setScore(listChoice.id, word, 50);
         await refreshWordList();
       });
-      button("Add with a score…", scoreBox);
+      button("Add with a score…", async () => {
+        if (await ensureEditable()) scoreBox();
+      });
     } else {
       button(`Remove ${word} from the list`, async () => {
+        if (!(await ensureEditable())) return;
         await LISTS.removeWord(listChoice.id, word);
         await refreshWordList();
         noteUndo(word);
       });
-      button("Score it…", scoreBox);
+      button("Score it…", async () => {
+        if (await ensureEditable()) scoreBox();
+      });
     }
+  }
+
+  /* The built-in list is the one everyone starts from, so it stays as it is. Anything that would change
+     it asks first: copy it and edit the copy, pick another list, or leave it be. */
+  async function ensureEditable() {
+    if (listChoice.id !== "built-in") return true;
+    const mine = listState.lists.length;
+    const pick = await window.fillmeinChoose({
+      title: "You're on the built-in list",
+      text: "It's the list every puzzle starts from, so it can't be edited. Scores and removals belong to a list of your own.",
+      choices: [
+        { value: "copy", label: "Copy it and edit the copy", note: "Same words to start with, and the copy becomes the list you're filling from.", kind: "primary" },
+        mine
+          ? { value: "switch", label: "Switch to one of my lists", note: "Opens your lists so you can pick one." }
+          : { value: "switch", label: "Add a list of my own", note: "Opens your lists so you can upload or make one." },
+        { value: "stay", label: "Stay on the built-in list", note: "Nothing changes." },
+      ],
+    });
+    if (pick === "copy") return cloneList({ id: "built-in", name: "Built-in list", builtIn: true });
+    if (pick === "switch") await openLists();
+    return false;
   }
 
   /* An Undo right where the removal happened, as well as the list in the dialog. */
@@ -1655,9 +1682,11 @@
     listState = await LISTS.state(listChoice.id);
     const chosen = listState.lists.find((list) => list.id === listChoice.id) || null;
     if (!chosen && listChoice.id !== "built-in") listChoice = { id: "built-in" }; // it was deleted
-    const use = chosen ? "custom" : "built-in";
-    const plain = !chosen && !editCount();
-    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: chosen ? [chosen] : [], edits: listState.edits });
+    // A copy of the built-in list keeps no words of its own: the built-in words, with its edits on top.
+    const ownWords = chosen && chosen.basedOn !== "built-in";
+    const use = ownWords ? "custom" : "built-in";
+    const plain = !ownWords && !editCount();
+    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: ownWords ? [chosen] : [], edits: listState.edits });
     wordData = merged;
     lexicon.clear();
     scoreCache.clear();
@@ -1695,7 +1724,10 @@
      since removing or adding words changes it. Every place that shows a number uses this. */
   function wordCount(list) {
     if (listChoice.id === list.id && runner.count) return runner.count;
-    return list.count || 0;
+    // For a list that isn't in use, the solver hasn't built it: its own removals still come off.
+    const edits = (listState.byList || {})[list.id];
+    const removed = edits && Array.isArray(edits.removed) ? edits.removed.length : 0;
+    return Math.max(0, (list.count || 0) - removed);
   }
 
   function builtInCount() {
@@ -1735,7 +1767,10 @@
       row.className = "list-row";
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = list.name + (listChoice.id === list.id ? " · in use" : "");
+      name.textContent = list.name
+        + (listChoice.id === list.id ? " · in use" : "")
+        + (list.builtIn ? " · can't be edited" : "")
+        + (list.basedOn === "built-in" ? " · from the built-in list" : "");
       const count = document.createElement("span");
       count.className = "count";
       count.textContent = `${wordCount(list).toLocaleString()} words`;
@@ -1837,28 +1872,33 @@
     $("restore-edits").hidden = !edits;
   }
 
-  /* Copy a list (or the built-in one) so it can be edited without touching the original. */
+  /* Copy a list (or the built-in one) so it can be edited without touching the original. A copy of the
+     built-in list carries no words of its own: it is the built-in list plus whatever is done to the
+     copy, which makes it instant to make and as quick to edit as the built-in list is. */
   async function cloneList(list) {
     $("lists-note").textContent = `Copying ${list.name}…`;
     try {
-      let words;
-      if (list.builtIn) {
-        words = [];
-        for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) {
-          const size = Number(length);
-          const scores = entry[1].split(",");
-          for (let i = 0; i < scores.length; i++) words.push([entry[0].substr(i * size, size), Number(scores[i])]);
+      const from = list.builtIn ? null : (await LISTS.all()).find((other) => other.id === list.id);
+      const derived = list.builtIn || (from && from.basedOn === "built-in");
+      const copy = derived
+        ? await LISTS.create(`${list.name} copy`, [], { basedOn: "built-in", count: builtInCount() })
+        : await LISTS.create(`${list.name} copy`, from.words);
+      // A copy should look exactly like what it was copied from, edits and all.
+      if (!list.builtIn) {
+        const byList = await LISTS.overrides();
+        if (byList[list.id]) {
+          byList[copy.id] = JSON.parse(JSON.stringify(byList[list.id]));
+          await LISTS.saveOverrides(byList);
         }
-      } else {
-        words = (await LISTS.all()).find((other) => other.id === list.id).words;
       }
-      const copy = await LISTS.create(`${list.name} copy`, words);
       listChoice = { id: copy.id };
       save();
       $("lists-note").textContent = `Copied ${list.name} into ${copy.name}, now in use.`;
       await refreshWordList();
+      return true;
     } catch (error) {
       $("lists-note").textContent = "That list couldn't be copied.";
+      return false;
     }
   }
 
@@ -1940,6 +1980,7 @@ await refreshWordList();
     if (!action || !LISTS) return;
     event.stopPropagation();
     const word = action.dataset.word;
+    if (!(await ensureEditable())) return;
     if (action.dataset.wordAction === "remove") {
       await LISTS.removeWord(listChoice.id, word);
       await refreshWordList();

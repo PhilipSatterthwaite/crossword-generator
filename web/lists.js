@@ -98,13 +98,17 @@
     announce();
   }
 
-  /* A new list from words already in hand: cloning a list, or the built-in one. */
-  async function create(name, words) {
+  /* A new list from words already in hand: cloning a list someone loaded. A list copied from the
+     built-in one keeps no words at all — basedOn says which list it starts from, and its own edits
+     (scores, removals, words added) are the whole of the difference. That makes the copy instant, and
+     keeps editing it as quick as editing the built-in list. */
+  async function create(name, words, { basedOn = "", count } = {}) {
     const list = {
       id: newId(),
       name: String(name || "Word list").slice(0, 120),
-      count: words.length,
+      count: typeof count === "number" ? count : words.length,
       updated: Date.now(),
+      basedOn: String(basedOn || ""),
       words: words.map(([word, score]) => [word, score]),
     };
     await run(LISTS, "readwrite", (store) => store.put(list));
@@ -128,6 +132,7 @@
       name: String(list.name || "Word list").slice(0, 120),
       count: list.count || list.words.length,
       updated: list.updated || Date.now(),
+      basedOn: String(list.basedOn || ""),
       words: list.words,
     }));
     announce();
