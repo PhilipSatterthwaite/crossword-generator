@@ -1,12 +1,14 @@
 /* fillmein's custom word lists: reading the usual construction file formats, keeping lists in this
-   browser (IndexedDB, so nothing leaves the device), and merging them into the built-in list.
+   browser (IndexedDB) and, through lists-sync.js, in a signed-in account, and merging them into the
+   built-in list.
 
    A merged list is the same shape the solver takes, {length: [letters, scores, popular]}: the words of
    each length run together, best score first, their scores as a comma list, and a base64 bitset of the
    popular ones. Only the lengths a change touches are rebuilt; the rest are passed through untouched.
 
    Per-word edits made on the Grid page (remove this word, score it differently) live here too, as
-   "overrides", and apply whatever list is in use. account.js encrypts and syncs all of it. */
+   "overrides", and apply whatever list is in use. lists-sync.js copies all of it to the account as it
+   is: nothing here is encrypted. */
 (function (root) {
   "use strict";
 
@@ -142,7 +144,7 @@
     const list = await run(LISTS, "readonly", (store) => store.get(id));
     if (!list) return;
     list.name = String(name || "").slice(0, 120) || list.name;
-    list.updated = Date.now();
+    list.updated = later(list.updated); // newer than the copy it replaces, whichever clock stamped that
     await run(LISTS, "readwrite", (store) => store.put(list));
     announce();
   }
@@ -156,8 +158,8 @@
     recent: (value && value.recent) || [],
   });
 
-  /* Anything else worth keeping on this device: the remembered encryption key, deletions still to
-     reach the account. Values go through IndexedDB, so a CryptoKey can live here as itself. */
+  /* Anything else worth keeping on this device: which lists the account has been seen to hold,
+     deletions still to reach the account. */
   const getSetting = (key) => run(SETTINGS, "readonly", (store) => store.get(key)).then((row) => (row ? row.value : null));
   const setSetting = (key, value) =>
     value === null || value === undefined
@@ -170,27 +172,39 @@
     await setSetting(TOMBSTONES, gone.filter((other) => other !== id));
   };
 
-  /* {list id: {scores, removed, recent}}, where "built-in" is a list id like any other. */
-  async function overrides() {
+  /* The saved record of edits: {byList: {list id: {scores, removed, recent}}, stamps: {list id: when its
+     edits last changed}}, where "built-in" is a list id like any other. */
+  async function readRecord() {
     const saved = await run(SETTINGS, "readonly", (store) => store.get(OVERRIDES));
     const value = (saved && saved.value) || {};
-    // Edits made before they were kept per list belonged to the built-in list.
-    if (value.scores || value.removed) return { "built-in": tidyEdits(value) };
     const byList = {};
-    for (const [id, edits] of Object.entries(value)) byList[id] = tidyEdits(edits);
-    return byList;
+    // Edits made before they were kept per list belonged to the built-in list.
+    if (value.scores || value.removed) byList["built-in"] = tidyEdits(value);
+    else for (const [id, edits] of Object.entries(value)) byList[id] = tidyEdits(edits);
+    const stamps = { ...((saved && saved.stamps) || {}) };
+    // Edits saved before stamps were kept per list take the record's own time.
+    for (const id of Object.keys(byList)) if (!stamps[id]) stamps[id] = (saved && saved.updated) || 0;
+    return { byList, stamps };
   }
+
+  async function writeRecord(byList, stamps) {
+    await run(SETTINGS, "readwrite", (store) => store.put({ key: OVERRIDES, value: byList, stamps, updated: Date.now() }));
+    announce();
+  }
+
+  /* {list id: {scores, removed, recent}}. */
+  const overrides = async () => (await readRecord()).byList;
 
   /* Just the edits for one list. */
   const editsFor = async (listId) => tidyEdits((await overrides())[listId]);
 
-  /* When the per-word edits last changed here, so syncing can tell which copy is newer. */
-  const overridesStamp = () => run(SETTINGS, "readonly", (store) => store.get(OVERRIDES)).then((row) => (row && row.updated) || 0);
+  /* When each list's edits last changed here, {list id: ms}, so syncing can tell list by list which
+     copy is newer. */
+  const editStamps = async () => (await readRecord()).stamps;
 
-  async function saveOverrides(value, stamp) {
-    await run(SETTINGS, "readwrite", (store) => store.put({ key: OVERRIDES, value, updated: stamp || Date.now() }));
-    announce();
-  }
+  /* A stamp for something just changed: now, or a moment after the stamp it replaces if that came from
+     a device whose clock runs ahead, so the latest change always counts as the latest. */
+  const later = (stamp) => Math.max(Date.now(), (stamp || 0) + 1);
 
   /* Edits read the saved record, change it and write it back, so they have to take turns: three quick
      clicks at once would otherwise each start from the same copy and only the last would stick. */
@@ -203,11 +217,24 @@
 
   const change = (listId, work) =>
     inTurn(async () => {
-      const all = await overrides();
-      const edits = tidyEdits(all[listId]);
+      const { byList, stamps } = await readRecord();
+      const edits = tidyEdits(byList[listId]);
       work(edits);
-      all[listId] = edits;
-      await saveOverrides(all);
+      byList[listId] = edits;
+      stamps[listId] = later(stamps[listId]);
+      await writeRecord(byList, stamps);
+    });
+
+  /* One list's edits as they are elsewhere (in the account, or on a list being copied), put in place of
+     what's here and stamped with when they were made. Edits that change nothing mean the list has none. */
+  const setEditsFor = (listId, edits, stamp) =>
+    inTurn(async () => {
+      const { byList, stamps } = await readRecord();
+      const tidy = tidyEdits(edits);
+      if (Object.keys(tidy.scores).length || tidy.removed.length) byList[listId] = tidy;
+      else delete byList[listId];
+      stamps[listId] = stamp || later(stamps[listId]);
+      await writeRecord(byList, stamps);
     });
 
   const setScore = (listId, word, score) =>
@@ -319,7 +346,7 @@
 
   root.FillmeinLists = {
     parse, all, add, create, put, remove, forgetList, rename,
-    overrides, editsFor, overridesStamp, saveOverrides, setScore, removeWord, restoreWord,
+    overrides, editsFor, editStamps, setEditsFor, setScore, removeWord, restoreWord,
     getSetting, setSetting, tombstones, clearTombstone,
     merge, state,
     onChange(listener) {

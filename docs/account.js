@@ -4,7 +4,7 @@
    Pages keep saving through store.js, into this browser. This module copies each part they save (grid,
    clues, details) up to the account, applies newer parts saved on other devices, and brings a guest's
    puzzles into the account at sign-in; for each part the most recently saved copy wins. Signing out
-   removes the account's puzzles from this browser.
+   (after asking) sends what is still waiting, then removes the account's puzzles from this browser.
 
    Every page loads it as a module after store.js and gives it a [data-account] box for the Sign in button.
    Elements marked data-signed-in or data-signed-out show only in that state; [data-sign-in] opens the
@@ -32,15 +32,20 @@ const CONFIG = {
 const PARTS = ["grid", "clues", "details"];
 const ACCOUNT = "fillmein:account"; // the account whose puzzles this browser last kept
 const PUSH_DELAY = 800; // ms to wait after a save before sending it, so typing sends one write
+const PUSH_WAIT = 4000; // ms signing out waits for the last writes before leaving them for next time
+const RETRY_FIRST = 5000; // ms before a failed write is tried again; each failure doubles it
+const RETRY_MOST = 5 * 60 * 1000;
 
 const S = window.GridfillStore;
 const app = initializeApp(CONFIG);
 const auth = getAuth(app);
 
 /* Google Analytics: page views and how many people are on the site, in the Firebase console. Left off in
-   automated browsers so test runs don't count as visitors. Ad blockers block it, so the counts are a
-   floor, not a headcount. */
-if (!navigator.webdriver) {
+   automated browsers so test runs don't count as visitors, and off the solve page, so the id of a puzzle
+   shared privately by link never reaches Google. Ad blockers block it, so the counts are a floor, not a
+   headcount. */
+const SOLVE_PAGE = /(^|\/)solve\.html$/.test(location.pathname);
+if (!navigator.webdriver && !SOLVE_PAGE) {
   import("https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js")
     .then(({ getAnalytics, isSupported }) => isSupported().then((ok) => ok && getAnalytics(app)))
     .catch(() => { /* blocked or unavailable: the site works the same */ });
@@ -53,6 +58,7 @@ let stopListening = null;
 const known = new Map(); // puzzle id -> {part: time} of the account's copy, as last seen
 const pending = new Map(); // puzzle id -> Set of parts (or "deleted") waiting to go up
 let pushTimer = null;
+let retryDelay = 0; // the pause before the next try after a failed write; 0 once writes work again
 
 const readAccount = () => {
   try { return localStorage.getItem(ACCOUNT); } catch (error) { return null; }
@@ -77,22 +83,35 @@ function queue(pid, parts) {
   pushTimer = setTimeout(push, PUSH_DELAY);
 }
 
-/* Send every waiting part that's newer here than in the account. */
+/* Send every waiting part that's newer here than in the account. Resolves true when everything went;
+   whatever didn't goes back in the queue and is tried again after a growing pause. */
 async function push() {
   clearTimeout(pushTimer);
   pushTimer = null;
-  if (!uid || !db) return;
+  if (!uid || !db) return true;
   const account = uid;
   const work = [...pending];
   pending.clear();
   const entries = S.entries();
+  let failed = false;
+  const keep = (pid, parts) => {
+    failed = true;
+    const waiting = pending.get(pid) || new Set();
+    for (const part of parts) waiting.add(part);
+    pending.set(pid, waiting);
+  };
   await Promise.all(work.map(async ([pid, parts]) => {
     const ref = firestore.doc(db, "users", account, "puzzles", pid);
     const entry = entries[pid];
     if (!entry) {
       if (parts.has("deleted")) {
         known.delete(pid);
-        await firestore.deleteDoc(ref).catch(showError);
+        try {
+          await firestore.deleteDoc(ref);
+        } catch (error) {
+          keep(pid, ["deleted"]);
+          showError(error);
+        }
       }
       return;
     }
@@ -115,9 +134,17 @@ async function push() {
       setSyncState("ok");
     } catch (error) {
       known.set(pid, seen);
+      keep(pid, Object.keys(update.parts));
       showError(error);
     }
   }));
+  if (!failed) retryDelay = 0;
+  else if (uid === account) {
+    retryDelay = Math.min(retryDelay ? retryDelay * 2 : RETRY_FIRST, RETRY_MOST);
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, retryDelay);
+  }
+  return !failed;
 }
 
 /* Take the parts of an account copy that are newer than this browser's. */
@@ -146,7 +173,10 @@ async function loadFirestore() {
 // --- sharing a puzzle to solve by link ---
 
 /* Put the puzzle in "published" so anyone with the link can solve it. The document holds the finished
-   grid, so whoever has the link can read the answers: it's for sharing with people, not a secret. */
+   grid, so whoever has the link can read the answers: it's for sharing with people, not a secret. They
+   can also read the rest of the document: the owner's account id (an opaque uid that grants nothing on
+   its own, though it is the same id across every puzzle the account shares), the listed flag, and
+   when it was shared. */
 async function publish(pid, { listed = false } = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("Sign in to share a link.");
@@ -237,6 +267,10 @@ onAuthStateChanged(auth, (user) => {
   if (stopListening) stopListening();
   stopListening = null;
   known.clear();
+  pending.clear(); // whatever the last account still had waiting was sent, or kept, at sign-out
+  clearTimeout(pushTimer);
+  pushTimer = null;
+  retryDelay = 0;
   uid = user ? user.uid : null;
   renderAccount(user);
   window.dispatchEvent(new CustomEvent("fillmein:user", { detail: { user } }));
@@ -252,10 +286,20 @@ document.addEventListener("visibilitychange", () => {
 
 async function signOutHere() {
   const account = uid;
-  await push();
+  const ask = window.fillmeinConfirm || (({ title }) => Promise.resolve(window.confirm(title)));
+  const sure = await ask({
+    title: "Sign out?",
+    text: "Your puzzles stay in your account and leave this browser. Sign in again, here or anywhere, to pick them up.",
+    confirm: "Sign out",
+  });
+  if (!sure) return;
+  // Send whatever is still waiting, but not for ever: with no connection a write never settles. What
+  // couldn't be sent stays in this browser, still marked as the account's, and goes up at the next
+  // sign-in rather than being lost.
+  const sent = await Promise.race([push(), new Promise((resolve) => setTimeout(() => resolve(false), PUSH_WAIT))]);
   await signOut(auth);
-  if (account) forgetPuzzlesOf(account);
-  writeAccount(null);
+  if (account && sent) forgetPuzzlesOf(account);
+  writeAccount(sent ? null : account);
   const page = location.pathname.split("/").pop();
   if (page && page !== "index.html") location.href = "index.html";
 }

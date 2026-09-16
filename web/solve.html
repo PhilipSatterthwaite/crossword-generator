@@ -38,6 +38,7 @@
     touch-action: manipulation;
   }
   .grid-wrap:focus-within #solve-grid { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .sr { display: contents; }
   .sc {
     position: relative;
     box-sizing: border-box;
@@ -146,8 +147,9 @@
       <div class="board">
         <div id="grid-wrap" class="grid-wrap">
           <div id="solve-grid" role="grid" aria-label="Crossword grid"></div>
-          <input id="solve-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Type letters into the grid">
+          <input id="solve-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Type letters into the grid" aria-describedby="solve-desc">
         </div>
+        <p id="solve-desc" class="sr-only" aria-live="polite"></p>
         <div class="solve-actions">
           <button type="button" id="check" class="btn">Check puzzle</button>
           <button type="button" id="reveal-word" class="btn quiet">Reveal this answer</button>
@@ -178,6 +180,7 @@
 
 <script src="filler.js"></script>
 <script src="store.js"></script>
+<script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
 <script type="module">
   "use strict";
@@ -240,9 +243,18 @@
     $("solve-grid").style.setProperty("--cols", puzzle.width);
     const grid = $("solve-grid");
     grid.replaceChildren();
+    const rowsOf = []; // one element per row, so assistive technology hears the grid as rows of cells
+    for (let r = 0; r < puzzle.height; r++) {
+      const row = document.createElement("div");
+      row.className = "sr";
+      row.setAttribute("role", "row");
+      grid.append(row);
+      rowsOf.push(row);
+    }
     cells = puzzle.cells.split("").map((cell, i) => {
       const square = document.createElement("div");
       square.className = cell === "#" ? "sc block" : "sc";
+      square.setAttribute("role", "gridcell");
       if ((i + 1) % puzzle.width === 0) square.classList.add("edge-right");
       if (i >= puzzle.cells.length - puzzle.width) square.classList.add("edge-bottom");
       square.dataset.i = i;
@@ -257,7 +269,7 @@
         letter.className = "ch";
         square.append(letter);
       }
-      grid.append(square);
+      rowsOf[Math.floor(i / puzzle.width)].append(square);
       return square;
     });
     $("total").textContent = puzzle.cells.replace(/#/g, "").length;
@@ -305,12 +317,15 @@
       square.classList.toggle("revealed", revealed.has(i));
       square.classList.toggle("wrong", wrong.has(i));
       square.querySelector(".ch").textContent = letters[i] || "";
+      square.setAttribute("aria-selected", String(i === sel));
+      square.setAttribute("aria-label", `Row ${Math.floor(i / puzzle.width) + 1}, column ${(i % puzzle.width) + 1}: ${letters[i] || "empty"}`);
     });
     $("progress").textContent = filled;
     if (slot) {
       $("clue-where").textContent = `${slot.number} ${slot.direction === "across" ? "Across" : "Down"}`;
       $("clue-what").textContent = puzzle.clues[`${slot.direction}:${slot.row},${slot.col}`] || "(no clue was written for this entry)";
     }
+    $("solve-desc").textContent = `${cells[sel] ? cells[sel].getAttribute("aria-label") : ""}${slot ? `, in ${$("clue-where").textContent}: ${$("clue-what").textContent}` : ""}`;
     for (const item of document.querySelectorAll(".clue-list li")) {
       const entry = slots[Number(item.dataset.slot)];
       item.classList.toggle("current", slot === entry);
@@ -477,7 +492,7 @@
       }
       wrong.delete(i);
     }
-    $("solve-status").textContent = "Revealed this answer.";
+    $("solve-status").textContent = "";
     checkDone();
     render();
   });
@@ -504,7 +519,7 @@
       letters[i] = cell;
     });
     wrong = new Set();
-    $("solve-status").textContent = "Revealed the whole puzzle.";
+    $("solve-status").textContent = "";
     checkDone();
     render();
   });
@@ -518,7 +533,7 @@
     $("done").hidden = true;
     $("timer").textContent = "0:00";
     for (const square of cells) square.classList.remove("done-flash");
-    $("solve-status").textContent = "Cleared. The clock starts again with your next letter.";
+    $("solve-status").textContent = "";
     stopClock();
     render();
   });

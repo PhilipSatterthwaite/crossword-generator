@@ -215,6 +215,7 @@
 <script src="filler.js"></script>
 <script src="exporters.js"></script>
 <script src="store.js"></script>
+<script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
 <script>
 (() => {
@@ -236,6 +237,14 @@
     S.renderTabs(grid ? grid.slots : [], clues);
     if (!grid) {
       $("summary").textContent = "";
+      if (S.missing()) {
+        // The address names a puzzle this browser doesn't have; the page reloads when it arrives.
+        $("no-grid").querySelector("h2").textContent = "That puzzle isn't in this browser";
+        $("no-grid").querySelector("p").textContent = "The link names a puzzle this browser doesn't have. If it's in your account, sign in and it opens here as soon as it arrives.";
+        const link = $("no-grid").querySelector("a");
+        link.href = "puzzles.html";
+        link.textContent = "My puzzles";
+      }
       return;
     }
 
@@ -298,7 +307,7 @@
     const filename = `${fileBase()}.${button.dataset.export}`;
     try {
       download(filename, make(S.puzzle(grid, clues, details)), type);
-      $("export-status").textContent = `Downloaded ${filename}.`;
+      $("export-status").textContent = "";
     } catch (error) {
       $("export-status").textContent = error.message;
     }
@@ -374,7 +383,7 @@
       try {
         await window.Fillmein.unpublish(puzzleId());
         published = null;
-        renderShare(true, "Stopped sharing. The link no longer opens the puzzle.");
+        renderShare(true, "");
       } catch (error) {
         renderShare(true, "Couldn't stop sharing.");
       } finally {
@@ -387,7 +396,7 @@
       link.select();
       try {
         await navigator.clipboard.writeText(link.value);
-        $("share-status").textContent = "Link copied.";
+        $("share-status").textContent = "";
       } catch (error) {
         $("share-status").textContent = "Press Ctrl+C to copy the selected link.";
       }

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com 'sha256-mnyEGmIatlOAvdc75NFqP5QofBkFS2mia63NoWztkMQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.firebaseio.com wss://*.firebaseio.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -9,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=279c81dbee">
+<link rel="stylesheet" href="theme.css?v=307e75cbe7">
 <style>
   body { margin: 0; }
   .home-title { margin: 0; line-height: 0; }
@@ -64,6 +65,7 @@
   .btn.confirm { border-color: var(--danger); color: var(--danger); font-weight: 600; }
   .home-status { margin: 0; font-size: 13px; color: var(--muted); }
   .home-status:empty { display: none; }
+  .fine { margin: 0; font-size: 12px; color: var(--muted); }
 
   @media (max-width: 640px) {
     .choice.keep { grid-row: auto; }
@@ -110,11 +112,14 @@
       <span class="soon">Browsing published puzzles: soon</span>
     </section>
   </main>
+
+  <p class="fine">Page views on the construction pages are counted with Google Analytics. A shared puzzle's solve page isn't.</p>
 </div>
 
 <script src="filler.js?v=3d9133dd4d"></script>
-<script src="store.js?v=5e5340e08f"></script>
-<script type="module" src="account.js?v=d7c4e1f8d7"></script>
+<script src="store.js?v=e713c5b54c"></script>
+<script src="confirm.js?v=e0e42d8b5d"></script>
+<script type="module" src="account.js?v=aa47ad20f8"></script>
 <script>
 (() => {
   "use strict";

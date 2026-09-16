@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com 'sha256-CnQaqifVVaziVKxy/OkNAxI468K44IhazPvBTXW4iQo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.firebaseio.com wss://*.firebaseio.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solve · fillmein</title>
 <meta name="description" content="Solve a crossword someone made with fillmein.">
@@ -9,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=279c81dbee">
+<link rel="stylesheet" href="theme.css?v=307e75cbe7">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -38,6 +39,7 @@
     touch-action: manipulation;
   }
   .grid-wrap:focus-within #solve-grid { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .sr { display: contents; }
   .sc {
     position: relative;
     box-sizing: border-box;
@@ -146,8 +148,9 @@
       <div class="board">
         <div id="grid-wrap" class="grid-wrap">
           <div id="solve-grid" role="grid" aria-label="Crossword grid"></div>
-          <input id="solve-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Type letters into the grid">
+          <input id="solve-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-label="Type letters into the grid" aria-describedby="solve-desc">
         </div>
+        <p id="solve-desc" class="sr-only" aria-live="polite"></p>
         <div class="solve-actions">
           <button type="button" id="check" class="btn">Check puzzle</button>
           <button type="button" id="reveal-word" class="btn quiet">Reveal this answer</button>
@@ -177,8 +180,9 @@
 </div>
 
 <script src="filler.js?v=3d9133dd4d"></script>
-<script src="store.js?v=5e5340e08f"></script>
-<script type="module" src="account.js?v=d7c4e1f8d7"></script>
+<script src="store.js?v=e713c5b54c"></script>
+<script src="confirm.js?v=e0e42d8b5d"></script>
+<script type="module" src="account.js?v=aa47ad20f8"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -240,9 +244,18 @@
     $("solve-grid").style.setProperty("--cols", puzzle.width);
     const grid = $("solve-grid");
     grid.replaceChildren();
+    const rowsOf = []; // one element per row, so assistive technology hears the grid as rows of cells
+    for (let r = 0; r < puzzle.height; r++) {
+      const row = document.createElement("div");
+      row.className = "sr";
+      row.setAttribute("role", "row");
+      grid.append(row);
+      rowsOf.push(row);
+    }
     cells = puzzle.cells.split("").map((cell, i) => {
       const square = document.createElement("div");
       square.className = cell === "#" ? "sc block" : "sc";
+      square.setAttribute("role", "gridcell");
       if ((i + 1) % puzzle.width === 0) square.classList.add("edge-right");
       if (i >= puzzle.cells.length - puzzle.width) square.classList.add("edge-bottom");
       square.dataset.i = i;
@@ -257,7 +270,7 @@
         letter.className = "ch";
         square.append(letter);
       }
-      grid.append(square);
+      rowsOf[Math.floor(i / puzzle.width)].append(square);
       return square;
     });
     $("total").textContent = puzzle.cells.replace(/#/g, "").length;
@@ -305,12 +318,15 @@
       square.classList.toggle("revealed", revealed.has(i));
       square.classList.toggle("wrong", wrong.has(i));
       square.querySelector(".ch").textContent = letters[i] || "";
+      square.setAttribute("aria-selected", String(i === sel));
+      square.setAttribute("aria-label", `Row ${Math.floor(i / puzzle.width) + 1}, column ${(i % puzzle.width) + 1}: ${letters[i] || "empty"}`);
     });
     $("progress").textContent = filled;
     if (slot) {
       $("clue-where").textContent = `${slot.number} ${slot.direction === "across" ? "Across" : "Down"}`;
       $("clue-what").textContent = puzzle.clues[`${slot.direction}:${slot.row},${slot.col}`] || "(no clue was written for this entry)";
     }
+    $("solve-desc").textContent = `${cells[sel] ? cells[sel].getAttribute("aria-label") : ""}${slot ? `, in ${$("clue-where").textContent}: ${$("clue-what").textContent}` : ""}`;
     for (const item of document.querySelectorAll(".clue-list li")) {
       const entry = slots[Number(item.dataset.slot)];
       item.classList.toggle("current", slot === entry);
@@ -477,7 +493,7 @@
       }
       wrong.delete(i);
     }
-    $("solve-status").textContent = "Revealed this answer.";
+    $("solve-status").textContent = "";
     checkDone();
     render();
   });
@@ -504,7 +520,7 @@
       letters[i] = cell;
     });
     wrong = new Set();
-    $("solve-status").textContent = "Revealed the whole puzzle.";
+    $("solve-status").textContent = "";
     checkDone();
     render();
   });
@@ -518,7 +534,7 @@
     $("done").hidden = true;
     $("timer").textContent = "0:00";
     for (const square of cells) square.classList.remove("done-flash");
-    $("solve-status").textContent = "Cleared. The clock starts again with your next letter.";
+    $("solve-status").textContent = "";
     stopClock();
     render();
   });

@@ -2,6 +2,7 @@
 <meta name="description" content="Build a crossword grid, see scored word options for any entry, and fill the rest with real crossword words.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="words.js" as="script">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <link rel="stylesheet" href="theme.css">
 <style>
@@ -228,15 +229,25 @@
   .entries .score { margin-left: auto; }
   .w .k { font-weight: 700; }
   .w .p { color: var(--pencil); font-weight: 500; }
-  .w .e { color: var(--rule); }
+  .w .e { color: var(--muted); opacity: 0.6; }
   .note { margin: 0; max-width: 75ch; font-size: 13px; color: var(--muted); }
+  .empty-state { display: grid; gap: 12px; justify-items: start; padding-block: 24px; }
+  .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
+  .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
 
   /* Each option row: the word (a big click target that previews it) with small edit buttons beside it. */
   .option-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line-soft); }
   .option-row .option { border-bottom: 0; }
   .option-edit { flex: none; display: flex; align-items: center; gap: 4px; padding-right: 8px; }
+  /* Score and Remove show for the row under the pointer or the keyboard; a touch screen has no
+     pointer to hover with, so there they stay. */
+  @media (hover: hover) {
+    .option-edit { visibility: hidden; }
+    .option-row:hover .option-edit, .option-row:focus-within .option-edit { visibility: visible; }
+  }
   .option-edit button {
-    padding: 4px 7px;
+    min-height: 28px;
+    padding: 6px 8px;
     border: 1px solid var(--rule);
     border-radius: 3px;
     background: var(--surface);
@@ -311,6 +322,15 @@
     <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
     <a class="tab" href="export.html">Export</a>
   </nav>
+
+  <section id="no-puzzle" class="empty-state" hidden>
+    <h2>That puzzle isn't in this browser</h2>
+    <p>The link names a puzzle this browser doesn't have. If it's in your account, sign in and it opens here as soon as it arrives. If it was deleted, the link is dead.</p>
+    <div class="actions">
+      <a class="btn primary" href="puzzles.html">My puzzles</a>
+      <button type="button" id="start-fresh" class="btn">Start a new puzzle</button>
+    </div>
+  </section>
 
   <div class="controls">
     <div class="control-row">
@@ -468,9 +488,23 @@
   "use strict";
   const G = window.Gridfill;
   const S = window.GridfillStore;
-  S.open({ create: true }); // the puzzle in the address, or a new one
-  S.bindTitle(document.getElementById("puzzle-title"));
   const $ = (id) => document.getElementById(id);
+  const wanted = new URLSearchParams(location.search).get("p");
+  S.open({ create: !wanted }); // the puzzle in the address, or a new one when none is named
+  if (S.missing()) {
+    // The address names a puzzle this browser doesn't have (not synced down yet, or deleted): say so
+    // rather than quietly starting a different one, and open it if it arrives from the account.
+    for (const part of document.querySelectorAll(".tabs, .controls, .bench, .tally, .entries, .note, #puzzle-title")) part.hidden = true;
+    $("no-puzzle").hidden = false;
+    $("start-fresh").addEventListener("click", () => {
+      location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+    });
+    window.addEventListener("fillmein:changed", (event) => {
+      if (event.detail.id === wanted && S.entries()[wanted]) location.reload();
+    });
+    return;
+  }
+  S.bindTitle($("puzzle-title"));
   const gridEl = $("grid");
   const gridWrap = $("grid-wrap");
   const input = $("grid-input");
@@ -1114,7 +1148,6 @@
       });
       if (fill) for (let i = 0; i < W * H; i++) if (!blocks[i] && !ink[i]) pencil[i] = fill[Math.floor(i / W)][i % W] || "";
     });
-    setStatus("idle", fill ? `Used ${word} in ${slot.name}, with the fill around it in pencil.` : `Used ${word} in ${slot.name}.`);
     input.focus({ preventScroll: true });
   }
 
@@ -1343,7 +1376,6 @@
     const cols = size("cols");
     const rows = size("rows");
     edit(() => loadRows(blank(cols, rows)));
-    setStatus("idle", `New ${cols}×${rows} grid. Click a square and press Space to add a block.`);
   });
 
   $("example").addEventListener("change", () => {
@@ -1351,7 +1383,6 @@
     $("example").value = "";
     if (!rows) return;
     edit(() => loadRows(rows));
-    setStatus("idle", ready ? "Example loaded. Fill it, or change blocks and letters first." : "Loading the word list…");
   });
 
   minScoreEl.addEventListener("input", () => {
@@ -1395,7 +1426,6 @@
     edit(() => {
       for (const i of slots[k].cells) if (pencil[i]) { ink[i] = pencil[i]; pencil[i] = ""; }
     });
-    setStatus("idle", `${slots[k].name} is inked. Fill again and it stays put.`);
   });
 
   $("clear-entry").addEventListener("click", () => {
@@ -1414,17 +1444,14 @@
         pencil[cell] = "";
       }
     });
-    setStatus("idle", `Cleared ${slot.name}.`);
   });
 
   $("erase").addEventListener("click", () => {
     edit(() => pencil.fill(""));
-    setStatus("idle", "Pencil erased. Your inked letters are unchanged.");
   });
 
   $("clear").addEventListener("click", () => {
     edit(() => { ink.fill(""); pencil.fill(""); });
-    setStatus("idle", "All letters cleared. Blocks are unchanged.");
   });
 
   // --- solver ---
@@ -1642,9 +1669,13 @@
     pencil.fill("");
     finishFill();
     render();
-    setStatus("idle", "Stopped. Your inked letters are unchanged.");
-    runner.start().then(() => {
+    setStatus("busy", "Loading the word list…");
+    runner.start().then(async () => {
+      // The new worker starts from the built-in list: hand it the puzzle's list and edits again.
+      sentLengths = null;
+      await refreshWordList({ recheck: false });
       ready = true;
+      setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
       updateButtons();
       resumeCheck();
     });
@@ -1832,9 +1863,13 @@
           box.select();
         });
         const drop = button("Delete", async () => {
+          const signedIn = Boolean(window.Fillmein && window.Fillmein.user());
           const sure = await askFirst({
             title: `Delete ${list.name}?`,
-            text: `Its ${list.count.toLocaleString()} words go for good, on every device signed in to your account. This can't be undone.`,
+            text: (list.basedOn === "built-in"
+              ? "Its scores, removals and added words go for good"
+              : `Its ${list.count.toLocaleString()} words go for good`)
+              + (signedIn ? ", on every device signed in to your account" : "") + ". This can't be undone.",
           });
           if (!sure) return;
           await LISTS.remove(list.id);
@@ -1898,15 +1933,12 @@
         : await LISTS.create(`${list.name} copy`, from.words);
       // A copy should look exactly like what it was copied from, edits and all.
       if (!list.builtIn) {
-        const byList = await LISTS.overrides();
-        if (byList[list.id]) {
-          byList[copy.id] = JSON.parse(JSON.stringify(byList[list.id]));
-          await LISTS.saveOverrides(byList);
-        }
+        const edits = await LISTS.editsFor(list.id);
+        if (Object.keys(edits.scores).length || edits.removed.length) await LISTS.setEditsFor(copy.id, edits);
       }
       listChoice = { id: copy.id };
       save();
-      $("lists-note").textContent = `Copied ${list.name} into ${copy.name}, now in use.`;
+      $("lists-note").textContent = "";
       await refreshWordList();
       return true;
     } catch (error) {
@@ -1915,7 +1947,7 @@
     }
   }
 
-  // Syncing lists to the account, encrypted with a passphrase (lists-sync.js).
+  // Syncing lists to the account, as they are: not encrypted (lists-sync.js says so at length).
   const SYNC = window.FillmeinSync;
 
   function renderSync(status) {
@@ -1974,17 +2006,18 @@
       const { list, skipped } = await LISTS.add(file.name.replace(/\.[^.]+$/, ""), await file.text());
       listChoice = { id: list.id }; // a list you just loaded is the one you want to fill from
       save();
-      $("lists-note").textContent = `Loaded ${list.count.toLocaleString()} words from ${file.name}${skipped ? `, skipping ${skipped.toLocaleString()} line${skipped === 1 ? "" : "s"} that weren't words` : ""}.`;
+      // Only what the file didn't give is worth a word; the list itself shows up in the rows above.
+      $("lists-note").textContent = skipped
+        ? `${skipped.toLocaleString()} ${skipped === 1 ? "line" : "lines"} in ${file.name} ${skipped === 1 ? "wasn't a word and was" : "weren't words and were"} skipped.`
+        : "";
       await refreshWordList();
     } catch (error) {
       $("lists-note").textContent = error.message || "That file couldn't be read.";
     }
   });
   $("restore-edits").addEventListener("click", async () => {
-    const byList = await LISTS.overrides();
-    delete byList[listChoice.id];
-    await LISTS.saveOverrides(byList);
-await refreshWordList();
+    await LISTS.setEditsFor(listChoice.id, null);
+    await refreshWordList();
   });
 
   /* Score and Remove sit beside each option, outside the button that previews the word. */

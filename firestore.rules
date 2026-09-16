@@ -1,47 +1,84 @@
 rules_version = '2';
 // Firestore access rules for fillmein.org. Paste into the Firebase console (Firestore Database -> Rules)
-// and Publish whenever this file changes; web/account.js is what reads and writes these documents.
+// and Publish whenever this file changes; web/account.js and web/lists-sync.js are what read and write
+// these documents.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+
     // Puzzles published to be solved by link: anyone can open one, only the owner can publish,
-    // change or remove it. The solution is in the document, so anyone with the link can read it.
+    // change or remove it. A get returns the whole document, so a link shows the puzzle and its
+    // answers, and with them the owner's account id (an opaque Firebase uid that grants nothing on
+    // its own), whether the puzzle is listed, and when it was last shared.
     match /published/{puzzleId} {
       allow get: if true;
       // Listing only works for a query that asks for listed puzzles, so links shared privately
       // (listed: false) never show up in Explore.
       allow list: if resource.data.listed == true;
-      allow create, update: if request.auth != null
+      allow create, update: if signedIn()
         && request.resource.data.owner == request.auth.uid
         && (resource == null || resource.data.owner == request.auth.uid)
         && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated", "listed"])
-        && request.resource.data.cells.size() <= 2500
-        && request.resource.data.title.size() <= 200
-        && request.resource.data.author.size() <= 200;
-      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+        && request.resource.data.width is int && request.resource.data.width >= 3 && request.resource.data.width <= 25
+        && request.resource.data.height is int && request.resource.data.height >= 3 && request.resource.data.height <= 25
+        && request.resource.data.cells is string
+        && request.resource.data.cells.size() == request.resource.data.width * request.resource.data.height
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.author is string && request.resource.data.author.size() <= 200
+        // One clue per entry, each cut to 300 characters by account.js. Rules can't look inside a
+        // map's values, so Firestore's 1 MiB document limit is the only cap on the text itself.
+        && request.resource.data.clues is map && request.resource.data.clues.size() <= 625
+        && request.resource.data.updated is number
+        && request.resource.data.listed is bool;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
 
-    // Word lists, encrypted in the browser before they get here: the account holds ciphertext, a salt
-    // and timestamps, and nothing else. Only the account can read or write them, and nobody with
-    // database access (including the site's owner) can read what the words are.
+    // Word lists, stored as they are (not encrypted): compressed and split into chunks that fit a
+    // document. Only the account can read or write them, but whoever runs this database can read
+    // them too; lists-sync.js says the same to anyone reading the code.
     match /users/{uid}/lists/{listId} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if owns(uid);
+      allow create, update: if owns(uid)
+        && request.resource.data.keys().hasOnly(["name", "count", "updated", "chunks", "bytes", "format"])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120
+        && request.resource.data.count is int && request.resource.data.count >= 0
+        && request.resource.data.updated is number
+        && request.resource.data.chunks is int && request.resource.data.chunks >= 0 && request.resource.data.chunks <= 40
+        && request.resource.data.bytes is int && request.resource.data.bytes >= 0
+        && request.resource.data.format == "gzip";
       match /chunks/{chunk} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, delete: if owns(uid);
+        // 400,000 bytes of gzip, as base64, is 533,336 characters.
+        allow create, update: if owns(uid)
+          && request.resource.data.keys().hasOnly(["data"])
+          && request.resource.data.data is string && request.resource.data.data.size() <= 540000;
       }
     }
-    // The salt and check-value for that encryption, plus the encrypted per-word edits.
+    // The account's per-word edits: one document, with a compressed record per list under "lists"
+    // (lists-sync.js merges it list by list). "data" and "updated" are the earlier single-record
+    // shape, allowed so the first sync after the change can clear them.
     match /users/{uid}/private/{document} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if owns(uid);
+      allow create, update: if owns(uid)
+        && document == "edits"
+        && request.resource.data.keys().hasOnly(["format", "lists", "data", "updated"])
+        && request.resource.data.get("format", "gzip") == "gzip"
+        && request.resource.data.get("lists", {}) is map;
     }
 
     // Each account's puzzles: only that account can read or write them.
     match /users/{uid}/puzzles/{puzzleId} {
-      allow read, delete: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
+      allow read, delete: if owns(uid);
+      allow create, update: if owns(uid)
         && request.resource.data.keys().hasOnly(["created", "updated", "parts", "grid", "clues", "details"])
-        && request.resource.data.get("grid", "").size() < 200000
-        && request.resource.data.get("clues", "").size() < 200000
-        && request.resource.data.get("details", "").size() < 20000;
+        && request.resource.data.created is number
+        && request.resource.data.updated is number
+        && request.resource.data.parts is map
+        && request.resource.data.parts.keys().hasOnly(["grid", "clues", "details"])
+        && request.resource.data.get("grid", "") is string && request.resource.data.get("grid", "").size() < 200000
+        && request.resource.data.get("clues", "") is string && request.resource.data.get("clues", "").size() < 200000
+        && request.resource.data.get("details", "") is string && request.resource.data.get("details", "").size() < 20000;
     }
   }
 }

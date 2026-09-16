@@ -9,7 +9,9 @@ This adds that wrapper so the page renders the same anywhere, and copies the oth
 (the home page index.html, clues.html, export.html), the scripts and the word list next to it.
 """
 
+import base64
 import hashlib
+import re
 import shutil
 from pathlib import Path
 
@@ -22,6 +24,23 @@ PAGE_START = '<div class="page">'
 PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html")
 # Scripts and stylesheets the pages load, copied as they are and referenced with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "words.js")
+
+# What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
+# Scripts: the site's own, Firebase from gstatic, Analytics from googletagmanager, and each page's inline
+# script by its hash, so an inline handler such as onerror= in someone's text could never run. Styles
+# allow inline because the pages set them from script (a cell's position, a grid's column count).
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://www.gstatic.com https://www.googletagmanager.com {hashes}; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src https://fonts.gstatic.com; "
+    "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; "
+    "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.analytics.google.com "
+    "https://*.googletagmanager.com https://*.firebaseio.com wss://*.firebaseio.com; "
+    "frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
+    "worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
+)
+INLINE_SCRIPT = re.compile(rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", re.DOTALL)
 
 HEAD = """<!doctype html>
 <html lang="en">
@@ -40,6 +59,22 @@ HEAD = """<!doctype html>
 def version(path):
     """A short hash of a file's bytes."""
     return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+
+
+def secure(path):
+    """Put the policy in a page, naming each of its inline scripts by hash."""
+    page = path.read_bytes()
+    hashes = []
+    for block in INLINE_SCRIPT.findall(page):
+        # The browser hashes the script as its parser saw it, with Windows line endings already folded.
+        digest = hashlib.sha256(block.replace(b"\r\n", b"\n")).digest()
+        hashes.append(f"'sha256-{base64.b64encode(digest).decode()}'")
+    marker = b'<meta charset="utf-8">'
+    if marker not in page:
+        raise SystemExit(f"{path} has no charset meta to put the policy after")
+    newline = b"\r\n" if b"\r\n" in page else b"\n"
+    meta = f'<meta http-equiv="Content-Security-Policy" content="{CSP.format(hashes=" ".join(hashes))}">'.encode()
+    path.write_bytes(page.replace(marker, marker + newline + meta, 1))
 
 
 def stamp(text, versions):
@@ -71,6 +106,7 @@ def main():
     for name in PAGES + ("grid.html",):
         path = SITE / name
         path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
+        secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included
 
     # Firebase's sign-in helper pages (web/__/auth/), served from the site's own domain so Google's
@@ -84,6 +120,7 @@ def main():
     # The site used to live at philipsatterthwaite.github.io/crossword-generator/docs/, and GitHub forwards
     # that address to the same path on the domain, so old links land in docs/docs/: send them on.
     moved = SITE / "docs"
+    shutil.rmtree(moved, ignore_errors=True)  # a stub for a page that no longer ships shouldn't linger
     moved.mkdir(exist_ok=True)
     for name in PAGES:
         target = "/" if name == "index.html" else f"/{name}"

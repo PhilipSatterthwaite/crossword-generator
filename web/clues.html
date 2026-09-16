@@ -28,9 +28,9 @@
   .clue-row .n { grid-row: 1 / span 2; padding-top: 1px; font: 600 14px / 1.6 var(--sans); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
   .answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
   .answer label { font: 600 13px / 1.6 var(--sans); letter-spacing: 0.12em; color: var(--ink); overflow-wrap: anywhere; cursor: text; }
-  .answer .e { color: var(--rule); }
+  .answer .e { color: var(--muted); opacity: 0.6; }
   .flag { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font: 500 12px / 1.4 var(--sans); color: var(--danger); }
-  .flag button { padding: 0; border: 0; background: none; color: inherit; font: 600 12px var(--sans); text-decoration: underline; cursor: pointer; }
+  .flag button { padding: 6px 2px; margin: -6px -2px; border: 0; background: none; color: inherit; font: 600 12px var(--sans); text-decoration: underline; cursor: pointer; }
   .clue-text {
     box-sizing: border-box;
     width: 100%;
@@ -141,6 +141,7 @@
 
 <script src="filler.js"></script>
 <script src="store.js"></script>
+<script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
 <script>
 (() => {
@@ -169,6 +170,14 @@
     S.renderTabs(grid ? grid.slots : [], clues);
     if (!grid) {
       $("progress").textContent = "";
+      if (S.missing()) {
+        // The address names a puzzle this browser doesn't have; the page reloads when it arrives.
+        $("no-grid").querySelector("h2").textContent = "That puzzle isn't in this browser";
+        $("no-grid").querySelector("p").textContent = "The link names a puzzle this browser doesn't have. If it's in your account, sign in and it opens here as soon as it arrives.";
+        const link = $("no-grid").querySelector("a");
+        link.href = "puzzles.html";
+        link.textContent = "My puzzles";
+      }
       return;
     }
 

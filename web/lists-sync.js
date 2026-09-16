@@ -2,7 +2,9 @@
 
    Signing in is all it takes: the lists in this browser go up, anything the account already has comes
    down, and from then on every change is sent as it happens. Lists are compressed and split into chunks
-   that fit a Firestore document, which keeps a cloned 500,000-word list manageable.
+   that fit a Firestore document, which keeps a cloned 500,000-word list manageable. Per-word edits go up
+   as one document holding a record per list, merged list by list, so two devices editing different lists
+   never overwrite each other; for the same list, the later edit wins.
 
    They are stored as they are, not encrypted, so they are readable by anyone with access to the project's
    database — the site's owner, in other words. They are private from other people using the site, since
@@ -14,7 +16,7 @@
   "use strict";
 
   const PRIVATE = "private";
-  const EDITS = "edits"; // one document holding the per-word edits
+  const EDITS = "edits"; // one document holding the per-word edits, a record per list
   const CHUNK = 400000; // bytes per document, well under Firestore's 1MB
   const SYNCED = "fillmein:synced-lists"; // ids this device has seen in the account
   const FORMAT = "gzip"; // how a list's chunks are written, so older shapes can be spotted and skipped
@@ -23,6 +25,8 @@
   const listeners = new Set();
   let state = { signedIn: false, busy: false, last: 0, error: "" };
   let timer = null;
+  let running = null; // the sync in progress, so a second request joins it instead of racing it
+  let again = false; // something changed while it ran: go round once more when it finishes
 
   const status = () => ({ ...state });
   const announce = () => {
@@ -53,10 +57,13 @@
     new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
   const unsqueeze = async (bytes) =>
     new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+  const pack = async (value) => toBase64(await squeeze(encoder.encode(JSON.stringify(value))));
+  const unpack = async (text) => JSON.parse(decoder.decode(await unsqueeze(fromBase64(text))));
 
   // --- the account's copy ---
 
   const account = () => (root.Fillmein && root.Fillmein.user()) || null;
+  const lists = () => root.FillmeinLists;
 
   async function firestore() {
     const fs = await root.Fillmein.loadFirestore();
@@ -75,13 +82,13 @@
   }
 
   async function download(id, meta) {
-    if (meta.format !== FORMAT) throw new Error("that list was saved in an older shape");
+    if (meta.format !== FORMAT) throw new Error("it was saved in an older shape");
     const { fs, db } = await firestore();
     const ref = fs.doc(db, "users", account().uid, "lists", id);
     const parts = [];
     for (let i = 0; i < meta.chunks; i++) {
       const snapshot = await fs.getDoc(fs.doc(ref, "chunks", String(i)));
-      if (!snapshot.exists()) throw new Error("a piece of that list is missing");
+      if (!snapshot.exists()) throw new Error("a piece of it is missing");
       parts.push(fromBase64(snapshot.data().data));
     }
     const joined = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
@@ -103,77 +110,127 @@
     await fs.deleteDoc(ref);
   }
 
-  async function syncEdits(localEdits, localStamp) {
+  const emptyEdits = () => ({ scores: {}, removed: [], recent: [] });
+
+  /* Per-word edits, list by list: whichever side changed a list's edits more recently wins that list.
+     The document is {format, lists: {list id: {data, updated}}}, and each list is written on its own
+     with a merge, so two devices writing different lists at once both land. */
+  async function syncEdits() {
     const { fs, db } = await firestore();
     const ref = fs.doc(db, "users", account().uid, PRIVATE, EDITS);
     const snapshot = await fs.getDoc(ref);
-    const remote = snapshot.exists() ? snapshot.data() : null;
-    if (remote && remote.data && remote.updated > localStamp) {
-      const edits = JSON.parse(decoder.decode(await unsqueeze(fromBase64(remote.data))));
-      await root.FillmeinLists.saveOverrides(edits, remote.updated);
-      return;
+    const remote = snapshot.exists() ? snapshot.data() : {};
+    const theirs = {}; // list id -> {data or edits, updated}
+    for (const [id, record] of Object.entries(remote.lists || {})) {
+      if (record && typeof record.data === "string") theirs[id] = { data: record.data, updated: record.updated || 0 };
     }
-    const packed = await squeeze(encoder.encode(JSON.stringify(localEdits)));
-    await fs.setDoc(ref, { data: toBase64(packed), updated: localStamp || Date.now(), format: FORMAT });
+    // The earlier shape was one compressed record of every list's edits, stamped once. Read it as if
+    // each list had been stamped then, and put the new shape in its place.
+    const legacy = typeof remote.data === "string" && !remote.lists;
+    if (legacy) {
+      try {
+        const all = await unpack(remote.data);
+        const byList = all.scores || all.removed ? { "built-in": all } : all;
+        for (const [id, edits] of Object.entries(byList)) theirs[id] = { edits, updated: remote.updated || 0 };
+      } catch (error) { /* unreadable: this device's edits stand */ }
+    }
+    const [mine, stamps] = await Promise.all([lists().overrides(), lists().editStamps()]);
+    const update = {};
+    for (const id of new Set([...Object.keys(theirs), ...Object.keys(stamps)])) {
+      const remoteStamp = theirs[id] ? theirs[id].updated : 0;
+      const localStamp = stamps[id] || 0;
+      if (remoteStamp > localStamp) {
+        const edits = theirs[id].edits || (await unpack(theirs[id].data));
+        await lists().setEditsFor(id, edits, remoteStamp);
+        if (legacy) update[id] = { data: await pack(edits), updated: remoteStamp };
+      } else if (localStamp > remoteStamp || (legacy && theirs[id])) {
+        update[id] = { data: await pack(mine[id] || emptyEdits()), updated: localStamp };
+      }
+    }
+    if (!Object.keys(update).length && !legacy) return;
+    const doc = { format: FORMAT, lists: update };
+    if (legacy) {
+      doc.data = fs.deleteField();
+      doc.updated = fs.deleteField();
+    }
+    await fs.setDoc(ref, doc, { merge: true });
   }
 
-  /* Push what is newer here, pull what is newer there, and clear anything deleted here. */
-  async function syncNow() {
-    if (!account()) return;
-    setState({ busy: true, error: "" });
-    try {
-      const { fs, db } = await firestore();
-      const uid = account().uid;
-      const [lists, edits, editStamp, tombstones] = await Promise.all([
-        root.FillmeinLists.all(),
-        root.FillmeinLists.overrides(),
-        root.FillmeinLists.overridesStamp(),
-        root.FillmeinLists.tombstones(),
-      ]);
+  /* One pass: push what is newer here, pull what is newer there, and clear anything deleted here.
+     Returns what couldn't be done, in words. */
+  async function syncOnce() {
+    const { fs, db } = await firestore();
+    const uid = account().uid;
+    const [mine, tombstones] = await Promise.all([lists().all(), lists().tombstones()]);
+    const troubles = [];
 
-      for (const id of tombstones) {
-        await removeRemote(id);
-        await root.FillmeinLists.clearTombstone(id);
-      }
-
-      // Which lists this device has seen in the account, so one that disappears counts as deleted
-      // elsewhere rather than as a list that still needs uploading.
-      const known = (await root.FillmeinLists.getSetting(SYNCED)) || {};
-      const here = new Map(lists.map((list) => [list.id, list]));
-      const there = await fs.getDocs(fs.collection(db, "users", uid, "lists"));
-      const seen = new Set();
-      for (const snapshot of there.docs) {
-        seen.add(snapshot.id);
-        known[snapshot.id] = true;
-        const meta = snapshot.data();
-        const mine = here.get(snapshot.id);
-        if (mine && mine.updated >= (meta.updated || 0)) {
-          if (mine.updated > (meta.updated || 0)) await upload(mine);
-          continue;
-        }
-        try {
-          await root.FillmeinLists.put(await download(snapshot.id, meta));
-        } catch (error) {
-          if (mine) await upload(mine); // an older or damaged copy up there: replace it with this one
-        }
-      }
-      for (const list of lists) {
-        if (seen.has(list.id)) continue;
-        if (known[list.id]) {
-          await root.FillmeinLists.forgetList(list.id); // deleted on another device
-          delete known[list.id];
-        } else {
-          await upload(list);
-          known[list.id] = true;
-        }
-      }
-      await root.FillmeinLists.setSetting(SYNCED, known);
-
-      await syncEdits(edits, editStamp);
-      setState({ busy: false, last: Date.now() });
-    } catch (error) {
-      setState({ busy: false, error: error.message || "Syncing didn't work." });
+    for (const id of tombstones) {
+      await removeRemote(id);
+      await lists().clearTombstone(id);
     }
+
+    // Which lists this device has seen in the account, so one that disappears counts as deleted
+    // elsewhere rather than as a list that still needs uploading.
+    const known = (await lists().getSetting(SYNCED)) || {};
+    const here = new Map(mine.map((list) => [list.id, list]));
+    const there = await fs.getDocs(fs.collection(db, "users", uid, "lists"));
+    const seen = new Set();
+    for (const snapshot of there.docs) {
+      seen.add(snapshot.id);
+      known[snapshot.id] = true;
+      const meta = snapshot.data();
+      const own = here.get(snapshot.id);
+      if (own && own.updated >= (meta.updated || 0)) {
+        if (own.updated > (meta.updated || 0)) await upload(own);
+        continue;
+      }
+      try {
+        await lists().put(await download(snapshot.id, meta));
+      } catch (error) {
+        if (own) await upload(own); // an older or damaged copy up there: replace it with this one
+        else troubles.push(`${meta.name || "A list"} couldn't be brought down: ${error.message}.`);
+      }
+    }
+    for (const list of mine) {
+      if (seen.has(list.id)) continue;
+      if (known[list.id]) {
+        await lists().forgetList(list.id); // deleted on another device
+        delete known[list.id];
+      } else {
+        await upload(list);
+        known[list.id] = true;
+      }
+    }
+    await lists().setSetting(SYNCED, known);
+
+    await syncEdits();
+    return troubles;
+  }
+
+  /* Sync now, one at a time: a request that comes while a sync is running joins it, and the sync goes
+     round once more before finishing if anything changed meanwhile. */
+  function syncNow() {
+    if (!account()) return Promise.resolve();
+    if (running) {
+      again = true;
+      return running;
+    }
+    setState({ busy: true, error: "" });
+    running = (async () => {
+      try {
+        let troubles = [];
+        do {
+          again = false;
+          troubles = await syncOnce();
+        } while (again && account());
+        setState({ busy: false, last: Date.now(), error: troubles.join(" ") });
+      } catch (error) {
+        setState({ busy: false, error: error.message || "Syncing didn't work." });
+      } finally {
+        running = null;
+      }
+    })();
+    return running;
   }
 
   /* A change here reaches the account a moment later, so a burst of edits sends once. */

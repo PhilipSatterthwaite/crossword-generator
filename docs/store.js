@@ -25,8 +25,14 @@
      (account.js sends them up to the account), "fillmein:changed" for anything that changed underneath
      the page, such as a newer copy that came down from the account. */
   const announce = (type, pid, part) => root.dispatchEvent(new CustomEvent(type, { detail: { id: pid, part } }));
+  /* A time for a part just saved: now, or a moment after the copy it replaces if that one was stamped
+     later (by a device whose clock runs ahead), so the newest edit always counts as the newest when the
+     account merges copies from different devices. */
+  const stampFor = (entry, part) => Math.max(Date.now(), partTime(entry, part) + 1);
 
   let id = null; // the puzzle this page shows, once open() has found it
+  let wantedId = null; // the puzzle the address named, if any
+  let missing = false; // the address named a puzzle this browser doesn't have
 
   /* {v, puzzles: {id: {created, updated}}}. The first time, the single puzzle earlier versions kept
      (under gridfill:* keys) becomes the first puzzle. */
@@ -86,9 +92,13 @@
      show starts a new one, as the Grid page does. */
   function open({ create: startNew = false } = {}) {
     const wanted = new URLSearchParams(root.location.search).get("p");
+    wantedId = wanted || null;
     if (wanted) id = readIndex().puzzles[wanted] ? wanted : null;
     else id = list().length ? list()[0].id : null;
-    if (!id && startNew) id = create();
+    missing = Boolean(wanted && !id);
+    // Only a page with no puzzle named starts a new one: a link to a puzzle this browser doesn't have
+    // (not synced down yet, or deleted) mustn't quietly turn into a different puzzle.
+    if (!id && startNew && !wanted) id = create();
     if (id && id !== wanted) {
       const url = new URL(root.location.href);
       url.searchParams.set("p", id);
@@ -119,7 +129,7 @@
     const index = readIndex();
     const now = Date.now();
     const entry = { created: now, ...index.puzzles[id], updated: now };
-    entry.parts = { ...entry.parts, [part]: now };
+    entry.parts = { ...entry.parts, [part]: stampFor(index.puzzles[id], part) };
     index.puzzles[id] = entry;
     write(INDEX, index);
     announce("fillmein:saved", id, part);
@@ -299,7 +309,7 @@
     const index = readIndex();
     const now = Date.now();
     const entry = { created: now, ...index.puzzles[pid], updated: now };
-    entry.parts = { ...entry.parts, details: now };
+    entry.parts = { ...entry.parts, details: stampFor(index.puzzles[pid], "details") };
     index.puzzles[pid] = entry;
     write(INDEX, index);
     announce("fillmein:saved", pid, "details");
@@ -314,7 +324,7 @@
     const index = readIndex();
     const now = Date.now();
     const entry = { created: now, ...index.puzzles[pid], updated: now };
-    entry.parts = { ...entry.parts, details: now };
+    entry.parts = { ...entry.parts, details: stampFor(index.puzzles[pid], "details") };
     index.puzzles[pid] = entry;
     write(INDEX, index);
     announce("fillmein:saved", pid, "details");
@@ -390,6 +400,8 @@
     });
     root.addEventListener("fillmein:changed", (event) => {
       if (event.detail.id === id) redraw();
+      // The puzzle the address named has arrived (from the account, say): open it.
+      else if (missing && event.detail.id === wantedId && readIndex().puzzles[wantedId]) root.location.reload();
     });
     // The Back button can restore an old copy of a page from the browser's cache.
     root.addEventListener("pageshow", (event) => {
@@ -429,7 +441,7 @@
 
   root.GridfillStore = {
     INDEX, META_FIELDS,
-    open, list, create, remove, forget, keys, href, linkPages,
+    open, missing: () => missing, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
     clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, duplicate,
     folders, addFolder, removeFolder, renameFolder, moveFolder, cleanPath, parentOf, nameOf,

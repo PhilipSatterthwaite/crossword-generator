@@ -37,6 +37,7 @@
   .tree { list-style: none; margin: 0; padding: 0; }
   .node { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px calc(8px + var(--depth) * 15px); border-radius: 999px; cursor: pointer; user-select: none; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s; animation: pop-in 0.24s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
   .node:hover { background: var(--hover); transform: translateX(2px); }
+  .node:focus-visible { outline: 3px solid var(--focus); outline-offset: -2px; }
   .node[aria-current="true"] { background: var(--word); font-weight: 700; }
   .node.over { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); transform: scale(1.04); }
   .node .twisty { flex: none; width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1); }
@@ -51,6 +52,7 @@
   .columns { padding: 8px 16px; border-bottom: 1px solid var(--line-soft); font: 700 11px / 1 var(--sans); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
   .columns span:not(:first-child), .item .cell { font-variant-numeric: tabular-nums; }
   .items { list-style: none; margin: 0; padding: 8px; min-height: 260px; }
+  .items:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
   .item { padding: 8px 12px; border-radius: 14px; cursor: default; user-select: none; transition: transform 0.16s cubic-bezier(0.2, 1.5, 0.4, 1), background 0.16s, box-shadow 0.16s; animation: pop-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; animation-delay: calc(var(--i, 0) * 22ms); }
   .item:hover { background: var(--hover); transform: translateX(3px); }
   .item[aria-selected="true"] { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); }
@@ -62,7 +64,9 @@
   .name .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
   .icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; }
   .icon svg { display: block; transition: transform 0.2s cubic-bezier(0.2, 1.6, 0.4, 1); }
-  .icon .grid-mark { background: #fff; border-radius: 3px; outline: 1px solid var(--ink); }
+  .icon .grid-mark { background: var(--cell); border-radius: 3px; outline: 1px solid var(--ink); }
+  .icon .grid-mark rect { fill: var(--block); }
+  .icon .blank-mark rect { fill: var(--cell); stroke: currentColor; }
   .item:hover .icon svg { transform: rotate(-7deg) scale(1.12); }
   .cell { font-size: 13px; color: var(--muted); }
   .rename-input { width: 100%; min-width: 0; padding: 4px 9px; border: 2px solid var(--focus); border-radius: 999px; background: var(--cell); color: var(--ink); font: 600 14px var(--sans); }
@@ -208,8 +212,7 @@
       box.setAttribute("width", "17");
       box.setAttribute("height", "19");
       box.setAttribute("rx", "2.5");
-      box.setAttribute("fill", "#fff");
-      box.setAttribute("stroke", "currentColor");
+      blank.setAttribute("class", "blank-mark");
       blank.append(box);
       return blank;
     }
@@ -227,7 +230,6 @@
       rect.setAttribute("y", Math.floor(i / grid.W));
       rect.setAttribute("width", 1);
       rect.setAttribute("height", 1);
-      rect.setAttribute("fill", "#14171C");
       svg.append(rect);
     });
     return svg;
@@ -389,9 +391,15 @@
 
   function choose(kind, id) {
     picked = kind ? { kind, id } : null;
+    let active = "";
     for (const row of document.querySelectorAll(".item")) {
-      row.setAttribute("aria-selected", String(Boolean(picked) && row.dataset.kind === picked.kind && row.dataset.id === picked.id));
+      const on = Boolean(picked) && row.dataset.kind === picked.kind && row.dataset.id === picked.id;
+      row.setAttribute("aria-selected", String(on));
+      if (on) active = row.id;
     }
+    // The list keeps the focus; this tells assistive technology which row is picked.
+    if (active) $("items").setAttribute("aria-activedescendant", active);
+    else $("items").removeAttribute("aria-activedescendant");
     const has = Boolean(picked);
     for (const button of ["open", "rename", "remove", "cut", "copy"]) $(button).disabled = !has;
     $("paste").disabled = !canPaste();
@@ -436,7 +444,8 @@
         return;
       }
       if (picked.kind === "folder") {
-        const now = S.renameFolder(picked.id, [parentOf(picked.id), name].filter(Boolean).join("/"));
+        // A slash would make a folder inside a folder, so it becomes a dash.
+        const now = S.renameFolder(picked.id, [parentOf(picked.id), name.replace(/\//g, "-")].filter(Boolean).join("/"));
         if (within(picked.id, here)) here = now + here.slice(picked.id.length);
         picked = { kind: "folder", id: now };
       } else {
@@ -480,7 +489,7 @@
     const puzzle = puzzlesNow().find((other) => other.id === picked.id);
     const sure = await window.fillmeinConfirm({
       title: `Delete “${puzzle ? puzzle.title : "this puzzle"}”?`,
-      text: "Its grid, clues and details go for good, on every device signed in to your account. This cannot be undone.",
+      text: `Its grid, clues and details go for good${window.Fillmein && window.Fillmein.user() ? ", on every device signed in to your account" : ""}. This cannot be undone.`,
     });
     if (!sure) return;
     if (clip && clip.kind === "puzzle" && clip.id === picked.id) clip = null;
@@ -536,6 +545,7 @@
     item.style.setProperty("--i", index);
     item.dataset.kind = kind;
     item.dataset.id = id;
+    item.id = `item-${index}`;
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", "false");
     if (clip && clip.mode === "cut" && clip.kind === kind && clip.id === id) item.classList.add("cut");
@@ -610,12 +620,19 @@
     pill.textContent = String(folder ? tally(folder, puzzles) : puzzles.length);
 
     node.append(twisty, folderIcon(folder ? 18 : 18), label, pill);
+    node.tabIndex = 0;
     node.addEventListener("click", () => {
       here = folder;
       picked = null;
       if (folder) expanded.add(folder);
       saveOpen();
       render();
+    });
+    node.addEventListener("keydown", (event) => {
+      if (event.target !== node || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      node.click();
     });
     dropTarget(node, folder);
     if (folder) dragSource(node, "folder", folder);
@@ -760,6 +777,19 @@
         event.preventDefault();
         pasteInto(pasteWhere());
       }
+      return;
+    }
+    // Arrow keys walk the list once it has the focus (a click on a row gives it that, as does Tab).
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && document.activeElement === $("items")) {
+      const rows = [...document.querySelectorAll("#items .item")];
+      if (!rows.length) return;
+      event.preventDefault();
+      const at = rows.findIndex((row) => row.getAttribute("aria-selected") === "true");
+      const to = event.key === "Home" ? 0
+        : event.key === "End" ? rows.length - 1
+        : Math.min(rows.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+      choose(rows[to].dataset.kind, rows[to].dataset.id);
+      rows[to].scrollIntoView({ block: "nearest" });
       return;
     }
     if (event.key === "Enter") {

@@ -141,6 +141,11 @@ body {
 .account-name { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .account-sync:empty { display: none; }
 .account-sync[data-state="error"] { font-size: 13px; color: var(--danger); }
+@media (max-width: 480px) {
+  /* On a phone the account box wraps onto its own line: keep it close to the line above. */
+  .masthead { gap: 8px 36px; }
+  .account { align-self: center; min-height: 0; }
+}
 
 /* Confirmation popup, opened by confirm.js. */
 .confirm-dialog {
@@ -158,7 +163,7 @@ body {
 .confirm-text { margin: 0; font-size: 14px; color: var(--muted); text-wrap: pretty; }
 .confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .confirm-choices { display: grid; gap: 8px; }
-.confirm-choices .btn { display: grid; gap: 2px; justify-items: start; padding: 12px 15px; border-radius: 12px; text-align: left; }
+.confirm-choices .btn { display: grid; gap: 2px; justify-items: start; padding: 12px 15px; border-radius: 12px; text-align: left; white-space: normal; }
 .confirm-choices .choice-label { font-weight: 600; }
 .confirm-choices .choice-note { font-size: 12px; font-weight: 400; opacity: 0.78; }
 .btn.destructive { background: var(--danger); border-color: var(--danger); color: var(--ground); }
@@ -284,7 +289,8 @@ body {
 }
 .link-button {
   justify-self: start;
-  padding: 0;
+  padding: 4px 0; /* a finger-sized target without moving the text around it */
+  margin: -4px 0;
   border: 0;
   background: none;
   color: var(--pencil);
