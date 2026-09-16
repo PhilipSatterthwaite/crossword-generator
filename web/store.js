@@ -192,6 +192,32 @@
     return details;
   }
 
+  /* Folders someone has made, whether or not anything is in them yet. Which folder a puzzle is in
+     travels with the puzzle; this list is what keeps an empty folder around on this device. */
+  const folders = () => {
+    const index = readIndex();
+    return Array.isArray(index.folders) ? index.folders.slice() : [];
+  };
+
+  function addFolder(name) {
+    const clean = String(name || "").trim().slice(0, 60);
+    if (!clean) return "";
+    const index = readIndex();
+    const kept = Array.isArray(index.folders) ? index.folders : [];
+    if (!kept.includes(clean)) kept.push(clean);
+    index.folders = kept;
+    write(INDEX, index);
+    announce("fillmein:changed", "", "folders");
+    return clean;
+  }
+
+  function removeFolder(name) {
+    const index = readIndex();
+    index.folders = (Array.isArray(index.folders) ? index.folders : []).filter((other) => other !== name);
+    write(INDEX, index);
+    announce("fillmein:changed", "", "folders");
+  }
+
   /* Put a puzzle in a folder (an empty name means no folder). */
   function setFolder(pid, folder) {
     if (!pid) return;
@@ -318,7 +344,7 @@
     INDEX, META_FIELDS,
     open, list, create, remove, forget, keys, href, linkPages,
     entries, partTime, partData, applyRemote, setOwner,
-    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder,
+    clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, folders, addFolder, removeFolder,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,
   };
 })(self);

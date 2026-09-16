@@ -470,7 +470,7 @@
 
 <script src="words.js?v=9f774dc43a"></script>
 <script src="filler.js?v=0c1518a0b7"></script>
-<script src="store.js?v=a569b14a40"></script>
+<script src="store.js?v=36b815ba4e"></script>
 <script src="confirm.js?v=a8285e5eec"></script>
 <script src="lists.js?v=637909f467"></script>
 <script type="module" src="account.js?v=d7c4e1f8d7"></script>
@@ -916,7 +916,7 @@
         renderWordActions();
         if (!keep || !Number.isFinite(value)) return;
         await LISTS.setScore(listChoice.id, word, value);
-        await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
+        await refreshWordList();
       };
       input.addEventListener("keydown", (event) => {
         if (event.key === "Enter") finish(true);
@@ -931,13 +931,13 @@
     if (scoreOf(word) === null) {
       button(`Add ${word} to the list`, async () => {
         await LISTS.setScore(listChoice.id, word, 50);
-        await refreshWordList({ say: `Added ${word} at 50.` });
+        await refreshWordList();
       });
       button("Add with a score…", scoreBox);
     } else {
       button(`Remove ${word} from the list`, async () => {
         await LISTS.removeWord(listChoice.id, word);
-        await refreshWordList({ say: `Removed ${word}.` });
+        await refreshWordList();
         noteUndo(word);
       });
       button("Score it…", scoreBox);
@@ -957,7 +957,7 @@
     undo.textContent = "Undo";
     undo.addEventListener("click", async () => {
       await LISTS.restoreWord(listChoice.id, word);
-      await refreshWordList({ say: `Put ${word} back.` });
+      await refreshWordList();
     });
     wrap.append(undo);
     note.append(wrap);
@@ -1638,28 +1638,24 @@
   let refreshing = false;
   let refreshTimer = 0;
   let refreshWaiting = [];
-  let refreshSay = "";
   let refreshRecheck = false;
 
   /* Rebuilding is the expensive part, so a burst of edits (removing several words quickly) waits a
      moment and rebuilds once. */
-  function refreshWordList({ recheck = true, say = "" } = {}) {
+  function refreshWordList({ recheck = true } = {}) {
     if (!LISTS) return Promise.resolve();
-    if (say) refreshSay = say;
     refreshRecheck = refreshRecheck || recheck;
     clearTimeout(refreshTimer);
     return new Promise((resolve) => {
       refreshWaiting.push(resolve);
       refreshTimer = setTimeout(async () => {
         const waiting = refreshWaiting;
-        const message = refreshSay;
         const again = refreshRecheck;
         refreshWaiting = [];
-        refreshSay = "";
         refreshRecheck = false;
         refreshing = true;
         try {
-          await rebuildWordList({ recheck: again, say: message });
+          await rebuildWordList({ recheck: again });
         } finally {
           refreshing = false;
         }
@@ -1668,7 +1664,7 @@
     });
   }
 
-  async function rebuildWordList({ recheck, say }) {
+  async function rebuildWordList({ recheck }) {
     listState = await LISTS.state(listChoice.id);
     const chosen = listState.lists.find((list) => list.id === listChoice.id) || null;
     if (!chosen && listChoice.id !== "built-in") listChoice = { id: "built-in" }; // it was deleted
@@ -1698,7 +1694,6 @@
     }
     renderLists();
     render();
-    if (say) setStatus("idle", `${say} ${runner.count.toLocaleString()} words in the list now.`);
     if (recheck && ready) resumeCheck();
   }
 
@@ -1772,7 +1767,7 @@
         button("Use", async () => {
           listChoice = { id: list.id };
           save();
-          await refreshWordList({ say: `Filling from ${list.name}.` });
+          await refreshWordList();
         });
       }
       button("Clone", () => cloneList(list));
@@ -1810,7 +1805,7 @@
           await LISTS.remove(list.id);
           if (listChoice.id === list.id) listChoice = { id: "built-in" };
           save();
-          await refreshWordList({ say: `Deleted ${list.name}.` });
+          await refreshWordList();
         });
         drop.classList.add("danger");
       }
@@ -1842,7 +1837,7 @@
       back.textContent = removed ? "Put back" : "Reset";
       back.addEventListener("click", async () => {
         await LISTS.restoreWord(listChoice.id, word);
-        await refreshWordList({ say: removed ? `Put ${word} back.` : `${word} is back to its old score.` });
+        await refreshWordList();
       });
       row.append(name, what, back);
       editRows.append(row);
@@ -1874,7 +1869,7 @@
       listChoice = { id: copy.id };
       save();
       $("lists-note").textContent = `Copied ${list.name} into ${copy.name}, now in use.`;
-      await refreshWordList({ say: `Filling from ${copy.name}.` });
+      await refreshWordList();
     } catch (error) {
       $("lists-note").textContent = "That list couldn't be copied.";
     }
@@ -1921,7 +1916,7 @@
     }
     listChoice = { id: value };
     save();
-    await refreshWordList({ say: "Word list changed." });
+    await refreshWordList();
   });
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
@@ -1940,7 +1935,7 @@
       listChoice = { id: list.id }; // a list you just loaded is the one you want to fill from
       save();
       $("lists-note").textContent = `Loaded ${list.count.toLocaleString()} words from ${file.name}${skipped ? `, skipping ${skipped.toLocaleString()} line${skipped === 1 ? "" : "s"} that weren't words` : ""}.`;
-      await refreshWordList({ say: `Loaded ${list.name}.` });
+      await refreshWordList();
     } catch (error) {
       $("lists-note").textContent = error.message || "That file couldn't be read.";
     }
@@ -1949,7 +1944,7 @@
     const byList = await LISTS.overrides();
     delete byList[listChoice.id];
     await LISTS.saveOverrides(byList);
-    await refreshWordList({ say: "Put back every word you'd changed." });
+await refreshWordList();
   });
 
   /* Score and Remove sit beside each option, outside the button that previews the word. */
@@ -1960,7 +1955,7 @@
     const word = action.dataset.word;
     if (action.dataset.wordAction === "remove") {
       await LISTS.removeWord(listChoice.id, word);
-      await refreshWordList({ say: `Removed ${word}.` });
+      await refreshWordList();
       noteUndo(word);
       return;
     }
@@ -1982,7 +1977,7 @@
       holder.replaceChildren(...previous);
       if (!keep || !Number.isFinite(value)) return;
       await LISTS.setScore(listChoice.id, word, value);
-      await refreshWordList({ say: `${word} now scores ${Math.max(0, Math.min(100, Math.round(value)))}.` });
+      await refreshWordList();
     };
     input.addEventListener("keydown", (keys) => {
       if (keys.key === "Enter") finish(true);
