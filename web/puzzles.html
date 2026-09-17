@@ -283,6 +283,14 @@
     return [...all].sort((a, b) => a.localeCompare(b));
   }
   const childrenOf = (folder, folders) => folders.filter((other) => parentOf(other) === folder);
+  /* A name nothing else in that folder is using. */
+  function freeName(parent, name, folders) {
+    const taken = new Set(childrenOf(parent, folders).map(nameOf));
+    if (!taken.has(name)) return name;
+    let tried = `${name} copy`;
+    for (let n = 2; taken.has(tried); n++) tried = `${name} copy ${n}`;
+    return tried;
+  }
   /* How many puzzles a folder holds, counting the ones in the folders inside it. */
   const tally = (folder, puzzles) => puzzles.filter((puzzle) => within(folder, puzzle.folder)).length;
 
@@ -356,6 +364,35 @@
     const has = Boolean(picked);
     for (const button of ["open", "rename", "remove"]) $(button).disabled = !has;
     $("chosen").textContent = has ? "1 selected" : "";
+  }
+
+  /* A copy of whatever is picked, beside the original: a puzzle with its grid, clues and details, or a
+     folder with every folder and puzzle inside it. */
+  function duplicatePicked() {
+    if (!picked) return;
+    const puzzles = puzzlesNow();
+    const folders = foldersNow(puzzles);
+    if (picked.kind === "puzzle") {
+      const was = puzzles.find((puzzle) => puzzle.id === picked.id);
+      if (!was) return;
+      const copy = S.duplicate(picked.id, was.folder);
+      if (!copy) return;
+      S.setTitle(copy, `${was.title} copy`);
+      picked = { kind: "puzzle", id: copy };
+    } else {
+      const from = picked.id;
+      const parent = parentOf(from);
+      const target = [parent, freeName(parent, nameOf(from), folders)].filter(Boolean).join("/");
+      S.addFolder(target);
+      for (const other of folders) {
+        if (other !== from && within(from, other)) S.addFolder(target + other.slice(from.length));
+      }
+      for (const puzzle of puzzles) {
+        if (within(from, puzzle.folder)) S.duplicate(puzzle.id, target + puzzle.folder.slice(from.length));
+      }
+      picked = { kind: "folder", id: target };
+    }
+    render();
   }
 
   function openPicked() {
@@ -470,6 +507,7 @@
     const folderPicked = Boolean(picked && picked.kind === "folder");
     add(folderPicked ? "Open" : "Open puzzle", openPicked);
     add("Rename", renamePicked);
+    add(folderPicked ? "Duplicate folder" : "Duplicate", duplicatePicked);
     menu.append(document.createElement("hr"));
     add("Delete", deletePicked);
     document.body.append(menu);
