@@ -21,13 +21,10 @@ DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
 # explore.html is written but not shipped: puzzles will be chosen for it later, rather than every
 # shared puzzle appearing there.
-PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html", "404.html")
+PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html", "contact.html", "404.html")
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "importers.js", "words.js", "social.png")
-# The address behind every page's Contact link. Empty leaves the link out.
-CONTACT = "nocluexword@gmail.com"
-
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
 # into the page to run the sign-in popup; without it sign-in fails with auth/internal-error), and each
@@ -102,15 +99,6 @@ def stamp(text, versions):
     return text
 
 
-def contact(text):
-    """The Contact link with its address, or no link at all."""
-    # The address is the link's text as well as its target, so it can be read and copied on a machine
-    # with no mail app to hand a mailto: link to.
-    if CONTACT:
-        return re.sub(r'<a href="mailto:" data-contact>Contact</a>', f'<span>Contact: <a href="mailto:{CONTACT}" data-contact>{CONTACT}</a></span>', text)
-    return re.sub(r'<a href="mailto:" data-contact>Contact</a>', "", text)
-
-
 def main():
     page = (HERE / "grid.html").read_text(encoding="utf-8")
     head, marker, body = page.partition(PAGE_START)
@@ -132,7 +120,7 @@ def main():
     versions["worker.js"] = version(SITE / "worker.js")
     for name in PAGES + ("grid.html",):
         path = SITE / name
-        path.write_text(contact(stamp(path.read_text(encoding="utf-8"), versions)), encoding="utf-8")
+        path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included
 

@@ -81,6 +81,20 @@ service cloud.firestore {
         && (request.resource.data.uid == "" || (signedIn() && request.resource.data.uid == request.auth.uid));
     }
 
+    // Messages from the contact page: anyone may leave one, nobody reads them here; the Firebase console
+    // is where they are read. Nothing is sent on to anyone else.
+    match /messages/{message} {
+      allow create: if request.resource.data.keys().hasOnly(["name", "email", "message", "at", "agent", "uid"])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 4000
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.at is number
+        && request.resource.data.agent is string && request.resource.data.agent.size() <= 200
+        && request.resource.data.uid is string
+        && (request.resource.data.uid == "" || (signedIn() && request.resource.data.uid == request.auth.uid));
+    }
+
     // Each account's puzzles: only that account can read or write them.
     match /users/{uid}/puzzles/{puzzleId} {
       allow read, delete: if owns(uid);

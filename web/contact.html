@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact · fillmein</title>
+<meta name="description" content="Send a message to the people who make fillmein.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { margin: 0; }
+  .prose { max-width: 60ch; display: grid; gap: 14px; }
+  .prose h1 { margin: 0 0 6px; font: 600 32px / 1.15 var(--serif); }
+  .prose p { margin: 0; line-height: 1.55; }
+  .prose .lede-line { color: var(--muted); }
+
+  .contact-form { display: grid; gap: 16px; margin-top: 8px; }
+  .field-block { display: grid; gap: 5px; }
+  .field-block .caption { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .field-block .optional { font-weight: 400; color: var(--muted); }
+  .field-block input, .field-block textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--cell);
+    color: var(--ink);
+    font: 400 15px / 1.5 var(--sans);
+    resize: vertical;
+  }
+  .field-block input:focus, .field-block textarea:focus {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent);
+  }
+  .field-block input::placeholder, .field-block textarea::placeholder { color: var(--muted); opacity: 0.7; }
+  /* Bots fill in every field they find; nobody else ever sees this one. */
+  .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .form-message { margin: 0; padding: 10px 13px; border-radius: 8px; font-size: 14px; line-height: 1.45; }
+  .form-message:empty { display: none; }
+  .form-message[data-tone="error"] { background: var(--score-lo-bg); color: var(--score-lo); }
+  #send { justify-self: start; min-height: 44px; padding-inline: 20px; }
+
+  .sent { display: grid; gap: 10px; justify-items: start; padding: 20px 22px; border: 1.5px solid var(--works-ink); border-radius: 10px; background: var(--works-bg); color: var(--works-ink); }
+  .sent h2 { margin: 0; font: 600 22px / 1.2 var(--serif); }
+  .sent p { margin: 0; font-size: 14px; }
+  .sent .btn { border-color: currentColor; color: inherit; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <div class="puzzle-bar">
+    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
+  </div>
+
+  <main class="prose">
+    <h1>Contact</h1>
+    <p class="lede-line">A question, something broken, a word the list should or shouldn't have: write it here and it comes straight to us.</p>
+
+    <form id="contact-form" class="contact-form" novalidate>
+      <label class="field-block"><span class="caption">Your name <span class="optional">optional</span></span>
+        <input id="from-name" type="text" maxlength="100" autocomplete="name">
+      </label>
+      <label class="field-block"><span class="caption">Your email <span class="optional">so we can write back</span></span>
+        <input id="from-email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com">
+      </label>
+      <label class="field-block"><span class="caption">Message</span>
+        <textarea id="body" rows="8" maxlength="4000" required placeholder="What's on your mind?"></textarea>
+      </label>
+      <div class="trap" aria-hidden="true"><label>Website<input id="trap" type="text" tabindex="-1" autocomplete="off"></label></div>
+      <p id="contact-message" class="form-message" role="alert"></p>
+      <button type="submit" id="send" class="btn primary">Send message</button>
+    </form>
+
+    <section id="sent" class="sent" hidden>
+      <h2>Message sent</h2>
+      <p id="reply-note"></p>
+      <p><a class="btn" href="index.html">Back to fillmein</a></p>
+    </section>
+  </main>
+
+  <footer class="site-foot"><a href="privacy.html">Privacy</a><a href="contact.html" aria-current="page">Contact</a></footer>
+</div>
+
+<script src="filler.js"></script>
+<script src="store.js"></script>
+<script type="module" src="account.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const form = $("contact-form");
+  const note = $("contact-message");
+  const send = $("send");
+  const SENT = "fillmein:messages-sent"; // when this browser last wrote, so a stuck key can't flood the box
+  const APART = 20000; // ms between messages
+  const A_DAY = 10;    // most messages from one browser in a day
+
+  const say = (text) => {
+    note.textContent = text;
+    note.dataset.tone = "error";
+  };
+  const recent = () => {
+    try {
+      const times = JSON.parse(localStorage.getItem(SENT));
+      return Array.isArray(times) ? times.filter((at) => Date.now() - at < 86400000) : [];
+    } catch (error) {
+      return [];
+    }
+  };
+  const remember = (times) => {
+    try { localStorage.setItem(SENT, JSON.stringify(times)); } catch (error) { /* storage unavailable */ }
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = $("body").value.trim();
+    if (!message) {
+      say("Write a message first.");
+      $("body").focus();
+      return;
+    }
+    const email = $("from-email").value.trim();
+    if (email && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
+      say("That doesn't look like an email address. Leave it empty if you'd rather not give one.");
+      $("from-email").focus();
+      return;
+    }
+    const times = recent();
+    if (times.length >= A_DAY) {
+      say("That's a lot of messages from this browser today. Try again tomorrow, and we'll have read the others by then.");
+      return;
+    }
+    if (times.length && Date.now() - times[times.length - 1] < APART) {
+      say("Just a moment: that last one is still on its way.");
+      return;
+    }
+    // A bot filled the hidden field. Say nothing useful, and write nothing.
+    if ($("trap").value) {
+      form.hidden = true;
+      $("sent").hidden = false;
+      $("reply-note").textContent = "Thanks.";
+      return;
+    }
+
+    note.textContent = "";
+    send.disabled = true;
+    send.textContent = "Sending…";
+    try {
+      const fs = await window.Fillmein.loadFirestore();
+      const user = window.Fillmein.user();
+      await fs.addDoc(fs.collection(fs.getFirestore(window.Fillmein.app), "messages"), {
+        name: $("from-name").value.trim().slice(0, 100),
+        email: email.slice(0, 200),
+        message: message.slice(0, 4000),
+        at: Date.now(),
+        agent: navigator.userAgent.slice(0, 200),
+        uid: user ? user.uid : "",
+      });
+      remember([...times, Date.now()]);
+      form.hidden = true;
+      $("sent").hidden = false;
+      // The only sign the message went anywhere, so the page does say this much.
+      $("reply-note").textContent = email
+        ? `Thanks. We read every one of these, and we'll write back to ${email}.`
+        : "Thanks. We read every one of these. You didn't leave an email, so we can't write back.";
+    } catch (error) {
+      say("That didn't send. Check your connection and try again.");
+    } finally {
+      send.disabled = false;
+      send.textContent = "Send message";
+    }
+  });
+})();
+</script>
+</body>
+</html>
