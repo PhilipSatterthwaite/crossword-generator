@@ -41,7 +41,7 @@ CSP = (
     "font-src https://fonts.gstatic.com; "
     "img-src 'self' data:{counting_img}; "
     "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com{counting_connect}; "
-    "frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
+    "frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
     "worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
 )
 # Counting visitors: Google Analytics, loaded by account.js, and the beacon Cloudflare puts in the page
