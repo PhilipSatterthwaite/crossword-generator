@@ -248,12 +248,6 @@
   .option-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line-soft); }
   .option-row .option { border-bottom: 0; }
   .option-edit { flex: none; display: flex; align-items: center; gap: 4px; padding-right: 8px; }
-  /* Score and Remove show for the row under the pointer or the keyboard; a touch screen has no
-     pointer to hover with, so there they stay. */
-  @media (hover: hover) {
-    .option-edit { visibility: hidden; }
-    .option-row:hover .option-edit, .option-row:focus-within .option-edit { visibility: visible; }
-  }
   .option-edit button {
     min-height: 28px;
     padding: 6px 8px;
@@ -391,7 +385,7 @@
       <div id="grid-wrap" class="grid-wrap">
         <div id="grid" role="grid" aria-label="Crossword grid"></div>
         <input id="grid-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-               aria-label="Grid cursor. Type letters, Space toggles a block, arrow keys move, Enter switches direction."
+               aria-label="Grid cursor. Type letters, Space blanks a square, period toggles a block, arrow keys move, Enter switches direction."
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
@@ -400,7 +394,7 @@
         <span><span class="swatch pencil" aria-hidden="true">A</span>Pencil: the autofill</span>
         <span><span class="swatch weak" aria-hidden="true"></span>Entry scoring under 50</span>
       </p>
-      <p class="keys">Type to ink a letter · <kbd>Space</kbd> adds or removes a block · <kbd>Backspace</kbd> erases, or opens a block · arrows move · <kbd>Enter</kbd> switches Across/Down · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
+      <p class="keys">Type to ink a letter · <kbd>Space</kbd> blanks a square · <kbd>.</kbd> adds or removes a block · <kbd>Backspace</kbd> erases, and opens a block it backs onto · arrows move · <kbd>Enter</kbd> switches Across/Down · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
     </section>
 
     <aside class="panel" aria-label="Selected entry">
@@ -1269,6 +1263,19 @@
 
   // --- editing ---
 
+  /* Space: the square becomes a blank, open with no letter. A block opens up and the cursor stays on it;
+     a letter is cleared and the cursor moves on, the way typing does. */
+  function blankSquare(i) {
+    if (blocks[i]) {
+      setBlock(i, false);
+      return;
+    }
+    ink[i] = "";
+    pencil[i] = "";
+    const next = step(i, dir, 1);
+    if (next >= 0 && !blocks[next]) sel = next;
+  }
+
   function typeLetter(letter) {
     edit(() => {
       if (blocks[sel]) setBlock(sel, false);
@@ -1285,9 +1292,12 @@
     if (/^[a-zA-Z]$/.test(key)) {
       event.preventDefault();
       typeLetter(key.toUpperCase());
-    } else if (key === " " || key === ".") {
+    } else if (key === ".") {
       event.preventDefault();
       edit(() => setBlock(sel, !blocks[sel]));
+    } else if (key === " ") {
+      event.preventDefault();
+      edit(() => blankSquare(sel));
     } else if (key === "Backspace" || key === "Delete") {
       event.preventDefault();
       edit(() => {
@@ -1297,7 +1307,13 @@
         }
         if (key === "Backspace" && !ink[sel] && !pencil[sel]) {
           const prev = step(sel, dir, -1);
-          if (prev >= 0 && !blocks[prev]) sel = prev;
+          if (prev >= 0) {
+            sel = prev;
+            if (blocks[sel]) {
+              setBlock(sel, false); // backing onto a block opens it up
+              return;
+            }
+          }
         }
         ink[sel] = "";
         pencil[sel] = "";
@@ -1324,7 +1340,8 @@
     input.value = "";
     for (const ch of typed) {
       if (/[A-Z]/.test(ch)) typeLetter(ch);
-      else if (ch === " " || ch === ".") edit(() => setBlock(sel, !blocks[sel]));
+      else if (ch === ".") edit(() => setBlock(sel, !blocks[sel]));
+      else if (ch === " ") edit(() => blankSquare(sel));
     }
   });
 

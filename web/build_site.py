@@ -29,12 +29,14 @@ ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "list
 CONTACT = "nocluexword@gmail.com"
 
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
-# Scripts: the site's own, Firebase from gstatic, and each page's inline script by its hash, so an inline
+# Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
+# into the page to run the sign-in popup; without it sign-in fails with auth/internal-error), and each
+# page's inline script by its hash, so an inline
 # handler such as onerror= in someone's text could never run. Styles allow inline because the pages set
 # them from script (a cell's position, a grid's column count).
 CSP = (
     "default-src 'self'; "
-    "script-src 'self' https://www.gstatic.com{counting_script} {hashes}; "
+    "script-src 'self' https://www.gstatic.com https://apis.google.com{counting_script} {hashes}; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src https://fonts.gstatic.com; "
     "img-src 'self' data:{counting_img}; "
