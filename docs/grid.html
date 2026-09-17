@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-eK8H4skbIDTTHtfM9+XE4p9XGOeo8uNp3XMCfOWtghY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-1Fp4QBKI51UkHJSl92kml9Ig2+G+CjRj3sH00k32j7Y='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <style>
@@ -1277,6 +1277,14 @@
 
   // --- editing ---
 
+  /* Period: the square becomes a block, or stops being one, and the cursor moves on the way typing does,
+     block or not, so a run of periods draws a run of blocks. */
+  function toggleBlock(i) {
+    setBlock(i, !blocks[i]);
+    const next = step(i, dir, 1);
+    if (next >= 0) sel = next;
+  }
+
   /* Space: the square becomes a blank, open with no letter. A block opens up and the cursor stays on it;
      a letter is cleared and the cursor moves on, the way typing does. */
   function blankSquare(i) {
@@ -1308,7 +1316,7 @@
       typeLetter(key.toUpperCase());
     } else if (key === ".") {
       event.preventDefault();
-      edit(() => setBlock(sel, !blocks[sel]));
+      edit(() => toggleBlock(sel));
     } else if (key === " ") {
       event.preventDefault();
       edit(() => blankSquare(sel));
@@ -1354,7 +1362,7 @@
     input.value = "";
     for (const ch of typed) {
       if (/[A-Z]/.test(ch)) typeLetter(ch);
-      else if (ch === ".") edit(() => setBlock(sel, !blocks[sel]));
+      else if (ch === ".") edit(() => toggleBlock(sel));
       else if (ch === " ") edit(() => blankSquare(sel));
     }
   });

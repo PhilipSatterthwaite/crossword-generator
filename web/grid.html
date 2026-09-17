@@ -1263,6 +1263,14 @@
 
   // --- editing ---
 
+  /* Period: the square becomes a block, or stops being one, and the cursor moves on the way typing does,
+     block or not, so a run of periods draws a run of blocks. */
+  function toggleBlock(i) {
+    setBlock(i, !blocks[i]);
+    const next = step(i, dir, 1);
+    if (next >= 0) sel = next;
+  }
+
   /* Space: the square becomes a blank, open with no letter. A block opens up and the cursor stays on it;
      a letter is cleared and the cursor moves on, the way typing does. */
   function blankSquare(i) {
@@ -1294,7 +1302,7 @@
       typeLetter(key.toUpperCase());
     } else if (key === ".") {
       event.preventDefault();
-      edit(() => setBlock(sel, !blocks[sel]));
+      edit(() => toggleBlock(sel));
     } else if (key === " ") {
       event.preventDefault();
       edit(() => blankSquare(sel));
@@ -1340,7 +1348,7 @@
     input.value = "";
     for (const ch of typed) {
       if (/[A-Z]/.test(ch)) typeLetter(ch);
-      else if (ch === ".") edit(() => setBlock(sel, !blocks[sel]));
+      else if (ch === ".") edit(() => toggleBlock(sel));
       else if (ch === " ") edit(() => blankSquare(sel));
     }
   });
