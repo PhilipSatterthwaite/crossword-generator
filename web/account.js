@@ -530,8 +530,11 @@ function buildDialog() {
     message.textContent = text;
     message.dataset.tone = tone;
   };
+  /* Grey out the form while something is in flight — everything except the way out. Google's popup can
+     leave its promise unsettled for good when someone dismisses it (the browser's opener rules stop
+     Firebase seeing the window go), and a disabled X would leave the dialog with no way to close. */
   const busy = (label) => {
-    for (const element of form.querySelectorAll("button, input")) element.disabled = Boolean(label);
+    for (const element of form.querySelectorAll("button:not([data-close]), input")) element.disabled = Boolean(label);
     submit.textContent = label || MODES[mode].submit;
   };
   const finish = () => {
@@ -561,6 +564,13 @@ function buildDialog() {
   box.querySelector("[data-close]").addEventListener("click", () => box.close());
   box.addEventListener("click", (event) => {
     if (event.target === box) box.close(); // a click on the backdrop
+  });
+  // However it closed, the form is put back in order, so a sign-in abandoned halfway doesn't leave the
+  // next one greyed out and still saying it's waiting for Google.
+  box.addEventListener("close", () => {
+    busy(null);
+    showPassword(false);
+    say("");
   });
   box.querySelector(".sign-in-modes").addEventListener("click", (event) => {
     const option = event.target.closest("[data-mode]");
