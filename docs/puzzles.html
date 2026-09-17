@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-j9einygaPuv+PAsQGHI8/+t7XHEMTClrwFZPfl7bvjQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-PLg14kM5d4zPidPd9Hl74Rt+ewFv4ls8I+IglWT0vZ8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My puzzles · fillmein</title>
 <meta name="description" content="Every crossword you have started, in folders you can open, nest, sort and rename.">
@@ -41,7 +41,8 @@
   .crumb:hover { background: var(--hover); transform: translateY(-1px); }
   .crumb[aria-current="page"] { background: var(--chip); cursor: default; }
   .crumb.over { background: var(--word); transform: scale(1.08); box-shadow: inset 0 0 0 2px var(--focus); }
-  .address .sep { color: var(--muted); }
+  .address .sep { display: inline-flex; color: var(--muted); }
+  .address .sep svg { width: 12px; height: 12px; }
 
   .panes { display: grid; grid-template-columns: 224px minmax(0, 1fr); }
   .panes[data-tree="false"] { grid-template-columns: minmax(0, 1fr); }
@@ -178,6 +179,8 @@
   const OPEN_KEY = "fillmein:folders-open";
 
   let here = "";          // the folder being looked at; "" is the top
+  const TOP = "All puzzles"; // what the address bar calls the top, which isn't a folder of its own
+  const CHEVRON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   let picked = null;      // {kind: "folder" | "puzzle", id} — a folder's id is its whole path
   let clip = null;        // {mode: "cut" | "copy", kind, id}
   let renaming = null;    // what is being renamed, so a redraw does not interrupt it
@@ -670,19 +673,16 @@
     const names = here.split("/").filter(Boolean);
     names.forEach((_, i) => expanded.add(names.slice(0, i + 1).join("/")));
 
-    // Address bar: the folder you're in and the folders above it, every crumb taking a drop. At the top
-    // there's nothing to name, so the bar goes away.
+    // Address bar, the way a file explorer draws one: a chevron, then the top, then a chevron and each
+    // folder on the way down. Every crumb takes a drop.
     const address = $("address");
     address.replaceChildren();
-    address.hidden = !names.length;
-    const steps = names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }));
-    steps.forEach((step, i) => {
-      if (i) {
-        const sep = document.createElement("span");
-        sep.className = "sep";
-        sep.textContent = "›";
-        address.append(sep);
-      }
+    const steps = [{ folder: "", name: TOP }, ...names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }))];
+    steps.forEach((step) => {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.innerHTML = CHEVRON;
+      address.append(sep);
       const crumb = document.createElement("button");
       crumb.type = "button";
       crumb.className = "crumb";

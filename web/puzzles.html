@@ -40,7 +40,8 @@
   .crumb:hover { background: var(--hover); transform: translateY(-1px); }
   .crumb[aria-current="page"] { background: var(--chip); cursor: default; }
   .crumb.over { background: var(--word); transform: scale(1.08); box-shadow: inset 0 0 0 2px var(--focus); }
-  .address .sep { color: var(--muted); }
+  .address .sep { display: inline-flex; color: var(--muted); }
+  .address .sep svg { width: 12px; height: 12px; }
 
   .panes { display: grid; grid-template-columns: 224px minmax(0, 1fr); }
   .panes[data-tree="false"] { grid-template-columns: minmax(0, 1fr); }
@@ -177,6 +178,8 @@
   const OPEN_KEY = "fillmein:folders-open";
 
   let here = "";          // the folder being looked at; "" is the top
+  const TOP = "All puzzles"; // what the address bar calls the top, which isn't a folder of its own
+  const CHEVRON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   let picked = null;      // {kind: "folder" | "puzzle", id} — a folder's id is its whole path
   let clip = null;        // {mode: "cut" | "copy", kind, id}
   let renaming = null;    // what is being renamed, so a redraw does not interrupt it
@@ -669,19 +672,16 @@
     const names = here.split("/").filter(Boolean);
     names.forEach((_, i) => expanded.add(names.slice(0, i + 1).join("/")));
 
-    // Address bar: the folder you're in and the folders above it, every crumb taking a drop. At the top
-    // there's nothing to name, so the bar goes away.
+    // Address bar, the way a file explorer draws one: a chevron, then the top, then a chevron and each
+    // folder on the way down. Every crumb takes a drop.
     const address = $("address");
     address.replaceChildren();
-    address.hidden = !names.length;
-    const steps = names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }));
-    steps.forEach((step, i) => {
-      if (i) {
-        const sep = document.createElement("span");
-        sep.className = "sep";
-        sep.textContent = "›";
-        address.append(sep);
-      }
+    const steps = [{ folder: "", name: TOP }, ...names.map((name, i) => ({ folder: names.slice(0, i + 1).join("/"), name }))];
+    steps.forEach((step) => {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.innerHTML = CHEVRON;
+      address.append(sep);
       const crumb = document.createElement("button");
       crumb.type = "button";
       crumb.className = "crumb";
