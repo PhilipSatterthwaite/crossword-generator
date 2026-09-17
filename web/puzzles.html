@@ -76,6 +76,7 @@
   .item[aria-selected="true"] { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); }
   .item.over { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); animation: nudge 0.7s ease-in-out infinite; }
   .item.dragging { opacity: 0.4; transform: scale(0.98); }
+  .item.cut { opacity: 0.52; }
   .item.landed { animation: landed 0.5s cubic-bezier(0.2, 1.6, 0.4, 1); }
   .name { display: flex; align-items: center; gap: 11px; min-width: 0; }
   .name .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
@@ -156,7 +157,7 @@
       </div>
     </div>
 
-    <div class="statusbar"><span id="count"></span><span id="chosen"></span></div>
+    <div class="statusbar"><span id="count"></span><span id="chosen"></span><span id="clipnote"></span></div>
   </div>
   <footer class="site-foot"><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
 </div>
@@ -178,6 +179,8 @@
   const TOP = "All puzzles"; // what the address bar calls the top, which isn't a folder of its own
   const CHEVRON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   let picked = null;      // {kind: "folder" | "puzzle", id} — a folder's id is its whole path
+  let clip = null;        // {mode: "cut" | "copy", kind, id} held for pasting; no toolbar button, so Ctrl+X,
+                          // Ctrl+C and Ctrl+V and the right-click menu are the ways to it
   let renaming = null;    // what is being renamed, so a redraw does not interrupt it
   let landed = null;      // a folder something was just dropped into, so it can bounce
   let menu = null;
@@ -348,6 +351,60 @@
     });
   }
 
+  // --- cut, copy and paste ---
+
+  function holdIt(mode) {
+    if (!picked) return;
+    clip = { mode, kind: picked.kind, id: picked.id };
+    render();
+  }
+
+  function pasteInto(folder) {
+    if (!clip) return;
+    const puzzles = puzzlesNow();
+    const folders = foldersNow(puzzles);
+    if (clip.kind === "puzzle") {
+      if (clip.mode === "cut") {
+        S.setFolder(clip.id, folder);
+        picked = { kind: "puzzle", id: clip.id };
+        clip = null;
+      } else {
+        const copy = S.duplicate(clip.id, folder);
+        if (!copy) return;
+        const was = puzzles.find((puzzle) => puzzle.id === clip.id);
+        S.setTitle(copy, `${was ? was.title : "Untitled puzzle"} copy`);
+        picked = { kind: "puzzle", id: copy };
+      }
+    } else {
+      const from = clip.id;
+      if (within(from, folder)) return; // a folder cannot go inside itself
+      if (clip.mode === "cut") {
+        if (parentOf(from) !== folder) picked = { kind: "folder", id: S.moveFolder(from, folder) };
+        clip = null;
+      } else {
+        const target = [folder, freeName(folder, nameOf(from), folders)].filter(Boolean).join("/");
+        S.addFolder(target);
+        for (const other of folders) {
+          if (other !== from && within(from, other)) S.addFolder(target + other.slice(from.length));
+        }
+        for (const puzzle of puzzles) {
+          if (within(from, puzzle.folder)) S.duplicate(puzzle.id, target + puzzle.folder.slice(from.length));
+        }
+        picked = { kind: "folder", id: target };
+      }
+    }
+    if (folder) {
+      landed = folder;
+      expanded.add(folder);
+      saveOpen();
+    }
+    render();
+  }
+
+  /* Pasting with a folder picked out puts things in it; otherwise into the folder you are looking at. */
+  const pasteWhere = () => (picked && picked.kind === "folder" ? picked.id : here);
+  const canPaste = () => Boolean(clip) && !(clip.kind === "folder" && within(clip.id, pasteWhere()));
+
   // --- what you can do with the thing you picked ---
 
   function choose(kind, id) {
@@ -364,6 +421,9 @@
     const has = Boolean(picked);
     for (const button of ["open", "rename", "remove"]) $(button).disabled = !has;
     $("chosen").textContent = has ? "1 selected" : "";
+    $("clipnote").textContent = clip
+      ? `${clip.mode === "cut" ? "Ready to move" : "Ready to copy"}: ${clip.kind === "folder" ? nameOf(clip.id) : "1 puzzle"}`
+      : "";
   }
 
   /* A copy of whatever is picked, beside the original: a puzzle with its grid, clues and details, or a
@@ -467,6 +527,7 @@
       for (const puzzle of inside) S.setFolder(puzzle.id, out);
       S.removeFolder(folder);
       if (within(folder, here)) here = out;
+      if (clip && clip.kind === "folder" && within(folder, clip.id)) clip = null;
       picked = null;
       render();
       return;
@@ -477,6 +538,7 @@
       text: `Its grid, clues and details go for good${window.Fillmein && window.Fillmein.user() ? ", on every device signed in to your account" : ""}. This cannot be undone.`,
     });
     if (!sure) return;
+    if (clip && clip.kind === "puzzle" && clip.id === picked.id) clip = null;
     S.remove(picked.id);
     picked = null;
     render();
@@ -509,6 +571,10 @@
     add("Rename", renamePicked);
     add(folderPicked ? "Duplicate folder" : "Duplicate", duplicatePicked);
     menu.append(document.createElement("hr"));
+    add("Cut", () => holdIt("cut"));
+    add("Copy", () => holdIt("copy"));
+    add(folderPicked ? "Paste into folder" : "Paste", () => pasteInto(pasteWhere()), !canPaste());
+    menu.append(document.createElement("hr"));
     add("Delete", deletePicked);
     document.body.append(menu);
     menu.style.left = `${Math.min(x, window.innerWidth - menu.offsetWidth - 8)}px`;
@@ -529,6 +595,7 @@
     item.id = `item-${index}`;
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", "false");
+    if (clip && clip.mode === "cut" && clip.kind === kind && clip.id === id) item.classList.add("cut");
 
     const label = document.createElement("span");
     label.className = "entry-name";
@@ -627,6 +694,7 @@
     const puzzles = puzzlesNow();
     const folders = foldersNow(puzzles);
     if (here && !folders.includes(here)) here = "";
+    if (clip && clip.kind === "folder" && !folders.includes(clip.id)) clip = null;
     // Keep the way down to wherever you are open in the tree.
     const names = here.split("/").filter(Boolean);
     names.forEach((_, i) => expanded.add(names.slice(0, i + 1).join("/")));
@@ -691,7 +759,7 @@
     if (!items.children.length) {
       const empty = document.createElement("li");
       empty.className = "empty-note";
-      empty.textContent = here ? "This folder is empty. Drag puzzles onto it to file them here." : "No puzzles yet.";
+      empty.textContent = here ? "This folder is empty. Drag puzzles onto it, or paste them in." : "No puzzles yet.";
       items.append(empty);
     }
     landed = null;
@@ -753,7 +821,20 @@
     const target = event.target;
     if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (document.querySelector("dialog[open]")) return;
-    if (event.ctrlKey || event.metaKey) return;
+    if (event.ctrlKey || event.metaKey) {
+      const key = event.key.toLowerCase();
+      if (key === "c" && picked) {
+        event.preventDefault();
+        holdIt("copy");
+      } else if (key === "x" && picked) {
+        event.preventDefault();
+        holdIt("cut");
+      } else if (key === "v" && canPaste()) {
+        event.preventDefault();
+        pasteInto(pasteWhere());
+      }
+      return;
+    }
     // Arrow keys walk the list once it has the focus (a click on a row gives it that, as does Tab).
     if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && document.activeElement === $("items")) {
       const rows = [...document.querySelectorAll("#items .item")];
@@ -782,6 +863,7 @@
       picked = null;
       render();
     } else if (event.key === "Escape") {
+      clip = null;
       choose(null, null);
     }
   });
