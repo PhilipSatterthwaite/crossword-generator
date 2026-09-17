@@ -57,10 +57,15 @@
   .save-note { margin: 0; max-width: 46ch; font-size: 13px; color: var(--muted); }
 
   .preview-head { margin: 0 0 10px; }
-  /* On screen each printed page is a sheet of paper; it stays white in dark mode too. */
+  /* On screen each printed page is a sheet of letter paper, laid out at full size and scaled down to fit
+     the column (from script), so what you see is what prints. It stays white in dark mode too. */
   #paper { display: grid; gap: 24px; }
   #paper .print-page {
-    padding: clamp(18px, 6%, 52px);
+    box-sizing: border-box;
+    width: 8.5in;
+    min-height: 11in;
+    padding: 0.4in;
+    transform-origin: top left;
     background: #fff;
     color: #000;
     box-shadow: 0 1px 2px rgba(20, 23, 28, 0.18), 0 10px 28px rgba(20, 23, 28, 0.12);
@@ -89,15 +94,23 @@
     .export-side { position: static; }
   }
 
-  /* The printed puzzle: blank grid and clues, then the answer key. */
+  /* The printed puzzle: the grid with the title beside it and the clues below in narrow columns, so a
+     15×15 fits one sheet of letter paper; then the answer key. */
   .print-page + .print-page { break-before: page; }
-  .print-head h1 { margin: 0; font: 600 20pt / 1.2 var(--serif); }
-  .print-head p { margin: 2pt 0 0; font: 10pt var(--sans); }
+  .print-top { display: flex; flex-wrap: wrap; gap: 10pt 0.25in; align-items: flex-start; margin: 0 0 8pt; }
+  .print-beside, .print-top > .print-head { flex: 1 1 1.6in; min-width: 0; }
+  .print-beside .print-clues-part { margin-top: 8pt; font: 7.5pt / 1.2 var(--serif); }
+  .print-beside .print-clues-part h2 { margin: 0 0 3pt; font: 700 8.5pt var(--sans); }
+  .print-beside .print-clues-part p { margin: 0 0 1.5pt; }
+  .print-beside .print-clues-part b { display: inline-block; min-width: 1.6em; font-family: var(--sans); }
+  .print-head h1 { margin: 0; font: 600 16pt / 1.15 var(--serif); }
+  .print-head p { margin: 3pt 0 0; font: 9pt / 1.3 var(--sans); }
   .print-grid {
+    flex: none;
     display: grid;
     grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
     width: min(100%, calc(var(--cols) * 0.34in));
-    margin: 12pt 0 14pt;
+    margin: 0;
     border: 1.5pt solid #000;
     container-type: inline-size;
     print-color-adjust: exact;
@@ -118,17 +131,19 @@
   .print-grid .pr:last-child .pc { border-bottom: 0; }
   .print-grid .pc.b { background: #000; }
   .print-grid .pn { position: absolute; top: 1pt; left: 2pt; font: 600 calc(100cqi / var(--cols) * 0.2) / 1 var(--sans); }
-  .print-clues { columns: 2; column-gap: 0.35in; font: 10pt / 1.3 var(--serif); }
-  .print-clues h2 { margin: 0 0 4pt; font: 700 11pt var(--sans); break-after: avoid; }
-  .print-clues p { margin: 0 0 3pt; break-inside: avoid; }
-  .print-clues b { display: inline-block; min-width: 1.8em; font-family: var(--sans); }
-  .print-note { margin-top: 10pt; font: 9pt var(--sans); }
-  #print-sheet { display: none; }
+  .print-clues { columns: 4; column-gap: 0.2in; font: 7.5pt / 1.15 var(--serif); }
+  .print-clues h2 { margin: 0 0 3pt; font: 700 8.5pt var(--sans); break-after: avoid; }
+  .print-clues h2 + p { break-before: avoid; }
+  .print-clues p { margin: 0 0 1pt; break-inside: avoid; }
+  .print-clues b { display: inline-block; min-width: 1.6em; font-family: var(--sans); }
+  .print-note { margin-top: 6pt; font: 8pt / 1.3 var(--sans); }
+  /* Off screen but laid out at paper width, so the clues can be measured against the grid before printing. */
+  #print-sheet { position: absolute; left: -100in; top: 0; width: 7.7in; visibility: hidden; }
   @media print {
-    @page { margin: 0.6in; }
+    @page { size: letter; margin: 0.4in; }
     body { background: #fff !important; color: #000 !important; padding: 0 !important; }
     .page { display: none !important; }
-    #print-sheet { display: block; color: #000; }
+    #print-sheet { position: static; width: auto; visibility: visible; color: #000; }
   }
 </style>
 </head>
@@ -273,6 +288,8 @@
 
     for (const kind of ["puz", "jpz"]) document.querySelector(`[data-export="${kind}"]`).disabled = empty > 0;
     $("paper").innerHTML = X.toPrintHtml(puzzle);
+    fitSheet($("paper"));
+    scalePreview();
   }
 
   const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
@@ -318,9 +335,50 @@
     }
   });
 
+  /* The space beside the grid takes the title and then as many clues as fit, one column, measured
+     rather than guessed; the rest run in columns underneath. That's what puts a 15×15 and its clues on
+     one sheet. Works on the preview and on the sheet that prints, each at its own width. */
+  function fitSheet(sheet) {
+    const top = sheet.querySelector(".print-top");
+    const gridBox = top && top.querySelector(".print-grid");
+    const list = sheet.querySelector(".print-clues");
+    if (!top || !gridBox || !list) return;
+    const beside = document.createElement("div");
+    beside.className = "print-beside";
+    beside.append(top.querySelector(".print-head"));
+    const part = document.createElement("div");
+    part.className = "print-clues-part";
+    beside.append(part);
+    top.append(beside);
+    const limit = gridBox.getBoundingClientRect().height;
+    for (const line of [...list.children]) {
+      part.append(line);
+      if (beside.getBoundingClientRect().height > limit) {
+        list.prepend(line);
+        break;
+      }
+    }
+    // A heading with nothing under it goes back down with its clues.
+    if (part.lastElementChild && part.lastElementChild.tagName === "H2") list.prepend(part.lastElementChild);
+    if (!part.children.length) part.remove();
+  }
+
+  /* The preview sheets are laid out at paper size and shrunk to the column's width. A scaled element
+     still takes its full height in the flow, so the space it no longer needs is taken back. */
+  function scalePreview() {
+    const paper = $("paper");
+    const scale = Math.min(1, paper.getBoundingClientRect().width / (8.5 * 96));
+    for (const sheet of paper.querySelectorAll(".print-page")) {
+      sheet.style.transform = `scale(${scale})`;
+      sheet.style.marginBottom = `${Math.round((scale - 1) * sheet.offsetHeight)}px`;
+    }
+  }
+  new ResizeObserver(scalePreview).observe($("paper"));
+
   $("print-puzzle").addEventListener("click", () => {
     if (!grid) return;
     $("print-sheet").innerHTML = X.toPrintHtml(S.puzzle(grid, clues, details));
+    fitSheet($("print-sheet"));
     try {
       window.print();
     } catch (error) {

@@ -740,6 +740,7 @@
   function buildGrid() {
     gridWrap.style.setProperty("--cols", W);
     gridWrap.style.setProperty("--rows", H);
+    snapGrid();
     gridEl.setAttribute("aria-label", `Crossword grid, ${W} columns by ${H} rows`);
     const html = [];
     for (let r = 0; r < H; r++) {
@@ -2108,6 +2109,27 @@
     });
     input.addEventListener("blur", () => finish(true));
   }, true);
+
+  // --- the grid's size ---
+
+  /* Cells an exact number of device pixels wide, so every grid line lands on a pixel and the rows agree.
+     With fractional widths a highlighted row's backgrounds snap to different pixels from its neighbours'
+     borders, and the lines look jagged. Starts from the width the stylesheet would give. */
+  function snapGrid() {
+    gridWrap.style.width = "";
+    const dpr = window.devicePixelRatio || 1;
+    const cell = Math.floor(((gridWrap.getBoundingClientRect().width - 4) / W) * dpr) / dpr; // 4: the grid's own border
+    if (cell > 0) gridWrap.style.width = `${cell * W + 4}px`;
+  }
+  new ResizeObserver(snapGrid).observe(document.querySelector(".board"));
+  window.addEventListener("resize", snapGrid);
+  // Zooming, or moving the window to a screen with a different scale, changes what a device pixel is.
+  (function watchScale() {
+    matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener("change", () => {
+      snapGrid();
+      watchScale();
+    }, { once: true });
+  })();
 
   // --- the panel beside the grid ---
 

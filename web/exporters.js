@@ -182,8 +182,9 @@ ${clueXml(down, "Down", across.length + 1)}
 
   // --- printable sheet ---
 
-  /* Two pages of HTML: the blank puzzle with its clues, then the answer key.
-     The page supplies the print styles (.print-page, .print-grid, .print-clues). */
+  /* Two pages of HTML: the blank puzzle with its clues, then the answer key. The title, byline and
+     notes sit beside the grid, so a 15×15 and its clues fit on one sheet of letter paper.
+     The page supplies the print styles (.print-page, .print-top, .print-grid, .print-clues). */
   function toPrintHtml(puzzle) {
     const { width, height, cells } = puzzle;
     const nums = numbers(puzzle);
@@ -205,11 +206,10 @@ ${clueXml(down, "Down", across.length + 1)}
     const title = escapeXml(puzzle.title || "Untitled");
     const byline = [puzzle.author ? `By ${escapeXml(puzzle.author)}` : "", escapeXml(puzzle.copyright)].filter(Boolean).join(" · ");
     return (
-      `<section class="print-page"><header class="print-head"><h1>${title}</h1>${byline ? `<p>${byline}</p>` : ""}</header>` +
-      grid(false) +
+      `<section class="print-page"><div class="print-top">${grid(false)}<header class="print-head"><h1>${title}</h1>${byline ? `<p>${byline}</p>` : ""}` +
+      (puzzle.notes ? `<p class="print-note">${escapeXml(puzzle.notes)}</p>` : "") + "</header></div>" +
       `<div class="print-clues">${clueList("across", "Across")}${clueList("down", "Down")}</div>` +
-      (puzzle.notes ? `<p class="print-note">${escapeXml(puzzle.notes)}</p>` : "") +
-      `</section><section class="print-page"><header class="print-head"><h1>${title}: answers</h1></header>${grid(true)}</section>`
+      `</section><section class="print-page"><div class="print-top">${grid(true)}<header class="print-head"><h1>${title}: answers</h1></header></div></section>`
     );
   }
 

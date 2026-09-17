@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-yfNjYHCdav0zGv7PzgRgyhO14EEVdDUWAj+G/36+ru8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-NxSBaM6sk4QEnEF1wQDowNPJ74vmjODb2VoIKjYpXq8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <style>
@@ -754,6 +754,7 @@
   function buildGrid() {
     gridWrap.style.setProperty("--cols", W);
     gridWrap.style.setProperty("--rows", H);
+    snapGrid();
     gridEl.setAttribute("aria-label", `Crossword grid, ${W} columns by ${H} rows`);
     const html = [];
     for (let r = 0; r < H; r++) {
@@ -2122,6 +2123,27 @@
     });
     input.addEventListener("blur", () => finish(true));
   }, true);
+
+  // --- the grid's size ---
+
+  /* Cells an exact number of device pixels wide, so every grid line lands on a pixel and the rows agree.
+     With fractional widths a highlighted row's backgrounds snap to different pixels from its neighbours'
+     borders, and the lines look jagged. Starts from the width the stylesheet would give. */
+  function snapGrid() {
+    gridWrap.style.width = "";
+    const dpr = window.devicePixelRatio || 1;
+    const cell = Math.floor(((gridWrap.getBoundingClientRect().width - 4) / W) * dpr) / dpr; // 4: the grid's own border
+    if (cell > 0) gridWrap.style.width = `${cell * W + 4}px`;
+  }
+  new ResizeObserver(snapGrid).observe(document.querySelector(".board"));
+  window.addEventListener("resize", snapGrid);
+  // Zooming, or moving the window to a screen with a different scale, changes what a device pixel is.
+  (function watchScale() {
+    matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener("change", () => {
+      snapGrid();
+      watchScale();
+    }, { once: true });
+  })();
 
   // --- the panel beside the grid ---
 
