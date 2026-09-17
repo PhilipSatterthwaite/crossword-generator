@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-adJLHi7cpslCENntInCRw5x0MW0LKleTYnujWLcdI1Y='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-TVC2xFb8EmMs3k2gXZPUmwf+Zn3ZSHdXpaPEx0EPtKo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <style>
@@ -138,19 +138,11 @@
   .fill-settings { gap: 8px 10px; font-size: 13px; }
   .fill-settings .range input { width: 100px; }
   .fill-settings .number { width: 3.6em; }
-  .entry-card { display: grid; gap: 10px; }
-  .entry-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 600 18px / 1.2 var(--serif); }
-  .pattern { display: flex; flex-wrap: wrap; gap: 2px; min-height: 26px; }
-  .pattern span {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    background: var(--cell);
-    border: 1px solid var(--rule);
-    font: 700 14px / 1 var(--sans);
-  }
-  .pattern .p { color: var(--pencil); font-weight: 500; }
+  /* The selected entry: its letters (pencil in blue, empty as dots), its score, and what can be done with it. */
+  .entry-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 32px; }
+  .entry-word { font: 700 17px / 1.2 var(--sans); letter-spacing: 0.1em; overflow-wrap: anywhere; }
+  .entry-row .actions { margin-left: auto; gap: 6px; }
+  .word-actions { display: contents; }
 
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -286,7 +278,6 @@
   }
   .option-edit button:hover { border-color: var(--ink); background: var(--hover); color: var(--ink); }
   .option-edit button.drop:hover { border-color: var(--score-lo); background: var(--score-lo-bg); color: var(--score-lo); }
-  .word-actions button { font-size: 13px; }
   .undo-note { display: inline-flex; align-items: center; gap: 8px; }
   .undo-note button { padding: 2px 7px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); color: var(--ink); font: 600 11px / 1.5 var(--sans); cursor: pointer; }
   .undo-note button:hover { border-color: var(--ink); background: var(--hover); }
@@ -418,14 +409,14 @@
       </section>
 
       <div class="entry-card">
-        <span class="label">Selected entry</span>
-        <div class="entry-title"><span id="sel-name">–</span><span id="sel-score"></span></div>
-        <div id="sel-letters" class="pattern" aria-hidden="true"></div>
-        <div class="actions">
-          <button type="button" id="keep" class="btn quiet">Ink the pencil letters</button>
-          <button type="button" id="clear-entry" class="btn quiet">Clear entry</button>
+        <div class="entry-row">
+          <span id="sel-name" class="w entry-word">–</span><span id="sel-score"></span>
+          <div class="actions">
+            <button type="button" id="keep" class="btn quiet small" title="Ink the pencil letters of this entry">Ink</button>
+            <button type="button" id="clear-entry" class="btn quiet small" title="Clear this entry">Clear</button>
+            <span id="word-actions" class="word-actions" hidden></span>
+          </div>
         </div>
-        <div id="word-actions" class="actions word-actions" hidden></div>
       </div>
       <section class="options" aria-labelledby="options-title">
         <div class="options-head">
@@ -847,16 +838,16 @@
     Object.assign(input.style, { left: `${(c / W) * 100}%`, top: `${(r / H) * 100}%`, width: `${100 / W}%`, height: `${100 / H}%` });
     $("cell-desc").textContent = describeCell(sel) + (k >= 0 ? `, in ${slots[k].name}` : "");
 
-    // Selected entry
+    // Selected entry: the letters as they stand, and a note if the word is used elsewhere too.
     if (k >= 0) {
       const slot = slots[k];
-      $("sel-name").textContent = `${slot.name} · ${slot.cells.length} letters${repeated.has(slot) ? ` · also at ${alsoAt(slot)}` : ""}`;
+      $("sel-name").innerHTML = letterSpans(slot.cells) + (repeated.has(slot) ? `<span class="tag dupe">also at ${alsoAt(slot)}</span>` : "");
+      $("sel-name").title = `${slot.name}, ${slot.cells.length} letters`;
       $("sel-score").innerHTML = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
-      $("sel-letters").innerHTML = slot.cells.map((i) => `<span class="${ink[i] ? "k" : pencil[i] ? "p" : "e"}">${ink[i] || pencil[i]}</span>`).join("");
     } else {
       $("sel-name").textContent = blocks[sel] ? "Block" : "Unchecked square";
+      $("sel-name").title = "";
       $("sel-score").innerHTML = "";
-      $("sel-letters").innerHTML = "";
     }
 
     // Entry lists
@@ -946,7 +937,7 @@
     return { list, total };
   }
 
-  /* The word filled into the selected entry, so it can be added to the list, rescored or dropped. */
+  /* The word filled into the selected entry: one button, to add it to the list or take it out. */
   function renderWordActions() {
     const box = $("word-actions");
     if (!box || !LISTS) return;
@@ -956,59 +947,28 @@
     box.replaceChildren();
     box.hidden = !word;
     if (!word) return;
-    const button = (label, onClick) => {
-      const element = document.createElement("button");
-      element.type = "button";
-      element.className = "btn quiet";
-      element.textContent = label;
-      element.addEventListener("click", onClick);
-      box.append(element);
-    };
-    const scoreBox = () => {
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = "0";
-      input.max = "100";
-      input.className = "option-score-input";
-      input.value = String(scoreOf(word) ?? 50);
-      input.setAttribute("aria-label", `Score for ${word}`);
-      const finish = async (keep) => {
-        const value = Number(input.value);
-        renderWordActions();
-        if (!keep || !Number.isFinite(value)) return;
-        await LISTS.setScore(listChoice.id, word, value);
-        await refreshWordList();
-      };
-      input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") finish(true);
-        else if (event.key === "Escape") finish(false);
-      });
-      input.addEventListener("blur", () => finish(true));
-      box.replaceChildren(input);
-      input.focus();
-      input.select();
-    };
-
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn quiet small";
     if (scoreOf(word) === null) {
-      button(`Add ${word} to the list`, async () => {
+      button.textContent = "Add to list";
+      button.title = `Add ${word} to the word list, scored 50`;
+      button.addEventListener("click", async () => {
         if (!(await ensureEditable())) return;
         await LISTS.setScore(listChoice.id, word, 50);
         await refreshWordList();
       });
-      button("Add with a score…", async () => {
-        if (await ensureEditable()) scoreBox();
-      });
     } else {
-      button(`Remove ${word} from the list`, async () => {
+      button.textContent = "Remove from list";
+      button.title = `Take ${word} out of the word list`;
+      button.addEventListener("click", async () => {
         if (!(await ensureEditable())) return;
         await LISTS.removeWord(listChoice.id, word);
         await refreshWordList();
         noteUndo(word);
       });
-      button("Score it…", async () => {
-        if (await ensureEditable()) scoreBox();
-      });
     }
+    box.append(button);
   }
 
   /* The built-in list is the one everyone starts from, so it stays as it is. Anything that would change
