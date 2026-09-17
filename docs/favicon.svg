@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="fillmein">
+  <!-- A crossword in miniature: nine squares, two of them blocks turned 180° from each other, and the
+       middle one the blue of a pencilled-in letter. The dark ground shows through as the grid's lines,
+       so at 16 pixels the lines are still a whole pixel wide. -->
+  <rect width="100" height="100" rx="10" fill="#14171C"/>
+  <g fill="#fff">
+    <rect x="7" y="7" width="24" height="24"/>
+    <rect x="38" y="7" width="24" height="24"/>
+    <rect x="7" y="38" width="24" height="24"/>
+    <rect x="69" y="38" width="24" height="24"/>
+    <rect x="38" y="69" width="24" height="24"/>
+    <rect x="69" y="69" width="24" height="24"/>
+  </g>
+  <rect x="38" y="38" width="24" height="24" fill="#2A5EA5"/>
+</svg>

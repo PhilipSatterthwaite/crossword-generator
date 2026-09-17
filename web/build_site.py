@@ -24,7 +24,9 @@ PAGE_START = '<div class="page">'
 PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html", "contact.html", "404.html")
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
-ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js", "exporters.js", "importers.js", "words.js", "social.png")
+ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
+          "exporters.js", "importers.js", "words.js", "social.png",
+          "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
 # into the page to run the sign-in popup; without it sign-in fails with auth/internal-error), and each
@@ -60,7 +62,9 @@ HEAD = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   body { margin: 0; }
   img { max-width: 100%; }
