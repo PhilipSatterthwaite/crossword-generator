@@ -342,6 +342,20 @@ body {
 .puzzle-title:hover:not(:disabled) { border-color: var(--rule); }
 .puzzle-title:focus { outline: none; border-color: var(--focus); background: var(--cell); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
 
+/* The bar across the top of the working pages: the wordmark, the way back, the puzzle's name, the tabs
+   between Grid, Clues and Export, and the account, in one line. */
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.topbar .wordmark { --wm: 28px; border-width: 1.5px; }
+.topbar .wordmark sup { display: none; }
+.topbar .puzzle-title { flex: 1 1 200px; padding: 4px 8px; font-size: 20px; }
+.topbar .tabs { margin: 0; align-items: center; gap: 4px; }
+.topbar .tab { padding: 7px 14px; border: 1.5px solid var(--rule); border-radius: 999px; font-size: 14px; }
+.topbar .tab[aria-current="page"] { border-color: var(--ink); }
+.topbar .account { align-self: center; min-height: 0; }
+@media (max-width: 640px) {
+  .topbar .puzzle-title { flex-basis: 100%; order: 9; }
+}
+
 /* Page tabs: they sit on the ruled line that tops each page's working area
    (the negative margin cancels .page's 28px gap below them). */
 .tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; margin-bottom: -28px; }

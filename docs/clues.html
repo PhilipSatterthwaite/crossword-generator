@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=3c5f6cb576">
+<link rel="stylesheet" href="theme.css?v=d80e70f9f3">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -96,26 +96,22 @@
 </head>
 <body>
 <div class="page">
-  <header class="masthead">
+  <header class="topbar">
     <a class="wordmark-link" href="index.html" aria-label="fillmein home">
       <span class="wordmark" aria-hidden="true">
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
-    <h1 class="lede">Write a clue for every entry. Changes on the Grid tab show up here as soon as you make them.</h1>
-    <div class="account" data-account></div>
-  </header>
-
-  <div class="puzzle-bar">
+    <h1 class="sr-only">Clues</h1>
     <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>All puzzles</a>
     <input id="puzzle-title" class="puzzle-title" type="text" placeholder="Name your puzzle" aria-label="Puzzle title" autocomplete="off" maxlength="120">
-  </div>
-
-  <nav class="tabs" aria-label="Pages">
-    <a class="tab" href="grid.html">Grid</a>
-    <a class="tab" href="clues.html" aria-current="page">Clues <span class="tab-count" data-count="clues"></span></a>
-    <a class="tab" href="export.html">Export</a>
-  </nav>
+    <nav class="tabs" aria-label="Pages">
+      <a class="tab" href="grid.html">Grid</a>
+      <a class="tab" href="clues.html" aria-current="page">Clues <span class="tab-count" data-count="clues"></span></a>
+      <a class="tab" href="export.html">Export</a>
+    </nav>
+    <div class="account" data-account></div>
+  </header>
 
   <div class="bar">
     <p id="progress" class="progress" aria-live="polite"></p>

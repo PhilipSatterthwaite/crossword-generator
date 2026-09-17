@@ -15,10 +15,12 @@
 <link rel="stylesheet" href="theme.css">
 <style>
 
-  /* Controls: grid-level tools in two ruled rows above the bench. */
-  .controls { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--rule); }
-  .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 12px; }
-  .control-row + .control-row { border-top: 1px solid var(--line-soft); }
+  .page { gap: 16px; }
+  /* Controls: grid-level tools in one ruled row above the bench; the autofill lives in the panel. */
+  .controls { border-block: 1px solid var(--line-soft); }
+  .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; }
+  .control-group { gap: 8px; }
+  #example { max-width: 190px; }
   .control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
   .times { color: var(--muted); }
   .range input { width: 130px; accent-color: var(--ink); }
@@ -27,9 +29,10 @@
   /* Bench: the grid, and the selected entry's word options beside it. */
   /* The options panel is wide enough for a 21-letter word with its score and buttons on one line; the
      grid takes what's left. */
-  .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 500px); gap: 32px 44px; align-items: start; }
+  .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 500px); gap: 24px 32px; align-items: start; }
   .board { min-width: 0; }
-  .grid-wrap { --cols: 15; --rows: 15; position: relative; width: min(100%, 680px, calc(80vh * var(--cols) / var(--rows))); }
+  /* Sized so the whole grid is in view under the top bar and controls, however tall the window is. */
+  .grid-wrap { --cols: 15; --rows: 15; position: relative; width: min(100%, 680px, calc((100vh - 210px) * var(--cols) / var(--rows))); }
   /* Grid lines are cell borders rather than 1px gaps: zoomed out, browsers keep a border at
      least one screen pixel wide but let a gap round away to nothing. */
   #grid {
@@ -88,22 +91,22 @@
     pointer-events: none;
   }
 
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 16px 0 0; font-size: 13px; color: var(--muted); }
-  .legend > span { display: inline-flex; align-items: center; gap: 7px; }
   .swatch {
     display: inline-grid;
     place-items: center;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     background: var(--cell);
     border: 1px solid var(--rule);
     color: var(--ink);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 11px;
   }
   .swatch.pencil { color: var(--pencil); font-weight: 500; }
   .swatch.weak { background: var(--weak); }
-  .keys { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  /* One quiet line under the grid: what the colours mean and what the keys do. */
+  .keys { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+  .keys .dot { margin: 0 2px; }
   kbd {
     font: 600 11px / 1 var(--sans);
     padding: 2px 5px;
@@ -114,9 +117,17 @@
     color: var(--ink);
   }
 
-  .panel { position: sticky; top: 12px; display: grid; gap: 18px; min-width: 0; }
+  /* The panel stands beside the grid, as tall as the grid (set from script), so the word list runs
+     down to the grid's bottom edge and stops there. */
+  .panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .fill { display: grid; gap: 10px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
+  .fill-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+  .fill-head .status { flex: 1 1 200px; font-size: 13px; }
+  .fill-settings { gap: 8px 10px; font-size: 13px; }
+  .fill-settings .range input { width: 100px; }
+  .fill-settings .number { width: 3.6em; }
   .entry-card { display: grid; gap: 10px; }
-  .entry-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 600 21px / 1.2 var(--serif); }
+  .entry-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 600 18px / 1.2 var(--serif); }
   .pattern { display: flex; flex-wrap: wrap; gap: 2px; min-height: 26px; }
   .pattern span {
     display: grid;
@@ -129,7 +140,7 @@
   }
   .pattern .p { color: var(--pencil); font-weight: 500; }
 
-  .options { display: grid; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
+  .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .options-summary { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
@@ -143,7 +154,8 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: min(58vh, 540px);
+    flex: 1;
+    min-height: 120px;
     overflow-y: auto;
     border: 1px solid var(--rule);
     background: var(--cell);
@@ -299,7 +311,7 @@
 
   @media (max-width: 880px) {
     .bench { grid-template-columns: minmax(0, 1fr); }
-    .panel { position: static; }
+    .options-list { max-height: 50vh; }
   }
   @media (prefers-reduced-motion: reduce) {
     .cell.fresh .ch, .status[data-state="busy"]::before { animation: none; }
@@ -307,26 +319,22 @@
 </style>
 
 <div class="page">
-  <header class="masthead">
+  <header class="topbar">
     <a class="wordmark-link" href="index.html" aria-label="fillmein home">
       <span class="wordmark" aria-hidden="true">
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
-    <h1 class="lede">Draw the blocks, ink your theme answers, pick scored words entry by entry, and let it pencil in the rest.</h1>
-    <div class="account" data-account></div>
-  </header>
-
-  <div class="puzzle-bar">
+    <h1 class="sr-only">Grid</h1>
     <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>All puzzles</a>
     <input id="puzzle-title" class="puzzle-title" type="text" placeholder="Name your puzzle" aria-label="Puzzle title" autocomplete="off" maxlength="120">
-  </div>
-
-  <nav class="tabs" aria-label="Pages">
-    <a class="tab" href="grid.html" aria-current="page">Grid</a>
-    <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
-    <a class="tab" href="export.html">Export</a>
-  </nav>
+    <nav class="tabs" aria-label="Pages">
+      <a class="tab" href="grid.html" aria-current="page">Grid</a>
+      <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
+      <a class="tab" href="export.html">Export</a>
+    </nav>
+    <div class="account" data-account></div>
+  </header>
 
   <section id="no-puzzle" class="empty-state" hidden>
     <h2>That puzzle isn't in this browser</h2>
@@ -341,19 +349,19 @@
     <div class="control-row">
       <form id="size-form" class="control-group">
         <span class="label">Grid</span>
-        <label class="field">Columns <input id="cols" class="number" type="number" min="3" max="25" value="15" inputmode="numeric"></label>
+        <input id="cols" class="number" type="number" min="3" max="25" value="15" inputmode="numeric" aria-label="Columns" title="Columns">
         <span class="times" aria-hidden="true">×</span>
-        <label class="field">Rows <input id="rows" class="number" type="number" min="3" max="25" value="15" inputmode="numeric"></label>
-        <button type="submit" id="new-grid" class="btn">New blank grid</button>
+        <input id="rows" class="number" type="number" min="3" max="25" value="15" inputmode="numeric" aria-label="Rows" title="Rows">
+        <button type="submit" id="new-grid" class="btn">New grid</button>
       </form>
       <div class="control-group">
         <select id="example" aria-label="Load an example grid">
           <option value="" selected>Load an example…</option>
-          <option value="themed15">Themed 15×15, three theme answers</option>
+          <option value="themed15">Themed 15×15</option>
           <option value="themeless15b">Themeless 15×15</option>
-          <option value="themeless15a">Themeless 15×15, stacked corners</option>
+          <option value="themeless15a">Themeless, stacked corners</option>
           <option value="stair7">7×7 staircase</option>
-          <option value="open5">5×5 with no blocks</option>
+          <option value="open5">5×5, no blocks</option>
         </select>
         <label class="check"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
         <label class="check"><input type="checkbox" id="tint" checked> Tint weak words</label>
@@ -362,23 +370,7 @@
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
         <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
       </div>
-    </div>
-    <div class="control-row">
-      <div class="control-group">
-        <span class="label">Autofill</span>
-        <label class="field range">Min. word score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
-        <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular words below it</label>
-        <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer.">Search for <input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric"> seconds</label>
-      </div>
-      <div class="control-group">
-        <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
-        <button type="button" id="another" class="btn" disabled>Try another fill</button>
-        <button type="button" id="stop" class="btn stop" hidden>Stop</button>
-        <button type="button" id="erase" class="btn quiet">Erase pencil</button>
-        <button type="button" id="clear" class="btn quiet">Clear all letters</button>
-        <label class="field">Word list <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
-      </div>
-      <p id="status" class="status" data-state="busy" role="status">Loading the word list…</p>
+      <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
     </div>
   </div>
 
@@ -391,15 +383,26 @@
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
-      <p class="legend">
-        <span><span class="swatch" aria-hidden="true">A</span>Ink: letters you typed or picked, always kept</span>
-        <span><span class="swatch pencil" aria-hidden="true">A</span>Pencil: the autofill</span>
-        <span><span class="swatch weak" aria-hidden="true"></span>Entry scoring under 50</span>
-      </p>
-      <p class="keys">Type to ink a letter · <kbd>Space</kbd> blanks a square · <kbd>.</kbd> adds or removes a block · <kbd>Backspace</kbd> erases, and opens a block it backs onto · arrows move · <kbd>Enter</kbd> switches Across/Down · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
+      <p class="keys"><span class="swatch" aria-hidden="true">A</span> ink <span class="swatch pencil" aria-hidden="true">A</span> pencil <span class="swatch weak" aria-hidden="true"></span> scores under 50 <span class="dot">·</span> <kbd>Space</kbd> blank <span class="dot">·</span> <kbd>.</kbd> block <span class="dot">·</span> <kbd>⌫</kbd> erase, or open a block <span class="dot">·</span> arrows move <span class="dot">·</span> <kbd>Enter</kbd> across/down <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
     </section>
 
-    <aside class="panel" aria-label="Selected entry">
+    <aside class="panel" aria-label="Autofill and word options">
+      <section class="fill" aria-labelledby="fill-title">
+        <div class="fill-head"><span id="fill-title" class="label">Autofill</span><p id="status" class="status" data-state="busy" role="status">Loading the word list…</p></div>
+        <div class="actions">
+          <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
+          <button type="button" id="another" class="btn" disabled>Another fill</button>
+          <button type="button" id="stop" class="btn stop" hidden>Stop</button>
+          <button type="button" id="erase" class="btn quiet">Erase pencil</button>
+          <button type="button" id="clear" class="btn quiet">Clear letters</button>
+        </div>
+        <div class="control-group fill-settings">
+          <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
+          <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
+          <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer."><input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric" aria-label="Seconds to search"> s</label>
+        </div>
+      </section>
+
       <div class="entry-card">
         <span class="label">Selected entry</span>
         <div class="entry-title"><span id="sel-name">–</span><span id="sel-score"></span></div>
@@ -2105,6 +2108,19 @@
     });
     input.addEventListener("blur", () => finish(true));
   }, true);
+
+  // --- the panel beside the grid ---
+
+  /* The panel is as tall as the grid, so the word list runs down to the grid's bottom edge and no
+     further. Once the page is narrow enough to stack, the list takes its own height instead. */
+  const panelEl = document.querySelector(".panel");
+  const stacked = matchMedia("(max-width: 880px)");
+  function fitPanel() {
+    panelEl.style.height = stacked.matches ? "" : `${Math.max(gridWrap.offsetHeight, 520)}px`;
+  }
+  new ResizeObserver(fitPanel).observe(gridWrap);
+  stacked.addEventListener("change", fitPanel);
+  fitPanel();
 
   // --- saving and startup ---
 
