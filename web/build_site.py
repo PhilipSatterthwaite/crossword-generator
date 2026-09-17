@@ -21,7 +21,8 @@ DOMAIN = "fillmein.org"
 PAGE_START = '<div class="page">'
 # explore.html is written but not shipped: puzzles will be chosen for it later, rather than every
 # shared puzzle appearing there.
-PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html", "contact.html", "404.html")
+PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html",
+         "contact.html", "guide.html", "404.html")
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
