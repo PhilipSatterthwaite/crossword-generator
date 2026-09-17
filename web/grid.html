@@ -25,7 +25,9 @@
   .range output { min-width: 2ch; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 
   /* Bench: the grid, and the selected entry's word options beside it. */
-  .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 380px); gap: 32px 44px; align-items: start; }
+  /* The options panel is wide enough for a 21-letter word with its score and buttons on one line; the
+     grid takes what's left. */
+  .bench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 500px); gap: 32px 44px; align-items: start; }
   .board { min-width: 0; }
   .grid-wrap { --cols: 15; --rows: 15; position: relative; width: min(100%, 680px, calc(80vh * var(--cols) / var(--rows))); }
   /* Grid lines are cell borders rather than 1px gaps: zoomed out, browsers keep a border at
