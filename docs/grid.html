@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-NxSBaM6sk4QEnEF1wQDowNPJ74vmjODb2VoIKjYpXq8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-adJLHi7cpslCENntInCRw5x0MW0LKleTYnujWLcdI1Y='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
 <style>
@@ -393,7 +393,7 @@
       <div id="grid-wrap" class="grid-wrap">
         <div id="grid" role="grid" aria-label="Crossword grid"></div>
         <input id="grid-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-               aria-label="Grid cursor. Type letters, Space blanks a square, period toggles a block, arrow keys move, Enter switches direction."
+               aria-label="Grid cursor. Type letters, Space blanks a square, period makes a block, arrow keys move, Enter switches direction."
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
@@ -1283,10 +1283,10 @@
 
   // --- editing ---
 
-  /* Period: the square becomes a block, or stops being one, and the cursor moves on the way typing does,
-     block or not, so a run of periods draws a run of blocks. */
+  /* Period: the square becomes a block (a block stays one), and the cursor moves on the way typing does,
+     block or not, so a run of periods draws a run of blocks. Space or Backspace opens a block up. */
   function toggleBlock(i) {
-    setBlock(i, !blocks[i]);
+    if (!blocks[i]) setBlock(i, true);
     const next = step(i, dir, 1);
     if (next >= 0) sel = next;
   }

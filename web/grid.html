@@ -379,7 +379,7 @@
       <div id="grid-wrap" class="grid-wrap">
         <div id="grid" role="grid" aria-label="Crossword grid"></div>
         <input id="grid-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-               aria-label="Grid cursor. Type letters, Space blanks a square, period toggles a block, arrow keys move, Enter switches direction."
+               aria-label="Grid cursor. Type letters, Space blanks a square, period makes a block, arrow keys move, Enter switches direction."
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
@@ -1269,10 +1269,10 @@
 
   // --- editing ---
 
-  /* Period: the square becomes a block, or stops being one, and the cursor moves on the way typing does,
-     block or not, so a run of periods draws a run of blocks. */
+  /* Period: the square becomes a block (a block stays one), and the cursor moves on the way typing does,
+     block or not, so a run of periods draws a run of blocks. Space or Backspace opens a block up. */
   function toggleBlock(i) {
-    setBlock(i, !blocks[i]);
+    if (!blocks[i]) setBlock(i, true);
     const next = step(i, dir, 1);
     if (next >= 0) sel = next;
   }
