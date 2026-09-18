@@ -13,6 +13,7 @@ import base64
 import hashlib
 import re
 import shutil
+from html import escape
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -97,6 +98,112 @@ def secure(path):
     path.write_bytes(page.replace(marker, marker + newline + meta, 1))
 
 
+# --- the site's words, kept in web/text.md so they can be edited without touching the pages ---
+
+TEXT = HERE / "text.md"
+KEY = re.compile(r"^\[([a-z0-9][a-z0-9.-]*)\]\s*$")
+# {{key}} in a page becomes that block of text.md, paragraphs and all. {{key|line}} becomes the words
+# on their own, for text already inside a <p> or a <span>. {{key|plain}} strips the markup too, for a
+# title or a meta tag. A {{key}} alone on a line keeps that line's indentation.
+ALONE = re.compile(r"^([ \t]*)\{\{([a-z0-9][a-z0-9.-]*)\}\}[ \t]*$", re.MULTILINE)
+INSIDE = re.compile(r"\{\{([a-z0-9][a-z0-9.-]*)(?:\|(plain|line))?\}\}")
+BOLD = re.compile(r"\*\*(.+?)\*\*")
+LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+
+def read_words():
+    """text.md as {key: the lines written under [key]}."""
+    words, key, lines = {}, None, []
+    for number, raw in enumerate(TEXT.read_text(encoding="utf-8").splitlines(), 1):
+        if raw.startswith("//"):
+            continue  # a note to whoever is editing; it never reaches the site
+        found = KEY.match(raw)
+        if found:
+            if key:
+                words[key] = "\n".join(lines).strip("\n")
+            key, lines = found.group(1), []
+            if key in words:
+                raise SystemExit(f"text.md line {number}: [{key}] is used twice")
+        elif key is not None:
+            lines.append(raw)
+        elif raw.strip():
+            raise SystemExit(f"text.md line {number}: words before the first [key]")
+    if key:
+        words[key] = "\n".join(lines).strip("\n")
+    return words
+
+
+def inline(text):
+    """**bold** and [a link](where.html), within a line."""
+    linked = LINK.sub(lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', text)
+    return BOLD.sub(lambda m: f"<b>{m.group(1)}</b>", linked)
+
+
+def slug(text):
+    """A heading's name as an address to link to."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def render(block):
+    """A block of text.md as HTML. A blank line starts a new paragraph. A run of lines each starting
+    "- " is a list. "## " and "### " are headings, and [[contents]] is a list of this block's "## "
+    headings. A paragraph that starts with "<" is markup already and is passed through untouched."""
+    headings = [line[3:].strip() for line in block.splitlines() if line.startswith("## ")]
+    contents = "".join(f'<li><a href="#{slug(h)}">{inline(h)}</a></li>' for h in headings)
+    out = []
+    for para in re.split(r"\n[ \t]*\n", block):
+        lines = [line for line in para.split("\n") if line.strip()]
+        if not lines:
+            continue
+        first = lines[0]
+        if first.lstrip().startswith("<"):
+            out.append("\n".join(lines))
+        elif first.strip() == "[[contents]]":
+            out.append(f"<ol>{contents}</ol>")
+        elif all(line.startswith("- ") for line in lines):
+            out.append("<ul>" + "".join(f"<li>{inline(line[2:].strip())}</li>" for line in lines) + "</ul>")
+        elif first.startswith("## "):
+            title = " ".join(line.strip() for line in lines)[3:].strip()
+            out.append(f'<h2 id="{slug(title)}">{inline(title)}</h2>')
+        elif first.startswith("### "):
+            title = " ".join(line.strip() for line in lines)[4:].strip()
+            out.append(f"<h3>{inline(title)}</h3>")
+        else:
+            out.append("<p>" + inline(" ".join(line.strip() for line in lines)) + "</p>")
+    return "\n".join(out)
+
+
+def plain(block):
+    """A block as one line of words, safe inside an attribute."""
+    text = " ".join(line.strip() for line in block.splitlines() if line.strip())
+    bare = BOLD.sub(lambda m: m.group(1), LINK.sub(lambda m: m.group(1), text))
+    return escape(bare, quote=True)
+
+
+def say(text, words, used, where):
+    """Put the words into a page, in place of its {{key}} marks."""
+    def find(key):
+        if key not in words:
+            raise SystemExit(f"{where}: there is no [{key}] in text.md")
+        used.add(key)
+        return words[key]
+
+    def whole_line(match):
+        indent, key = match.group(1), match.group(2)
+        return "\n".join(indent + line for line in render(find(key)).split("\n"))
+
+    def within(match):
+        block = find(match.group(1))
+        how = match.group(2)
+        if how == "plain":
+            return plain(block)
+        if how == "line":
+            return inline(" ".join(line.strip() for line in block.splitlines() if line.strip()))
+        return render(block)
+
+    return INSIDE.sub(within, ALONE.sub(whole_line, text))
+
+
 def stamp(text, versions):
     """Every quoted reference to a versioned file, as "name?v=hash" (404.html spells them from the root)."""
     for name, digest in versions.items():
@@ -119,6 +226,15 @@ def main():
     # Stamp every script and stylesheet reference with its content's hash (store.js?v=3f9a...). The CDN
     # tells browsers to keep scripts for hours but pages for minutes, so without this a browser can pair a
     # new page with an old script; a changed file now gets a new address.
+    # The words live in text.md; each page carries {{key}} marks saying where its blocks go.
+    words, used = read_words(), set()
+    for name in PAGES + ("grid.html",):
+        path = SITE / name
+        path.write_text(say(path.read_text(encoding="utf-8"), words, used, name), encoding="utf-8")
+    spare = sorted(set(words) - used)
+    if spare:
+        print(f"text.md: {len(spare)} unused ({', '.join(spare)})")
+
     versions = {name: version(SITE / name) for name in ASSETS}
     worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
     (SITE / "worker.js").write_text(worker, encoding="utf-8")

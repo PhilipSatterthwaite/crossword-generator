@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How to make a crossword · fillmein</title>
-<meta name="description" content="A step-by-step guide to building a crossword: choosing a theme, drawing a symmetric grid, filling it with words solvers know, writing the clues, and sharing the finished puzzle.">
+<title>{{guide.title|plain}}</title>
+<meta name="description" content="{{guide.description|plain}}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="How to make a crossword">
-<meta property="og:description" content="From an empty grid to a finished puzzle: themes, grid rules, fill, clues and export, explained for a first-time constructor.">
+<meta property="og:title" content="{{guide.social.title|plain}}">
+<meta property="og:description" content="{{guide.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -34,14 +34,15 @@
   /* What's on the page, for a reader deciding where to start. */
   .contents { padding: 16px 20px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
   .contents p { font: 600 12px / 1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .contents ol { margin-top: 10px; gap: 5px; }
+  /* The steps number themselves in their headings, so the list doesn't number them again. */
+  .contents ol { margin-top: 10px; gap: 5px; padding-left: 0; list-style: none; }
   .contents a { color: var(--ink); text-decoration: none; }
   .contents a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
   /* A rule of the craft, set apart from the prose around it. */
   .rules { display: grid; gap: 10px; padding: 16px 20px; border-left: 3px solid var(--ink); background: var(--surface); }
-  .rules dt { font-weight: 700; }
-  .rules dd { margin: 2px 0 0; color: var(--muted); }
+  .rules h3 { margin: 0; font: 700 15px / 1.4 var(--sans); }
+  .rules p { color: var(--muted); }
   .try { padding: 14px 18px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); font-size: 14px; }
   .try b { color: var(--ink); }
   .start { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
@@ -63,89 +64,13 @@
   </div>
 
   <main class="guide">
-    <h1>How to make a crossword</h1>
-    <p class="standfirst">A crossword starts as an empty square and ends as something a stranger can solve on a train. Here is the whole road between, with the conventions editors expect and the places a first puzzle usually goes wrong.</p>
+    <h1>{{guide.heading|line}}</h1>
+    <p class="standfirst">{{guide.standfirst|line}}</p>
 
-    <nav class="contents" aria-labelledby="contents-title">
-      <p id="contents-title">On this page</p>
-      <ol>
-        <li><a href="#kind">Decide what kind of puzzle it is</a></li>
-        <li><a href="#theme">Place the theme first</a></li>
-        <li><a href="#grid">Draw the grid</a></li>
-        <li><a href="#fill">Fill it</a></li>
-        <li><a href="#judge">Judge the fill</a></li>
-        <li><a href="#clues">Write the clues</a></li>
-        <li><a href="#finish">Check it, then send it out</a></li>
-      </ol>
-    </nav>
-
-    <h2 id="kind">1. Decide what kind of puzzle it is</h2>
-    <p>A <b>themed</b> puzzle has a handful of long answers that share an idea: a pun repeated four ways, a hidden word, a category. The theme is the reason the puzzle exists, and everything else in the grid is built to accommodate it. Most weekday newspaper crosswords are themed.</p>
-    <p>A <b>themeless</b> puzzle has no such centre. Its pleasure is the fill itself: long, lively, surprising entries stacked against each other. Themelesses are harder to fill and are usually judged on how fresh the words are.</p>
-    <p>On size, the standard weekday grid is 15×15, a Sunday is 21×21, and a mini is 5×5 or 7×7. If this is your first puzzle, build a 7×7. It teaches the same lessons in ten minutes rather than an afternoon.</p>
-
-    <h2 id="theme">2. Place the theme first</h2>
-    <p>Theme answers go in before a single block is drawn, because every other decision bends around them. Pick three to five for a 15×15. Then arrange them so the grid can stay symmetric:</p>
-    <ul>
-      <li>Theme entries are almost always Across, and are spread down the grid rather than bunched.</li>
-      <li>They sit in mirrored rows. An entry in row 3 pairs with one in row 13; an entry in row 5 pairs with one in row 11. A single odd entry can sit in the exact middle row.</li>
-      <li>Paired entries are the same length, so the blocks that bound them mirror each other.</li>
-    </ul>
-    <p>This is the step people skip, and it is the step that decides whether the puzzle is buildable. Two theme answers of awkward, unmatched lengths can make a grid impossible before you have typed a letter.</p>
-
-    <h2 id="grid">3. Draw the grid</h2>
-    <p>American-style crosswords follow four rules that editors treat as absolute. Break one and the puzzle is not publishable, however good the fill.</p>
-    <dl class="rules">
-      <dt>The blocks are rotationally symmetric</dt>
-      <dd>Turn the grid 180 degrees and the black squares land exactly where they were. Keep <b>Mirror blocks</b> ticked and fillmein places each block's partner as you draw. The tally under the grid tells you whether the symmetry holds.</dd>
-      <dt>No entry is shorter than three letters</dt>
-      <dd>Two-letter entries are not allowed. The autofill refuses a grid that contains one and tells you which run is too short.</dd>
-      <dt>Every square is checked</dt>
-      <dd>Each white square belongs to both an Across entry and a Down entry, so every letter can be worked out two ways. Select a square that isn't and fillmein calls it an unchecked square.</dd>
-      <dt>The grid is one piece</dt>
-      <dd>You can walk from any white square to any other. A corner sealed off by blocks is a separate puzzle, not a section of this one.</dd>
-    </dl>
-    <p>Beyond those, two numbers tell you whether a grid is in normal territory. A 15×15 should come in at no more than 78 entries if it's themed, 72 if it's themeless, and its black squares should stay at roughly a sixth of the grid or below. Both appear in the tally under the grid as you draw: <b>Words</b>, and <b>Blocks</b> with its percentage.</p>
-    <p>Beginners almost always use too many blocks. The result is a grid full of three- and four-letter entries, which is where dull fill comes from. Fewer blocks and longer entries make a better puzzle and a harder build.</p>
-
-    <h2 id="fill">4. Fill it</h2>
-    <p>fillmein separates the letters you chose from the letters it suggested. Letters you type or pick are <b>ink</b> and are never touched. Letters the autofill puts in are <b>pencil</b>, shown in blue, and are replaced every time you fill again. So type your theme answers first, then let the machine work around them.</p>
-    <p>Press <b>Fill grid</b> and the solver looks for a complete fill. <b>Another fill</b> searches again from a different starting point, which is how you shop for a version you like. Three settings steer it:</p>
-    <ul>
-      <li><b>Min. word score</b> is the floor. Scores run 0 to 100: 50 is ordinary fill, 60 and up is lively, below 50 is weak. Starting at 50 and raising it is a good habit.</li>
-      <li><b>Allow popular words below it</b> lets in everyday words that score under your floor. It helps a stubborn grid close.</li>
-      <li><b>Search for</b> is how many seconds it may spend before giving up. A tight grid may need a minute.</li>
-    </ul>
-    <p>To choose an entry yourself, click it. The panel beside the grid lists every word in the list that fits the letters already there, best score first, and then works down the list checking which of them the rest of the grid can still accommodate: a tick means a full fill exists with that word in place, a struck-through word means no fill does. Click one to preview it, press Enter to keep it.</p>
-    <p>When a grid will not fill, the answer is almost always the grid rather than the settings. Move one block. A single square in the wrong place is usually what's strangling a corner.</p>
-
-    <h2 id="judge">5. Judge the fill</h2>
-    <p>A complete grid is not a finished puzzle. What separates a good crossword from a bad one is whether a solver recognises the words in it.</p>
-    <ul>
-      <li><b>Weakest entry</b> in the tally names the worst word in your grid and its score. If you fix one thing, fix that.</li>
-      <li>Tick <b>Tint weak words</b> and any entry scoring under 50 is shaded on the grid, so bad corners are visible at a glance.</li>
-      <li>Watch for crosswordese: the short, vowel-heavy words that exist only in crosswords. A few are unavoidable. A grid full of them is a grid that needs redrawing.</li>
-      <li>An entry that repeats a word used elsewhere is flagged <b>also at</b> on the grid and in the entry list. The same word must not appear twice in one puzzle.</li>
-    </ul>
-
-    <h2 id="clues">6. Write the clues</h2>
-    <p>Numbering happens automatically and follows the grid, so the Clues tab always matches what you have drawn. What's left is the writing, where a few conventions matter:</p>
-    <ul>
-      <li>The clue and the answer must match in part of speech, tense and number. If the answer is a plural, the clue is plural; if the answer is past tense, so is the clue.</li>
-      <li>An abbreviated answer needs a signal: an abbreviation in the clue, or a tag such as "for short" or "briefly".</li>
-      <li>A question mark at the end marks wordplay rather than a straight definition. Use it honestly and sparingly.</li>
-      <li>A clue must not contain any word from its own answer.</li>
-      <li>Vary the difficulty. A puzzle of nothing but dictionary definitions is a vocabulary test, not a crossword.</li>
-    </ul>
-    <p>If you change a letter on the grid after writing its clue, the Clues tab marks that clue as written for an answer that has since changed, so nothing goes out describing a word that is no longer there.</p>
-
-    <h2 id="finish">7. Check it, then send it out</h2>
-    <p>The Export tab runs through the puzzle before you do anything with it: every square filled, every entry clued, every clue still matching its answer, and a title on the whole thing. Clear those four and it is ready.</p>
-    <p>From there you can download the puzzle as <b>.puz</b>, which nearly every solving app opens, as <b>.ipuz</b>, the open standard and the format to keep your own copy in, or as <b>.jpz</b> for Crossword Compiler and many web solvers. <b>Print or PDF</b> lays the puzzle and its clues on a single sheet with the answer key on a second. <b>Share a link</b> publishes it so anyone you send the address to can solve it in their browser, with no account and nothing to install.</p>
-    <p>If you are aiming at a publication, read its specifications before you build, not after. Word counts, grid sizes and what an editor will accept vary, and they are all easier to hit from the start than to retrofit.</p>
+    {{guide.body}}
 
     <div class="try">
-      <p><b>Ready?</b> Start with a 7×7 and let the autofill show you what a grid wants to do. You can change the size, load an example to pull apart, or open a puzzle you made elsewhere.</p>
+      <p>{{guide.ready|line}}</p>
       <div class="start">
         <a class="btn primary" href="index.html">Start a puzzle</a>
         <a class="btn" href="puzzles.html">My puzzles</a>

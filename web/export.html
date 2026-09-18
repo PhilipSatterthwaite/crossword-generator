@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Export · fillmein</title>
-<meta name="description" content="Name a fillmein crossword and download it as .puz, .ipuz or .jpz, or print it.">
+<title>{{export.title|plain}}</title>
+<meta name="description" content="{{export.description|plain}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="Export · fillmein">
-<meta property="og:description" content="Name a fillmein crossword and download it as .puz, .ipuz or .jpz, or print it.">
+<meta property="og:title" content="{{export.social.title|plain}}">
+<meta property="og:description" content="{{export.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -173,15 +173,15 @@
   </div>
 
   <section id="no-grid" class="empty-state" hidden>
-    <h2>Nothing to export yet</h2>
-    <p>Build a grid on the Grid tab and write its clues on the Clues tab; this page turns them into files you can share or print.</p>
+    <h2>{{export.empty.heading|line}}</h2>
+    <p>{{export.empty.body|line}}</p>
     <a class="btn primary" href="grid.html">Go to the grid</a>
   </section>
 
   <main id="desk" class="desk" hidden>
     <aside class="export-side">
       <section aria-labelledby="details-title">
-        <h2 id="details-title">Details</h2>
+        <h2 id="details-title">{{export.details.heading|line}}</h2>
         <div class="details">
           <label class="text-field">Author <input id="meta-author" type="text" autocomplete="off"></label>
           <label class="text-field">Copyright <input id="meta-copyright" type="text" autocomplete="off" placeholder="© 2026 Your Name"></label>
@@ -190,25 +190,25 @@
       </section>
 
       <section aria-labelledby="check-title">
-        <h2 id="check-title">Before you export</h2>
+        <h2 id="check-title">{{export.check.heading|line}}</h2>
         <ul id="checklist" class="checklist"></ul>
       </section>
 
       <section aria-labelledby="download-title">
-        <h2 id="download-title">Download</h2>
+        <h2 id="download-title">{{export.download.heading|line}}</h2>
         <div id="formats" class="formats">
-          <div class="format"><button type="button" class="btn primary" data-export="puz">Download .puz</button><span>Across Lite, which most solving apps open. Needs every square filled.</span></div>
-          <div class="format"><button type="button" class="btn" data-export="ipuz">Download .ipuz</button><span>The open crossword standard, and a good backup copy.</span></div>
-          <div class="format"><button type="button" class="btn" data-export="jpz">Download .jpz</button><span>Crossword Compiler and many web solvers. Needs every square filled.</span></div>
-          <div class="format"><button type="button" id="print-puzzle" class="btn">Print or PDF</button><span>The puzzle with its clues, then an answer key.</span></div>
+          <div class="format"><button type="button" class="btn primary" data-export="puz">Download .puz</button><span>{{export.format.puz|line}}</span></div>
+          <div class="format"><button type="button" class="btn" data-export="ipuz">Download .ipuz</button><span>{{export.format.ipuz|line}}</span></div>
+          <div class="format"><button type="button" class="btn" data-export="jpz">Download .jpz</button><span>{{export.format.jpz|line}}</span></div>
+          <div class="format"><button type="button" id="print-puzzle" class="btn">Print or PDF</button><span>{{export.format.print|line}}</span></div>
         </div>
         <p id="export-elsewhere" class="export-status" hidden>Downloads and printing don't work inside claude.ai. To export, open this puzzle tool at <a href="https://fillmein.org/">fillmein.org</a>.</p>
         <p id="export-status" class="export-status" role="status"></p>
       </section>
 
       <section aria-labelledby="share-title">
-        <h2 id="share-title">Share a link</h2>
-        <p class="share-lede">Send the puzzle to someone and they can solve it in their browser. No account needed to solve.</p>
+        <h2 id="share-title">{{export.share.heading|line}}</h2>
+        <p class="share-lede">{{export.share.lede|line}}</p>
         <p id="share-signin" class="share-note" hidden><button type="button" class="link-button" data-sign-in>Sign in</button> to share a link to this puzzle.</p>
         <div id="share-actions" class="actions" hidden>
           <button type="button" id="share" class="btn primary">Share a link</button>
@@ -221,11 +221,11 @@
         <p id="share-status" class="export-status" role="status"></p>
       </section>
 
-      <p class="save-note">Your grid, clues and details save automatically as you work: to your account when you're signed in, and in this browser either way. Download an .ipuz to keep a copy anywhere else.</p>
+      <p class="save-note">{{export.save.note|line}}</p>
     </aside>
 
     <section aria-labelledby="preview-title">
-      <h2 id="preview-title" class="label preview-head">The printed puzzle</h2>
+      <h2 id="preview-title" class="label preview-head">{{export.preview.heading|line}}</h2>
       <div id="paper"></div>
     </section>
   </main>

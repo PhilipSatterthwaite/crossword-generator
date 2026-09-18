@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy · fillmein</title>
-<meta name="description" content="What fillmein keeps, where, who can see it, and how to delete it.">
+<title>{{privacy.title|plain}}</title>
+<meta name="description" content="{{privacy.description|plain}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="Privacy · fillmein">
-<meta property="og:description" content="What fillmein keeps, where, who can see it, and how to delete it.">
+<meta property="og:title" content="{{privacy.social.title|plain}}">
+<meta property="og:description" content="{{privacy.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -50,42 +50,19 @@
   </div>
 
   <main class="prose">
-    <h1>Privacy</h1>
-    <p class="when">What fillmein keeps, where it goes, and how to get rid of it. Last changed 17 September 2026.</p>
+    <h1>{{privacy.heading|line}}</h1>
+    <p class="when">{{privacy.when|line}}</p>
 
-    <h2>Without an account</h2>
-    <p>Your puzzles, word lists and settings are saved in your own browser and nowhere else. Clearing the browser's site data removes them. Nothing you type reaches our team.</p>
-
-    <h2>With an account</h2>
-    <p>Signing in stores your puzzles and word lists in the site's database (Google Firebase) so they follow you between devices, along with the email address of the account. They are stored as they are, not encrypted, so our team, who run the database, can read them. Nobody else using the site can: each account can only reach its own.</p>
-
-    <h2>Puzzles you share</h2>
-    <p>Sharing a link publishes that puzzle's grid, answers, clues, title and author name. Anyone with the link can read all of it, along with an identifier for your account. Stop sharing on the puzzle's Export tab and the link stops working.</p>
-
-    <h2>Counting visits</h2>
-    <p>The construction pages count page views with Google Analytics and Cloudflare Web Analytics, which see the page address and the usual details a browser sends. The page where a shared puzzle is solved is not counted by either, so the link to a puzzle shared privately reaches neither.</p>
-
-    <h2>When you write to us</h2>
-    <p>The contact form keeps what you type — your message, and the name and email address you choose to give — where only our team can read it, along with your browser's name and version and your account identifier if you're signed in. It is not passed to anyone else, and the email address you give is used to answer you and nothing else.</p>
-
-    <h2>When something breaks</h2>
-    <p>If a page hits an error, it sends a short report: the error's text, the page's name (not the puzzle), the browser's name and version, and your account identifier if you're signed in. Only our team can read these, and they exist so that faults get fixed.</p>
-
-    <h2>Deleting everything</h2>
-    <ul>
-      <li>Puzzles in your browser: delete them on the My puzzles page.</li>
-      <li>A shared puzzle: Stop sharing on its Export tab.</li>
-      <li>Your account, with every puzzle, word list and setting stored in it: the button below. It can't be undone, and it doesn't touch the copies in this browser.</li>
-    </ul>
+    {{privacy.body}}
 
     <div class="account-box">
-      <p data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to delete your account.</p>
-      <p data-signed-in hidden>Deleting the account removes it and everything stored in it, on every device, for good.</p>
+      <p data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> {{privacy.delete.signedout|line}}</p>
+      <p data-signed-in hidden>{{privacy.delete.signedin|line}}</p>
       <button type="button" id="delete-account" class="btn danger" data-signed-in hidden>Delete my account</button>
       <p id="delete-status" role="status"></p>
     </div>
 
-    <p>Questions about any of this go to our team on the <a href="contact.html">Contact</a> page.</p>
+    <p>{{privacy.end|line}}</p>
   </main>
 
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html" aria-current="page">Privacy</a><a href="contact.html">Contact</a></footer>

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solve · fillmein</title>
-<meta name="description" content="Solve a crossword someone made with fillmein.">
+<title>{{solve.title|plain}}</title>
+<meta name="description" content="{{solve.description|plain}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="Solve a crossword on fillmein">
-<meta property="og:description" content="Someone made you a crossword. Open the link and solve it in your browser; no account needed.">
+<meta property="og:title" content="{{solve.social.title|plain}}">
+<meta property="og:description" content="{{solve.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -139,8 +139,8 @@
   <p id="loading" class="status" data-state="busy" role="status">Opening the puzzle…</p>
 
   <section id="not-found" class="empty-state" hidden>
-    <h2>That link doesn't open a puzzle</h2>
-    <p>The puzzle may have been unshared by whoever made it, or the link may be incomplete. Ask them for a fresh link.</p>
+    <h2>{{solve.missing.heading|line}}</h2>
+    <p>{{solve.missing.body|line}}</p>
     <a class="btn primary" href="index.html">Make your own crossword</a>
   </section>
 
@@ -168,9 +168,9 @@
         </div>
         <p id="solve-status" class="solve-status" role="status"></p>
         <section id="done" class="done" hidden>
-          <h2>Solved!</h2>
+          <h2>{{solve.done.heading|line}}</h2>
           <p id="done-time"></p>
-          <p><a href="index.html">Make your own crossword with fillmein</a></p>
+          <p><a href="index.html">{{solve.done.link|line}}</a></p>
         </section>
       </div>
 

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clues · fillmein</title>
-<meta name="description" content="Write the clues for a fillmein crossword.">
+<title>{{clues.title|plain}}</title>
+<meta name="description" content="{{clues.description|plain}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="Clues · fillmein">
-<meta property="og:description" content="Write the clues for a fillmein crossword.">
+<meta property="og:title" content="{{clues.social.title|plain}}">
+<meta property="og:description" content="{{clues.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -119,8 +119,8 @@
   </div>
 
   <section id="no-grid" class="empty-state" hidden>
-    <h2>No grid yet</h2>
-    <p>Clues follow the grid you build on the Grid tab. Build or fill one there, then come back to write its clues.</p>
+    <h2>{{clues.empty.heading|line}}</h2>
+    <p>{{clues.empty.body|line}}</p>
     <a class="btn primary" href="grid.html">Go to the grid</a>
   </section>
 
@@ -139,8 +139,8 @@
     <aside class="side" aria-label="Grid">
       <span class="label">Grid</span>
       <div id="mini" role="img" aria-label="The grid, with the entry you're writing highlighted"></div>
-      <p class="side-note">Click a square to jump to its clue; click again for the other direction. Press Enter in a clue to move to the next one.</p>
-      <p class="side-note">When the clues are done, name and download the puzzle on the <a href="export.html">Export</a> tab.</p>
+      <p class="side-note">{{clues.note.squares|line}}</p>
+      <p class="side-note">{{clues.note.next|line}}</p>
     </aside>
   </main>
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>

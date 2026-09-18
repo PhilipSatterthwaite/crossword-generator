@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact · fillmein</title>
-<meta name="description" content="Send a message to the people who make fillmein.">
+<title>{{contact.title|plain}}</title>
+<meta name="description" content="{{contact.description|plain}}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -69,17 +69,17 @@
   </div>
 
   <main class="prose">
-    <h1>Contact</h1>
-    <p class="lede-line">A question, something broken, a word the list should or shouldn't have: write it here and it comes straight to us.</p>
+    <h1>{{contact.heading|line}}</h1>
+    <p class="lede-line">{{contact.lede|line}}</p>
 
     <form id="contact-form" class="contact-form" novalidate>
-      <label class="field-block"><span class="caption">Your name <span class="optional">optional</span></span>
+      <label class="field-block"><span class="caption">{{contact.field.name|line}} <span class="optional">{{contact.field.name.note|line}}</span></span>
         <input id="from-name" type="text" maxlength="100" autocomplete="name">
       </label>
-      <label class="field-block"><span class="caption">Your email <span class="optional">so we can write back</span></span>
+      <label class="field-block"><span class="caption">{{contact.field.email|line}} <span class="optional">{{contact.field.email.note|line}}</span></span>
         <input id="from-email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com">
       </label>
-      <label class="field-block"><span class="caption">Message</span>
+      <label class="field-block"><span class="caption">{{contact.field.message|line}}</span>
         <textarea id="body" rows="8" maxlength="4000" required placeholder="What's on your mind?"></textarea>
       </label>
       <div class="trap" aria-hidden="true"><label>Website<input id="trap" type="text" tabindex="-1" autocomplete="off"></label></div>
@@ -88,7 +88,7 @@
     </form>
 
     <section id="sent" class="sent" hidden>
-      <h2>Message sent</h2>
+      <h2>{{contact.sent.heading|line}}</h2>
       <p id="reply-note"></p>
       <p><a class="btn" href="index.html">Back to fillmein</a></p>
     </section>

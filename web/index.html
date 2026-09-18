@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fillmein · make crosswords</title>
-<meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
+<title>{{home.title|plain}}</title>
+<meta name="description" content="{{home.description|plain}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="fillmein">
-<meta property="og:title" content="fillmein · make crosswords">
-<meta property="og:description" content="Build crosswords with a scored word list and an autofill that knows real crossword fill. Free, in your browser.">
+<meta property="og:title" content="{{home.social.title|plain}}">
+<meta property="og:description" content="{{home.social.description|plain}}">
 <meta property="og:image" content="https://fillmein.org/social.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -103,41 +103,38 @@
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </h1>
-    <p class="lede">Make crosswords with a scored word list and an autofill that knows real crossword fill.</p>
+    <p class="lede">{{home.lede|line}}</p>
     <div class="account" data-account></div>
   </header>
 
   <main class="choices">
     <section class="choice" aria-labelledby="new-title">
-      <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">Start a new puzzle</h2></div>
-      <p>Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.</p>
+      <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">{{home.new.heading|line}}</h2></div>
+      <p>{{home.new.body|line}}</p>
       <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
       <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
     </section>
 
     <section class="choice keep" aria-labelledby="keep-title">
-      <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">Keep working</h2></div>
-      <p id="no-puzzles">Puzzles you start show up here, so you can pick up where you left off.</p>
+      <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">{{home.keep.heading|line}}</h2></div>
+      <p id="no-puzzles">{{home.keep.empty|line}}</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
       <a id="manage-link" class="btn quiet" href="puzzles.html" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
-      <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to save your puzzles to your account and pick them up on any device. Until then they're saved in this browser.</p>
-      <p class="note" data-signed-in hidden>Saved to your account, so they're here on every device you sign in on.</p>
+      <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> {{home.keep.signedout|line}}</p>
+      <p class="note" data-signed-in hidden>{{home.keep.signedin|line}}</p>
     </section>
 
     <section class="choice" aria-labelledby="explore-title">
-      <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">Solve a shared puzzle</h2></div>
-      <p>Been sent a fillmein link? Open it and solve the puzzle right here, with no account needed. To share one of yours, finish it and use <b>Share a link</b> on its Export tab.</p>
-      <span class="soon">Browsing published puzzles: soon</span>
+      <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">{{home.solve.heading|line}}</h2></div>
+      <p>{{home.solve.body|line}}</p>
+      <span class="soon">{{home.solve.soon|line}}</span>
     </section>
   </main>
 
   <section class="welcome" aria-labelledby="welcome-title">
-    <h2 id="welcome-title">Welcome to fillmein</h2>
-    <p>fillmein is a free crossword constructor that runs in your browser. There is nothing to install and nothing to pay for, and you can start without an account: puzzles are kept in this browser until you sign in, and in your account from then on, so they follow you between devices.</p>
-    <p>It covers the whole job. <b>The Grid tab</b> is where you draw the blocks and type your theme answers. It mirrors the blocks as you place them, counts your words and black squares against the limits editors use, and fills what is left from more than half a million scored words, showing you every word that fits an entry and which of those the rest of the grid can still live with. <b>The Clues tab</b> numbers the entries for you, follows the grid as you change it, and flags any clue whose answer has moved on since you wrote it. <b>The Export tab</b> checks the puzzle over, then downloads it as .puz, .ipuz or .jpz, prints it on one sheet with an answer key, or gives you a link that lets anyone solve it in their browser with no account at all.</p>
-    <p>Along the way you can load a puzzle you made elsewhere, bring in your own word list and score or drop individual words, and keep everything in folders on the My puzzles page.</p>
-    <p>New to this? <a href="guide.html">How to make a crossword</a> goes from an empty grid to a finished puzzle, with the rules editors expect and the places a first attempt usually goes wrong.</p>
+    <h2 id="welcome-title">{{home.welcome.heading|line}}</h2>
+    {{home.welcome.body}}
   </section>
 
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
