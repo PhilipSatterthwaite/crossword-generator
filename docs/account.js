@@ -40,12 +40,10 @@ const S = window.GridfillStore;
 const app = initializeApp(CONFIG);
 const auth = getAuth(app);
 
-/* Google Analytics: page views and how many people are on the site, in the Firebase console. Left off in
-   automated browsers so test runs don't count as visitors, and off the solve page, so the id of a puzzle
-   shared privately by link never reaches Google. Ad blockers block it, so the counts are a floor, not a
-   headcount. */
-const SOLVE_PAGE = /(^|\/)solve\.html$/.test(location.pathname);
-if (!navigator.webdriver && !SOLVE_PAGE) {
+/* Google Analytics: page views and how many people are on the site, in the Firebase console, on every
+   page. Left off in automated browsers so test runs don't count as visitors. Ad blockers block it, so
+   the counts are a floor, not a headcount. */
+if (!navigator.webdriver) {
   import("https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js")
     .then(({ getAnalytics, isSupported }) => isSupported().then((ok) => ok && getAnalytics(app)))
     .catch(() => { /* blocked or unavailable: the site works the same */ });

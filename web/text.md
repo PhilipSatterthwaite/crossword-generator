@@ -78,7 +78,7 @@ Whether you're making something fun for your friends or looking to publish your 
 
 // A short note under the welcome. The privacy page has the whole story; keep this one in step with it.
 [home.privacy]
-**Your privacy.** You don't need an account: without one, your puzzles never leave this browser. If you sign in, they're kept in our database so they follow you between devices. We count page views to see how the site gets used, but never on the page where a shared puzzle is solved. The [privacy page](privacy.html) has the details.
+**Your privacy.** Your puzzles and word lists are yours. Without an account they never leave your browser. With one, they're kept in our database so they follow you between devices, and no one else using the site can see them unless you share a puzzle by link. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The [privacy page](privacy.html) has the rest.
 
 
 // ============================================================ the guide
@@ -222,7 +222,7 @@ What fillmein keeps, where, who can see it, and how to delete it.
 Privacy
 
 [privacy.when]
-What fillmein keeps, where it goes, and how to get rid of it. Last changed 17 September 2026.
+What fillmein keeps, where it goes, and how to get rid of it. Last changed 18 September 2026.
 
 [privacy.body]
 ## Without an account
@@ -239,7 +239,7 @@ Sharing a link publishes that puzzle's grid, answers, clues, title and author na
 
 ## Counting visits
 
-The construction pages count page views with Google Analytics and Cloudflare Web Analytics, which see the page address and the usual details a browser sends. The page where a shared puzzle is solved is not counted by either, so the link to a puzzle shared privately reaches neither.
+Every page counts visits with Google Analytics and Cloudflare Web Analytics. They see the page's address and the usual details a browser sends, such as its type and rough location, and Google Analytics sets cookies to tell repeat visits apart. A page's address can include a puzzle's id, which for a shared puzzle is also its link.
 
 ## When you write to us
 

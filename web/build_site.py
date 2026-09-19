@@ -45,18 +45,14 @@ CSP = (
     "frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
     "worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
 )
-# Counting visitors: Google Analytics, loaded by account.js, and the beacon Cloudflare puts in the page
-# itself when Web Analytics is on for the domain. Both are left out of the solve page's policy, so the id
-# of a puzzle shared privately by link reaches neither of them. (Cloudflare still adds its beacon to that
-# page; the policy is what stops it running, which the browser console says on every visit. Excluding
-# /solve.html in the Cloudflare dashboard as well would keep that console quiet.)
+# Counting visitors, on every page: Google Analytics, loaded by account.js, and the beacon Cloudflare puts
+# in the page itself when Web Analytics is on for the domain.
 COUNTING = {
     "counting_script": " https://www.googletagmanager.com https://static.cloudflareinsights.com",
     "counting_img": " https://*.google-analytics.com https://*.googletagmanager.com",
     "counting_connect": " https://*.google-analytics.com https://*.analytics.google.com"
                         " https://*.googletagmanager.com https://cloudflareinsights.com",
 }
-UNCOUNTED = {key: "" for key in COUNTING}
 INLINE_SCRIPT = re.compile(rb"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", re.DOTALL)
 
 HEAD = """<!doctype html>
@@ -92,8 +88,7 @@ def secure(path):
     if marker not in page:
         raise SystemExit(f"{path} has no charset meta to put the policy after")
     newline = b"\r\n" if b"\r\n" in page else b"\n"
-    counting = UNCOUNTED if path.name == "solve.html" else COUNTING
-    policy = CSP.format(hashes=" ".join(hashes), **counting)
+    policy = CSP.format(hashes=" ".join(hashes), **COUNTING)
     meta = f'<meta http-equiv="Content-Security-Policy" content="{policy}">'.encode()
     path.write_bytes(page.replace(marker, marker + newline + meta, 1))
 
