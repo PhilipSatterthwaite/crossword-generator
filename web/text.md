@@ -30,7 +30,7 @@ fillmein · make crosswords
 Build crosswords with a scored word list and an autofill that knows real crossword fill. Free, in your browser.
 
 [home.lede]
-Make crosswords with a scored word list and an autofill that knows real crossword fill.
+Construct a crossword completely free with our automatic grid-filling software.
 
 [home.new.heading]
 Start a new puzzle
@@ -63,13 +63,11 @@ Browsing published puzzles: soon
 Welcome to fillmein
 
 [home.welcome.body]
-fillmein is a free crossword constructor that runs in your browser. There is nothing to install and nothing to pay for, and you can start without an account: puzzles are kept in this browser until you sign in, and in your account from then on, so they follow you between devices.
+Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them has always been quite high. It's really freaking hard to fill a grid with long, diverse, and interesting words. Even in the modern computer age, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made ***fillmein***, a completely free crossword constructing page that runs in your web browser!
 
-It covers the whole job. **The Grid tab** is where you draw the blocks and type your theme answers. It mirrors the blocks as you place them, counts your words and black squares against the limits editors use, and fills what is left from more than half a million scored words, showing you every word that fits an entry and which of those the rest of the grid can still live with. **The Clues tab** numbers the entries for you, follows the grid as you change it, and flags any clue whose answer has moved on since you wrote it. **The Export tab** checks the puzzle over, then downloads it as .puz, .ipuz or .jpz, prints it on one sheet with an answer key, or gives you a link that lets anyone solve it in their browser with no account at all.
+If you're new to this, check out the [How to make a crossword](guide.html) guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please [contact](contact.html) us. This website is still in its early test phase, and we'd love to make improvements that matter to you!
 
-Along the way you can load a puzzle you made elsewhere, bring in your own word list and score or drop individual words, and keep everything in folders on the My puzzles page.
-
-New to this? [How to make a crossword](guide.html) goes from an empty grid to a finished puzzle, with the rules editors expect and the places a first attempt usually goes wrong.
+Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!
 
 
 // ============================================================ the guide
