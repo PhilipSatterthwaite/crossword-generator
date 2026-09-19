@@ -59,6 +59,12 @@ Been sent a fillmein link? Open it and solve the puzzle right here, with no acco
 [home.solve.soon]
 Browsing published puzzles: soon
 
+[home.guide.heading]
+How to make a crossword
+
+[home.guide.body]
+New to constructing? Our step-by-step guide goes from an empty grid to a finished puzzle: picking a theme, the grid rules editors expect, filling it with words solvers know, and writing the clues.
+
 [home.welcome.heading]
 Welcome to *fillmein*
 
