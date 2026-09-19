@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-+1uJSSKXtvelfVsReSJT/KNuLJAegrtfvmkFKR8fnIk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-eqpqvKEN0fCFzeRuYxpjROvjP7lQqRpUVUs9I5Ydwts='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -73,6 +73,36 @@
   .privacy-note b { color: var(--ink); }
   .privacy-note a { color: var(--pencil); }
 
+  /* Quick add: a word, its score and the list it goes in, on one short form. */
+  .quick { display: grid; gap: 10px; }
+  .quick-row { display: flex; gap: 8px; }
+  /* width: 0 takes away the default width a text box asks for, so on a narrow screen the row can shrink
+     to the card instead of widening the page; flex then grows it to fill whatever room there is. */
+  #quick-word {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 15px / 1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #quick-word::placeholder { letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--muted); }
+  #quick-score { width: 4.2em; }
+  .quick .field select { max-width: 100%; }
+  .quick-message { margin: 0; font-size: 13px; color: var(--danger); }
+  .quick-message:empty { display: none; }
+  /* The words added to this list lately, each with a way to take it back out. */
+  .quick-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .quick-recent .chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px 2px 8px; border-radius: 999px; background: var(--chip); color: var(--ink); font-weight: 600; letter-spacing: 0.04em; }
+  .quick-recent .chip b { margin-left: 4px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+  .quick-recent button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+  .quick-recent button:hover { background: var(--hover); color: var(--ink); }
+
   .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
   .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
   .thumb { display: grid; place-items: center; width: 48px; height: 48px; }
@@ -130,27 +160,37 @@
       <p class="note" data-signed-in hidden>Saved to your account, so they're here on every device you sign in on.</p>
     </section>
 
-    <section class="choice" aria-labelledby="explore-title">
-      <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">Solve a shared puzzle</h2></div>
-      <p>Been sent a fillmein link? Open it and solve the puzzle right here, with no account needed. To share one of yours, finish it and use <b>Share a link</b> on its Export tab.</p>
-      <span class="soon">Browsing published puzzles: soon</span>
+    <section class="choice" aria-labelledby="quick-title">
+      <div class="choice-head"><span class="choice-num">3</span><h2 id="quick-title">Quick add</h2></div>
+      <p>Put a word into one of your word lists, with a score from 0 to 100. Every puzzle that fills from that list will use it.</p>
+      <form id="quick-add" class="quick" novalidate>
+        <div class="quick-row">
+          <input id="quick-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Word" aria-label="Word to add">
+          <input id="quick-score" class="number" type="number" min="0" max="100" step="1" value="50" inputmode="numeric" aria-label="Score, 0 to 100" title="Score, 0 to 100">
+          <button type="submit" class="btn">Add</button>
+        </div>
+        <label class="field">Add to <select id="quick-list"></select></label>
+        <p id="quick-first" class="note" hidden>You don't have a word list of your own yet, so the first word you add starts one: the built-in list plus the words you add. Pick it for a puzzle from the List menu on the Grid page.</p>
+        <p id="quick-message" class="quick-message" role="alert"></p>
+        <div id="quick-recent" class="quick-recent" hidden></div>
+      </form>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
       <div class="choice-head"><span class="choice-num">4</span><h2 id="guide-title">How to make a crossword</h2></div>
-      <p>New to constructing? Our step-by-step guide goes from an empty grid to a finished puzzle: picking a theme, the grid rules editors expect, filling it with words solvers know, and writing the clues.</p>
+      <p>New to constructing? Our step-by-step guide takes you from an empty grid to a finished puzzle.</p>
       <a class="btn" href="guide.html">Read the guide</a>
     </section>
   </main>
 
   <section class="welcome" aria-labelledby="welcome-title">
     <h2 id="welcome-title">Welcome to <i>fillmein</i></h2>
-    <p>Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them has always been quite high. It's really freaking hard to fill a grid with long, diverse, and interesting words. Even in the modern computer age, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made <b><i>fillmein</i></b>, a completely free crossword constructing page that runs in your web browser!</p>
+    <p>Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them still seems insurmountable to many. It's really freaking hard to fill a grid with diverse and interesting words. Even today with powerful computers at our fingertips, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made <b><i>fillmein</i></b>, a completely free crossword constructing page that runs in your web browser!</p>
     <p>If you're new to this, check out the <a href="guide.html">How to make a crossword</a> guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please <a href="contact.html">contact</a> us. This website is still in its early test phase, and we'd love to make improvements that matter to you!</p>
     <p>Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!</p>
   </section>
 
-  <p class="privacy-note"><b>Your privacy.</b> Your puzzles and word lists are yours. Without an account they never leave your browser. With one, they're kept in our database so they follow you between devices, and no one else using the site can see them unless you share a puzzle by link. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The <a href="privacy.html">privacy page</a> has the rest.</p>
+  <p class="privacy-note"><b>Your privacy.</b> Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The <a href="privacy.html">privacy page</a> has the rest.</p>
 
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
 </div>
@@ -159,6 +199,7 @@
 <script src="importers.js?v=9a8eef9d6b"></script>
 <script src="store.js?v=20f8670730"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
+<script src="lists.js?v=b151bdf539"></script>
 <script type="module" src="account.js?v=4002407d31"></script>
 <script>
 (() => {
@@ -275,6 +316,122 @@
   });
 
   renderPuzzles();
+
+  // --- quick add: a word into one of your lists, without opening a puzzle ---
+
+  const LISTS = window.FillmeinLists;
+  const CHOSEN = "fillmein:quick-add-list"; // the list last added to, so it comes up first next time
+  const NEW_LIST = "__new";
+  const say = (text) => {
+    $("quick-message").textContent = text;
+  };
+  const chosen = () => {
+    try { return localStorage.getItem(CHOSEN); } catch (error) { return null; }
+  };
+  const choose = (id) => {
+    try { localStorage.setItem(CHOSEN, id); } catch (error) { /* storage unavailable */ }
+  };
+  // Letters only, the way lists store them: accents come off, and anything else is dropped.
+  const letters = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
+
+  /* The lists of your own, most recently used first. The built-in list stays as it is, so it isn't one of
+     them; with none of your own yet, the first word starts one. */
+  async function renderQuick() {
+    if (!LISTS) return;
+    let lists;
+    try {
+      lists = await LISTS.all();
+    } catch (error) {
+      say("Word lists need this browser's storage, which isn't available here.");
+      return;
+    }
+    const select = $("quick-list");
+    const keep = select.value && select.value !== NEW_LIST ? select.value : chosen();
+    select.replaceChildren(...lists.map((list) => new Option(list.name, list.id)));
+    if (!lists.length) select.append(new Option("A new list of my own", NEW_LIST));
+    select.value = lists.some((list) => list.id === keep) ? keep : select.options[0].value;
+    $("quick-first").hidden = lists.length > 0;
+    await renderRecent();
+  }
+
+  /* The last few words added to the chosen list, each with an undo. */
+  async function renderRecent() {
+    const box = $("quick-recent");
+    const id = $("quick-list").value;
+    const edits = id && id !== NEW_LIST ? await LISTS.editsFor(id) : null;
+    const words = edits ? edits.recent.filter((word) => word in edits.scores).slice(0, 6) : [];
+    box.replaceChildren();
+    box.hidden = !words.length;
+    if (!words.length) return;
+    box.append("Recent:");
+    for (const word of words) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      const score = document.createElement("b");
+      score.textContent = edits.scores[word];
+      const undo = document.createElement("button");
+      undo.type = "button";
+      undo.textContent = "×";
+      undo.title = "Undo";
+      undo.setAttribute("aria-label", `Undo ${word}`);
+      undo.addEventListener("click", async () => {
+        await LISTS.restoreWord(id, word);
+        await renderRecent();
+      });
+      chip.append(word, score, undo);
+      box.append(chip);
+    }
+  }
+
+  $("quick-add").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!LISTS) return;
+    say("");
+    const word = letters($("quick-word").value);
+    if (word.length < 2 || word.length > 25) {
+      say(word ? "A word needs 2 to 25 letters." : "Type a word to add.");
+      $("quick-word").focus();
+      return;
+    }
+    const score = Number($("quick-score").value);
+    if ($("quick-score").value === "" || !Number.isFinite(score) || score < 0 || score > 100) {
+      say("Scores run from 0 to 100.");
+      $("quick-score").focus();
+      return;
+    }
+    try {
+      let id = $("quick-list").value;
+      if (id === NEW_LIST) {
+        // A list of your own that starts as the built-in one and keeps only what you add to it.
+        id = (await LISTS.create("My word list", [], { basedOn: "built-in", count: 0 })).id;
+      }
+      await LISTS.setScore(id, word, score);
+      choose(id);
+      $("quick-word").value = "";
+      await renderQuick();
+      $("quick-word").focus();
+    } catch (error) {
+      say("That word couldn't be saved. Try again.");
+    }
+  });
+  $("quick-list").addEventListener("change", () => {
+    if ($("quick-list").value !== NEW_LIST) choose($("quick-list").value);
+    renderRecent();
+  });
+  if (LISTS) LISTS.onChange(() => renderQuick());
+
+  // Signed in, your lists live in your account too: bring them down, so the list offered is the one you
+  // already have, and send what you add back up. Nobody signed out ever loads the syncing.
+  let syncing = false;
+  window.addEventListener("fillmein:user", (event) => {
+    if (!event.detail.user || syncing) return;
+    syncing = true;
+    const script = document.createElement("script");
+    script.src = "lists-sync.js?v=c42dc37175";
+    document.head.append(script);
+  });
+
+  renderQuick();
 })();
 </script>
 </body>

@@ -50,26 +50,38 @@ to save your puzzles to your account and pick them up on any device. Until then 
 [home.keep.signedin]
 Saved to your account, so they're here on every device you sign in on.
 
-[home.solve.heading]
-Solve a shared puzzle
+// The "Solve a shared puzzle" card is off the home page for now (taken off 19 September 2026).
+// Its words are kept below as notes, so it can come back as it was.
+// [home.solve.heading]
+// Solve a shared puzzle
+//
+// [home.solve.body]
+// Been sent a fillmein link? Open it and solve the puzzle right here, with no account needed. To share one of yours, finish it and use **Share a link** on its Export tab.
+//
+// [home.solve.soon]
+// Browsing published puzzles: soon
 
-[home.solve.body]
-Been sent a fillmein link? Open it and solve the puzzle right here, with no account needed. To share one of yours, finish it and use **Share a link** on its Export tab.
+[home.quick.heading]
+Quick add
 
-[home.solve.soon]
-Browsing published puzzles: soon
+[home.quick.body]
+Put a word into one of your word lists, with a score from 0 to 100. Every puzzle that fills from that list will use it.
+
+// Shown under the form while there's no list of your own to add to yet.
+[home.quick.first]
+You don't have a word list of your own yet, so the first word you add starts one: the built-in list plus the words you add. Pick it for a puzzle from the List menu on the Grid page.
 
 [home.guide.heading]
 How to make a crossword
 
 [home.guide.body]
-New to constructing? Our step-by-step guide goes from an empty grid to a finished puzzle: picking a theme, the grid rules editors expect, filling it with words solvers know, and writing the clues.
+New to constructing? Our step-by-step guide takes you from an empty grid to a finished puzzle.
 
 [home.welcome.heading]
 Welcome to *fillmein*
 
 [home.welcome.body]
-Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them has always been quite high. It's really freaking hard to fill a grid with long, diverse, and interesting words. Even in the modern computer age, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made ***fillmein***, a completely free crossword constructing page that runs in your web browser!
+Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them still seems insurmountable to many. It's really freaking hard to fill a grid with diverse and interesting words. Even today with powerful computers at our fingertips, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made ***fillmein***, a completely free crossword constructing page that runs in your web browser!
 
 If you're new to this, check out the [How to make a crossword](guide.html) guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please [contact](contact.html) us. This website is still in its early test phase, and we'd love to make improvements that matter to you!
 
@@ -78,7 +90,7 @@ Whether you're making something fun for your friends or looking to publish your 
 
 // A short note under the welcome. The privacy page has the whole story; keep this one in step with it.
 [home.privacy]
-**Your privacy.** Your puzzles and word lists are yours. Without an account they never leave your browser. With one, they're kept in our database so they follow you between devices, and no one else using the site can see them unless you share a puzzle by link. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The [privacy page](privacy.html) has the rest.
+**Your privacy.** Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The [privacy page](privacy.html) has the rest.
 
 
 // ============================================================ the guide
@@ -87,19 +99,19 @@ Whether you're making something fun for your friends or looking to publish your 
 How to make a crossword · fillmein
 
 [guide.description]
-A step-by-step guide to building a crossword: choosing a theme, drawing a symmetric grid, filling it with words solvers know, writing the clues, and sharing the finished puzzle.
+A step-by-step guide to building a professional crossword
 
 [guide.social.title]
 How to make a crossword
 
 [guide.social.description]
-From an empty grid to a finished puzzle: themes, grid rules, fill, clues and export, explained for a first-time constructor.
+Cruciverbalism made easy!
 
 [guide.heading]
 How to make a crossword
 
 [guide.standfirst]
-A crossword starts as an empty square and ends as something a stranger can solve on a train. Here is the whole road between, with the conventions editors expect and the places a first puzzle usually goes wrong.
+This guide goes from empty square to publishable product, with the conventions editors expect and the places a first puzzle usually goes wrong.
 
 // The whole article. The three lines of markup below draw the box around the contents list;
 // [[contents]] fills it from the "## " headings further down, so renaming a step renames its link too.

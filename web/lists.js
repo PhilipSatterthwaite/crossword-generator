@@ -299,7 +299,8 @@
     }
     const scores = edits.scores || {};
     const removed = new Set(edits.removed || []);
-    for (const [word, score] of Object.entries(scores)) if (custom.has(word) || use !== "custom") custom.set(word, score);
+    // Each list keeps its own edits, so a score set on this list adds the word to it if it wasn't there.
+    for (const [word, score] of Object.entries(scores)) custom.set(word, score);
 
     const touched = new Set();
     for (const word of custom.keys()) touched.add(word.length);

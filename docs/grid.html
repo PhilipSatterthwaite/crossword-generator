@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-+9137rhtIb5z19oqOhO3tvWNzntZ1hOLv6QfsS/Y05o='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bhfVC1yu3Kr+J1gxNHC/9wofkQtXoApX2nW0q89+e6w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -496,7 +496,7 @@
 <script src="filler.js?v=3f61028ae0"></script>
 <script src="store.js?v=20f8670730"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script src="lists.js?v=37ef94a944"></script>
+<script src="lists.js?v=b151bdf539"></script>
 <script type="module" src="account.js?v=4002407d31"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>
@@ -1890,7 +1890,9 @@
     // For a list that isn't in use, the solver hasn't built it: its own removals still come off.
     const edits = (listState.byList || {})[list.id];
     const removed = edits && Array.isArray(edits.removed) ? edits.removed.length : 0;
-    return Math.max(0, (list.count || 0) - removed);
+    // A copy of the built-in list holds no words of its own; it counts as the built-in list does.
+    const base = list.basedOn === "built-in" ? builtInCount() : list.count || 0;
+    return Math.max(0, base - removed);
   }
 
   function builtInCount() {

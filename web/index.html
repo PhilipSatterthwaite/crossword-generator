@@ -72,6 +72,36 @@
   .privacy-note b { color: var(--ink); }
   .privacy-note a { color: var(--pencil); }
 
+  /* Quick add: a word, its score and the list it goes in, on one short form. */
+  .quick { display: grid; gap: 10px; }
+  .quick-row { display: flex; gap: 8px; }
+  /* width: 0 takes away the default width a text box asks for, so on a narrow screen the row can shrink
+     to the card instead of widening the page; flex then grows it to fill whatever room there is. */
+  #quick-word {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 15px / 1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #quick-word::placeholder { letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--muted); }
+  #quick-score { width: 4.2em; }
+  .quick .field select { max-width: 100%; }
+  .quick-message { margin: 0; font-size: 13px; color: var(--danger); }
+  .quick-message:empty { display: none; }
+  /* The words added to this list lately, each with a way to take it back out. */
+  .quick-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .quick-recent .chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px 2px 8px; border-radius: 999px; background: var(--chip); color: var(--ink); font-weight: 600; letter-spacing: 0.04em; }
+  .quick-recent .chip b { margin-left: 4px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+  .quick-recent button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+  .quick-recent button:hover { background: var(--hover); color: var(--ink); }
+
   .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
   .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
   .thumb { display: grid; place-items: center; width: 48px; height: 48px; }
@@ -129,10 +159,20 @@
       <p class="note" data-signed-in hidden>{{home.keep.signedin|line}}</p>
     </section>
 
-    <section class="choice" aria-labelledby="explore-title">
-      <div class="choice-head"><span class="choice-num">3</span><h2 id="explore-title">{{home.solve.heading|line}}</h2></div>
-      <p>{{home.solve.body|line}}</p>
-      <span class="soon">{{home.solve.soon|line}}</span>
+    <section class="choice" aria-labelledby="quick-title">
+      <div class="choice-head"><span class="choice-num">3</span><h2 id="quick-title">{{home.quick.heading|line}}</h2></div>
+      <p>{{home.quick.body|line}}</p>
+      <form id="quick-add" class="quick" novalidate>
+        <div class="quick-row">
+          <input id="quick-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Word" aria-label="Word to add">
+          <input id="quick-score" class="number" type="number" min="0" max="100" step="1" value="50" inputmode="numeric" aria-label="Score, 0 to 100" title="Score, 0 to 100">
+          <button type="submit" class="btn">Add</button>
+        </div>
+        <label class="field">Add to <select id="quick-list"></select></label>
+        <p id="quick-first" class="note" hidden>{{home.quick.first|line}}</p>
+        <p id="quick-message" class="quick-message" role="alert"></p>
+        <div id="quick-recent" class="quick-recent" hidden></div>
+      </form>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
@@ -156,6 +196,7 @@
 <script src="importers.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
+<script src="lists.js"></script>
 <script type="module" src="account.js"></script>
 <script>
 (() => {
@@ -272,6 +313,122 @@
   });
 
   renderPuzzles();
+
+  // --- quick add: a word into one of your lists, without opening a puzzle ---
+
+  const LISTS = window.FillmeinLists;
+  const CHOSEN = "fillmein:quick-add-list"; // the list last added to, so it comes up first next time
+  const NEW_LIST = "__new";
+  const say = (text) => {
+    $("quick-message").textContent = text;
+  };
+  const chosen = () => {
+    try { return localStorage.getItem(CHOSEN); } catch (error) { return null; }
+  };
+  const choose = (id) => {
+    try { localStorage.setItem(CHOSEN, id); } catch (error) { /* storage unavailable */ }
+  };
+  // Letters only, the way lists store them: accents come off, and anything else is dropped.
+  const letters = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
+
+  /* The lists of your own, most recently used first. The built-in list stays as it is, so it isn't one of
+     them; with none of your own yet, the first word starts one. */
+  async function renderQuick() {
+    if (!LISTS) return;
+    let lists;
+    try {
+      lists = await LISTS.all();
+    } catch (error) {
+      say("Word lists need this browser's storage, which isn't available here.");
+      return;
+    }
+    const select = $("quick-list");
+    const keep = select.value && select.value !== NEW_LIST ? select.value : chosen();
+    select.replaceChildren(...lists.map((list) => new Option(list.name, list.id)));
+    if (!lists.length) select.append(new Option("A new list of my own", NEW_LIST));
+    select.value = lists.some((list) => list.id === keep) ? keep : select.options[0].value;
+    $("quick-first").hidden = lists.length > 0;
+    await renderRecent();
+  }
+
+  /* The last few words added to the chosen list, each with an undo. */
+  async function renderRecent() {
+    const box = $("quick-recent");
+    const id = $("quick-list").value;
+    const edits = id && id !== NEW_LIST ? await LISTS.editsFor(id) : null;
+    const words = edits ? edits.recent.filter((word) => word in edits.scores).slice(0, 6) : [];
+    box.replaceChildren();
+    box.hidden = !words.length;
+    if (!words.length) return;
+    box.append("Recent:");
+    for (const word of words) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      const score = document.createElement("b");
+      score.textContent = edits.scores[word];
+      const undo = document.createElement("button");
+      undo.type = "button";
+      undo.textContent = "×";
+      undo.title = "Undo";
+      undo.setAttribute("aria-label", `Undo ${word}`);
+      undo.addEventListener("click", async () => {
+        await LISTS.restoreWord(id, word);
+        await renderRecent();
+      });
+      chip.append(word, score, undo);
+      box.append(chip);
+    }
+  }
+
+  $("quick-add").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!LISTS) return;
+    say("");
+    const word = letters($("quick-word").value);
+    if (word.length < 2 || word.length > 25) {
+      say(word ? "A word needs 2 to 25 letters." : "Type a word to add.");
+      $("quick-word").focus();
+      return;
+    }
+    const score = Number($("quick-score").value);
+    if ($("quick-score").value === "" || !Number.isFinite(score) || score < 0 || score > 100) {
+      say("Scores run from 0 to 100.");
+      $("quick-score").focus();
+      return;
+    }
+    try {
+      let id = $("quick-list").value;
+      if (id === NEW_LIST) {
+        // A list of your own that starts as the built-in one and keeps only what you add to it.
+        id = (await LISTS.create("My word list", [], { basedOn: "built-in", count: 0 })).id;
+      }
+      await LISTS.setScore(id, word, score);
+      choose(id);
+      $("quick-word").value = "";
+      await renderQuick();
+      $("quick-word").focus();
+    } catch (error) {
+      say("That word couldn't be saved. Try again.");
+    }
+  });
+  $("quick-list").addEventListener("change", () => {
+    if ($("quick-list").value !== NEW_LIST) choose($("quick-list").value);
+    renderRecent();
+  });
+  if (LISTS) LISTS.onChange(() => renderQuick());
+
+  // Signed in, your lists live in your account too: bring them down, so the list offered is the one you
+  // already have, and send what you add back up. Nobody signed out ever loads the syncing.
+  let syncing = false;
+  window.addEventListener("fillmein:user", (event) => {
+    if (!event.detail.user || syncing) return;
+    syncing = true;
+    const script = document.createElement("script");
+    script.src = "lists-sync.js";
+    document.head.append(script);
+  });
+
+  renderQuick();
 })();
 </script>
 </body>

@@ -1874,7 +1874,9 @@
     // For a list that isn't in use, the solver hasn't built it: its own removals still come off.
     const edits = (listState.byList || {})[list.id];
     const removed = edits && Array.isArray(edits.removed) ? edits.removed.length : 0;
-    return Math.max(0, (list.count || 0) - removed);
+    // A copy of the built-in list holds no words of its own; it counts as the built-in list does.
+    const base = list.basedOn === "built-in" ? builtInCount() : list.count || 0;
+    return Math.max(0, base - removed);
   }
 
   function builtInCount() {
