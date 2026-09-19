@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-TVC2xFb8EmMs3k2gXZPUmwf+Zn3ZSHdXpaPEx0EPtKo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-+9137rhtIb5z19oqOhO3tvWNzntZ1hOLv6QfsS/Y05o='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -493,7 +493,7 @@
 </dialog>
 
 <script src="words.js?v=9f774dc43a"></script>
-<script src="filler.js?v=3d9133dd4d"></script>
+<script src="filler.js?v=3f61028ae0"></script>
 <script src="store.js?v=20f8670730"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=37ef94a944"></script>
@@ -781,7 +781,7 @@
     const shown = new Array(W * H).fill("");
     const option = options.list[preview.index];
     if (option && option.fill) {
-      option.fill.forEach((row, r) => row.forEach((letter, c) => {
+      option.fill.forEach((row, r) => Array.from(row).forEach((letter, c) => {
         if (/^[A-Z]$/.test(letter)) shown[r * W + c] = letter;
       }));
     }
@@ -1482,10 +1482,18 @@
 
   // --- solver ---
 
+  /* The word-option check splits its words among the main worker and up to this many helpers. Each
+     worker holds its own copy of the word list (about 30 MB), so a machine gets one helper for every
+     two cores past the first two, and none when it's short of memory. */
+  const MAX_HELPERS = 3;
+  const SPLIT_FROM = 8; // fewer words than this aren't worth splitting
+
   /* Runs the solver in a worker when the page allows one, otherwise on this thread. */
   const runner = {
     worker: null, inline: false, words: null, count: 0,
     onProgress: null, onResult: null, optionsId: -1, onOptions: null, onWords: null,
+    helpers: [],     // {worker, loaded, pending}: extra workers for the word-option check
+    optionsJob: null, // the check in progress: {id, workers, done}
 
     start() {
       return new Promise((resolve, reject) => {
@@ -1504,7 +1512,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=d3cd47ee82");
+          worker = new Worker("worker.js?v=214f632316");
         } catch (error) {
           useInline();
           return;
@@ -1534,6 +1542,7 @@
             this.worker = worker;
             this.count = data.count;
             resolve();
+            this.startHelpers();
           } else if (data.type === "progress") {
             if (this.onProgress) this.onProgress(data.rows, data.stats);
           } else if (data.type === "result") {
@@ -1542,10 +1551,76 @@
             this.onProgress = null;
             if (done) done(data.result);
           } else if (data.type === "options") {
-            if (data.id === this.optionsId && this.onOptions) this.onOptions(data);
+            this.fromOptions(worker, data);
           }
         };
       });
+    },
+
+    /* Start the helper workers, once. Each starts from the built-in list, so once it's loaded it's
+       handed the list in use; until it has caught up with every list change it sits out checks. */
+    startHelpers() {
+      if (this.helpers.length || this.inline) return;
+      const cores = navigator.hardwareConcurrency || 2;
+      const count = (navigator.deviceMemory || 8) < 4 ? 0 : Math.max(0, Math.min(MAX_HELPERS, Math.floor(cores / 2) - 1));
+      for (let k = 0; k < count; k++) {
+        let worker;
+        try {
+          worker = new Worker("worker.js?v=214f632316");
+        } catch (error) {
+          return;
+        }
+        const helper = { worker, loaded: false, pending: 0 };
+        worker.onmessage = ({ data }) => {
+          if (data.type === "ready") {
+            if (data.error) return this.dropHelper(helper); // it holds some other list now
+            if (helper.loaded) helper.pending--;
+            else {
+              helper.loaded = true;
+              if (wordData !== window.GRIDFILL_WORDS) this.sendWords(helper, { type: "words", lengths: wordData, all: true });
+            }
+          } else if (data.type === "options") {
+            this.fromOptions(worker, data);
+          }
+        };
+        worker.onerror = (event) => {
+          event.preventDefault();
+          this.dropHelper(helper);
+        };
+        this.helpers.push(helper);
+      }
+    },
+
+    sendWords(helper, message) {
+      helper.pending++;
+      helper.worker.postMessage(message);
+    },
+
+    /* A helper that failed: stop it, and count its share of any check as done so the page asks again
+       for the words it left unsettled. */
+    dropHelper(helper) {
+      helper.worker.terminate();
+      this.helpers = this.helpers.filter((h) => h !== helper);
+      const job = this.optionsJob;
+      if (job && job.workers.includes(helper.worker)) this.fromOptions(helper.worker, { type: "options", id: job.id, updates: [], done: true });
+    },
+
+    /* A message from one worker's share of the check: its indices count within that share. */
+    fromOptions(worker, data) {
+      const job = this.optionsJob;
+      if (!job || data.id !== job.id || data.id !== this.optionsId || !this.onOptions) return;
+      const k = job.workers.indexOf(worker);
+      if (k < 0) return;
+      if (data.error) {
+        for (const other of job.workers) if (other !== worker) other.postMessage({ type: "cancel" }); // they'd only say the same
+        this.optionsJob = null;
+        this.onOptions(data);
+        return;
+      }
+      const n = job.workers.length;
+      const updates = n === 1 ? data.updates : data.updates.map(([i, ...rest]) => [k + i * n, ...rest]);
+      const done = data.done ? ++job.done === n : false;
+      this.onOptions({ id: data.id, updates, done });
     },
 
     wordList() {
@@ -1561,9 +1636,11 @@
         this.count = this.wordList().size;
         return Promise.resolve(null);
       }
+      const message = lengths ? { type: "words", lengths, all } : { type: "words", reset: true };
+      for (const helper of this.helpers) this.sendWords(helper, message);
       return new Promise((resolve) => {
         this.onWords = resolve;
-        this.worker.postMessage(lengths ? { type: "words", lengths, all } : { type: "words", reset: true });
+        this.worker.postMessage(message);
       });
     },
 
@@ -1584,7 +1661,15 @@
       this.optionsId = id;
       this.onOptions = onOptions;
       if (!this.inline) {
-        this.worker.postMessage({ type: "options", id, grid, target, candidates, options });
+        // Worker k of n takes words k, k + n, k + 2n..., so every worker starts at the top of the list.
+        const caughtUp = this.helpers.filter((helper) => helper.loaded && helper.pending === 0).map((helper) => helper.worker);
+        const workers = candidates.length >= SPLIT_FROM ? [this.worker, ...caughtUp] : [this.worker];
+        const n = workers.length;
+        this.optionsJob = { id, workers, done: 0 };
+        workers.forEach((worker, k) => {
+          const share = n === 1 ? candidates : candidates.filter((_, i) => i % n === k);
+          worker.postMessage({ type: "options", id, grid, target, candidates: share, options });
+        });
         return;
       }
       // On this thread, keep each word's check short so the page stays responsive.
@@ -1607,14 +1692,19 @@
       this.optionsId = -1;
       this.onOptions = null;
       this.inlineCheck = null;
+      this.optionsJob = null;
       if (this.worker) this.worker.postMessage({ type: "cancel" });
+      for (const helper of this.helpers) helper.worker.postMessage({ type: "cancel" });
     },
 
     /* Check candidate `index` of the running options check next, allowing it `seconds`. */
     prioritize(id, index, seconds) {
       if (this.optionsId !== id) return;
-      if (!this.inline) this.worker.postMessage({ type: "prioritize", id, index, seconds });
-      else if (this.inlineCheck) this.inlineCheck.prioritize(index, Math.min(seconds, 1));
+      const job = this.optionsJob;
+      if (!this.inline && job) {
+        const n = job.workers.length;
+        job.workers[index % n].postMessage({ type: "prioritize", id, index: Math.floor(index / n), seconds });
+      } else if (this.inlineCheck) this.inlineCheck.prioritize(index, Math.min(seconds, 1));
     },
 
     stop() {
@@ -1650,6 +1740,9 @@
   function runFill(variety) {
     if (running || !ready) return;
     const rows = solverRows();
+    // Filling again over a fill already on the grid starts from that fill, so after a small change
+    // most of it stays put. Another fill is meant to be different, so it starts fresh.
+    const guide = !variety && pencil.some(Boolean) ? solverRows(true) : null;
     fillBefore = snapshot();
     preview = null;
     running = true;
@@ -1658,7 +1751,7 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2 };
+    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide };
     runner.fill(
       rows,
       fillOptions,

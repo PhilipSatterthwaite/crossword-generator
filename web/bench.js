@@ -1,7 +1,8 @@
 // Solver benchmark: node web/bench.js [--time 8] [--solver path/to/filler.js] [--only name,name/min30]
 //   [--seeds 1,2] [--heuristic wdeg|mrv] [--quality 0.035]
 // Runs one grid at a time on one thread, checks every fill independently, and reports
-// the fill's average and lowest word score.
+// the fill's average and lowest word score, and which search found it (strict: long entries held
+// above the minimum; plain). Steps, backtracks and restarts count both searches.
 const path = require("node:path");
 
 const args = process.argv.slice(2);
@@ -32,6 +33,14 @@ const GRIDS = {
   triple15: ["...............", "...............", "...............", "....#...#......", "###....#....###", "....#.....#....", "...#.....#.....", ".....#...#.....", ".....#.....#...", "....#.....#....", "###....#....###", "......#...#....", "...............", "...............", "..............."],
   open6: open(6),
   open7: open(7),
+  sunday21: [
+    "....#.....#.....#....", "....#.....#.....#....", "....#.....#.....#....", ".......#.....#.......",
+    "###....#.....#....###", "......#.......#......", ".....#.....#....#....", "....#.....#.....#....",
+    "...#.....#.....#.....", "........#.....#......", "......#.......#......", "......#.....#........",
+    ".....#.....#.....#...", "....#.....#.....#....", "....#....#.....#.....", "......#.......#......",
+    "###....#.....#....###", ".......#.....#.......", "....#.....#.....#....", "....#.....#.....#....",
+    "....#.....#.....#....",
+  ],
 };
 
 // [grid, minimum word score]
@@ -40,8 +49,11 @@ const CASES = [
   ["themed15", 50],
   ["triple15", 40],
   ["triple15", 50],
+  ["triple15", 60],
   ["open6", 50],
   ["open7", 0],
+  ["sunday21", 50],
+  ["sunday21", 60],
 ];
 
 /* Scores of the entries the solver filled (given entries don't count). */
@@ -59,7 +71,7 @@ function fillScores(original, filled) {
 }
 
 console.log(`solver ${path.relative(process.cwd(), solverPath)}, ${timeLimit}s limit`);
-console.log("case                 seed  result   seconds     steps  backtracks  restarts   steps/s  avg score  lowest");
+console.log("case                 seed  result   seconds     steps  backtracks  restarts   steps/s  avg score  lowest  search");
 for (const [name, minScore] of CASES) {
   const label = `${name}/min${minScore}`;
   if (only.length && !only.includes(name) && !only.includes(label)) continue;
@@ -72,7 +84,7 @@ for (const [name, minScore] of CASES) {
     const average = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "";
     const lowest = scores.length ? String(Math.min(...scores)) : "";
     console.log(
-      `${label.padEnd(20)} ${String(seed).padStart(4)}  ${verdict.padEnd(7)} ${(s.seconds ?? 0).toFixed(2).padStart(8)} ${String(s.nodes ?? 0).padStart(9)} ${String(s.failures ?? 0).padStart(11)} ${String(s.restarts ?? 0).padStart(9)} ${String(Math.round((s.nodes ?? 0) / Math.max(s.seconds ?? 0, 0.001))).padStart(9)} ${average.padStart(10)} ${lowest.padStart(7)}`
+      `${label.padEnd(20)} ${String(seed).padStart(4)}  ${verdict.padEnd(7)} ${(s.seconds ?? 0).toFixed(2).padStart(8)} ${String(s.nodes ?? 0).padStart(9)} ${String(s.failures ?? 0).padStart(11)} ${String(s.restarts ?? 0).padStart(9)} ${String(Math.round((s.nodes ?? 0) / Math.max(s.seconds ?? 0, 0.001))).padStart(9)} ${average.padStart(10)} ${lowest.padStart(7)}  ${result.phase || ""}`
     );
     if (problems.length) console.log("  ", problems.slice(0, 5));
     if (verdict === "none") console.log("  ", result.reason);

@@ -14,6 +14,8 @@ function work() {
   let message;
   try {
     const { updates, done } = current.check.step(30);
+    // A fill travels as one string per row: thousands arrive a second, and the page keeps them all.
+    for (const update of updates) if (update[2]) update[2] = update[2].map((row) => row.join(""));
     message = { type: "options", id: current.id, updates, done };
   } catch (error) {
     message = { type: "options", id: current.id, error: `The checker hit an error: ${error.message}` };

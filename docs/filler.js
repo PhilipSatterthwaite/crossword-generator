@@ -9,6 +9,9 @@
      looked, using whichever is smaller: the letters removed or the letters left;
    - "does any word still have letter l here?" checks the chunk that answered
      last time before scanning;
+   - when few words are left, or few were just removed, a slot reads their letters straight
+     off instead of asking the bitsets about every letter;
+   - each slot's word count is kept up to date, so picking the next slot counts nothing;
    - every change is logged on a typed-array trail, so backing up allocates nothing.
 
    The next slot to fill is the one with the fewest words left relative to how often
@@ -16,7 +19,12 @@
    restarts, so the search learns where the grid's hard corner is and starts there.
    Before the first pick, a quick scan scores each slot's hardness by how well its words'
    letters agree with what its crossings can supply, so heavily crossed long slots (15s)
-   go first even though more 15-letter words exist than 3-letter ones. */
+   go first even though more 15-letter words exist than 3-letter ones. A slot's words are
+   ranked when it's picked, but only the best few are found by a scan: the full sort waits
+   until they've all failed, which most never do.
+
+   fill() runs two searches on one clock, one holding long entries to a higher score floor, and
+   checkOptions() reuses each fill it finds to settle later words cheaply; see each for how. */
 (function (root) {
   "use strict";
 
@@ -36,7 +44,8 @@
   const LONG_STEP = 4;
   const LONG_MOST = 30;
   const LONG_ENOUGH = 400;
-  const STRICT_SHARE = 0.6; // how much of the time limit the higher floors get before settling
+  const GRACE_FACTOR = 3;    // with a plain fill in hand, the strict search may take this many times the plain one's time
+  const GRACE_LEAST = 1.5;   // and never less than this many seconds
   const LENGTH_PIVOT = 5;
   const LENGTH_SLOPE = 0.15;
   const LENGTH_FLOOR = 0.4;
@@ -50,8 +59,21 @@
   const LIMIT = 1 << 28;   // index = slot
   const CELL = 2 << 28;    // index = cell
   const LAST = 3 << 28;    // index = slot position
-  const KIND = 3 << 28;
+  const COUNT = 4 << 28;   // index = slot
+  const KIND = 7 << 28;
   const INDEX = (1 << 28) - 1;
+
+  const ENUMERATE = 256;   // at most this many words left (or just removed): read their letters directly
+  const FIRST_PICKS = 3;   // best words found by scanning before a slot's whole list gets sorted
+
+  /* checkOptions: once a fill is known, a "frame" keeps its words in every entry more than a radius
+     of crossings from the one being checked, and each word left to settle gets a short search over
+     the few entries inside. */
+  const FRAME_RADII = [1, 2, 3];
+  const FRAME_BUDGET = 30;   // failures a word may cost inside a frame before it waits for a full search
+  const FRAME_PINNED = 0.5;  // a radius must keep at least this share of the grid, or it saves nothing
+  const CALIBRATE = 2;       // full searches from a known fill to time before any frame runs
+  const NEAR_WEIGHT = 2;     // how strongly the full searches favour entries near the one being checked
 
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
@@ -243,6 +265,10 @@
       this.active = new Array(n).fill(null); // chunk offsets; the first limits[s] are non-empty
       this.limits = new Int32Array(n);
       this.dirty = new Uint8Array(n);        // words removed since the slot last narrowed its cells
+      this.dirtyId = new Int32Array(n).fill(-1); // the one word removed since then, or -1 if unknown or several
+      this.left = new Int32Array(n);         // how many candidates are left, kept in step with the bitset
+      this.learn = true;                     // whether dead ends add to slot weights
+      this.raised = false;                   // whether some slot is held above the minimum score (cutFor)
       this.queued = new Uint8Array(n);
       this.weight = new Float64Array(n);     // how often each slot has run dry
       this.hardness = new Float64Array(n);   // log share of words likely to survive crossings (scanHardness)
@@ -281,6 +307,7 @@
         for (let i = 0, rest = limit; i < list.size; i++) if (!cut.bits[i]) active[rest++] = i;
         this.active[s] = active;
         this.limits[s] = limit;
+        this.left[s] = cut.count;
         this.dirty[s] = 1;
         this.variables.push(s);
         if (!this.byLength.has(length)) this.byLength.set(length, []);
@@ -311,7 +338,12 @@
       this.refs = [];                              // revise scratch: letter bitsets per change
       this.starts = new Int32Array(longest + 1);   // where each change's bitsets start in refs
       this.removes = new Uint8Array(longest);      // whether each change removes its letters
+      this.seen = new Int32Array(longest);         // revise scratch: letters seen per position
+      this.goneChunk = new Int32Array(ENUMERATE);  // revise scratch: chunks that lost words, and which
+      this.goneBits = new Int32Array(ENUMERATE);
       this.wdeg = heuristic === "wdeg";
+      this.guide = null; // per slot: the word id to try first, or -1 (a known fill to stay close to)
+      this.near = null;  // per slot: crossings away from the entry being checked (checkOptions)
       this.deadSlot = -1;
       this.nodes = 0;
       this.failures = 0;
@@ -351,6 +383,7 @@
           case WORD: this.words[i >>> 12][i & 4095] = tv[k]; break;
           case LIMIT: this.limits[i] = tv[k]; break;
           case CELL: this.cellMask[i] = tv[k]; break;
+          case COUNT: this.left[i] = tv[k]; break;
           default: this.lastMask[i] = tv[k];
         }
       }
@@ -360,17 +393,11 @@
     // --- candidate bitsets ---
 
     count(s) {
-      const words = this.words[s];
-      const active = this.active[s];
-      let n = 0;
-      for (let i = 0, limit = this.limits[s]; i < limit; i++) n += popcount32(words[active[i]]);
-      return n;
+      return this.left[s];
     }
 
     isSingleton(s) {
-      if (this.limits[s] !== 1) return false;
-      const x = this.words[s][this.active[s][0]];
-      return (x & (x - 1)) === 0;
+      return this.left[s] === 1;
     }
 
     firstWord(s) {
@@ -387,9 +414,22 @@
     wordIds(s) {
       const words = this.words[s];
       const active = this.active[s];
-      const ids = new Int32Array(this.count(s));
+      const ids = new Int32Array(this.left[s]);
+      const limit = this.limits[s];
       let k = 0;
-      for (let i = 0, limit = this.limits[s]; i < limit; i++) {
+      if (limit * 8 >= words.length) {
+        // Most chunks are live: walking them all in order is cheaper than sorting afterwards.
+        for (let chunk = 0, size = words.length; chunk < size; chunk++) {
+          let x = words[chunk];
+          while (x) {
+            const t = x & -x;
+            ids[k++] = chunk * 32 + 31 - Math.clz32(t);
+            x ^= t;
+          }
+        }
+        return ids;
+      }
+      for (let i = 0; i < limit; i++) {
         const chunk = active[i];
         let x = words[chunk];
         while (x) {
@@ -422,6 +462,10 @@
       const next = (old & ~bit) >>> 0;
       this.save(WORD | (s << 12) | chunk, old);
       words[chunk] = next;
+      this.save(COUNT | s, this.left[s]);
+      this.left[s]--;
+      this.dirtyId[s] = this.dirty[s] ? -1 : id;
+      this.dirty[s] = 1;
       if (next === 0) {
         const active = this.active[s];
         const limit = this.limits[s];
@@ -458,6 +502,10 @@
       }
       this.save(LIMIT | s, limit);
       this.limits[s] = 1;
+      this.save(COUNT | s, this.left[s]);
+      this.left[s] = 1;
+      this.dirty[s] = 1;
+      this.dirtyId[s] = -1;
     }
 
     /* Does some candidate of slot s have letter l at the position whose support hint is r? */
@@ -539,58 +587,110 @@
 
       // Apply every change in one pass over the slot's non-empty chunks.
       let removedAny = false;
+      let removedCount = 0;
+      let gone = 0; // chunks noted in goneChunk/goneBits; -1 once there are too many to note
+      const goneChunk = this.goneChunk;
+      const goneBits = this.goneBits;
+      const dirtyId = this.dirtyId[s];
       if (changes) {
         const words = this.words[s];
         const active = this.active[s];
         const oldLimit = this.limits[s];
+        const single = changes === 1 && refs.length === 1 ? refs[0] : null;
+        const negate = removes[0] === 1;
         let limit = oldLimit;
         for (let i = limit - 1; i >= 0; i--) {
           const chunk = active[i];
           const old = words[chunk];
           let keep = old;
-          for (let j = 0; j < changes && keep !== 0; j++) {
-            let m = 0;
-            for (let k = starts[j], end = starts[j + 1]; k < end; k++) m |= refs[k][chunk];
-            keep = removes[j] ? keep & ~m : keep & m;
+          if (single !== null) {
+            // The usual case, one letter kept or removed at one position: no inner loops.
+            keep = negate ? old & ~single[chunk] : old & single[chunk];
+          } else {
+            for (let j = 0; j < changes && keep !== 0; j++) {
+              let m = 0;
+              for (let k = starts[j], end = starts[j + 1]; k < end; k++) m |= refs[k][chunk];
+              keep = removes[j] ? keep & ~m : keep & m;
+            }
           }
           keep >>>= 0;
           if (keep !== old) {
             this.save(WORD | (s << 12) | chunk, old);
             words[chunk] = keep;
-            removedAny = true;
+            const lost = old ^ keep;
+            removedCount += popcount32(lost);
+            if (gone >= 0) {
+              if (gone < ENUMERATE) {
+                goneChunk[gone] = chunk;
+                goneBits[gone++] = lost;
+              } else gone = -1;
+            }
             if (keep === 0) {
               active[i] = active[--limit];
               active[limit] = chunk;
             }
           }
         }
+        if (removedCount) {
+          removedAny = true;
+          this.save(COUNT | s, this.left[s]);
+          this.left[s] -= removedCount;
+        }
         if (limit !== oldLimit) {
           this.save(LIMIT | s, oldLimit);
           this.limits[s] = limit;
         }
         if (limit === 0) {
-          this.weight[s]++;
+          if (this.learn) this.weight[s]++;
           return false;
         }
       }
       if (!wasDirty && !removedAny) return true;
 
       // A slot down to one word owns it: no other slot may use it.
-      if (this.isSingleton(s)) {
+      if (this.left[s] === 1) {
         const id = this.firstWord(s);
         for (const o of this.byLength.get(length)) {
           if (o === s || !this.removeWord(o, id)) continue;
           if (this.limits[o] === 0) {
-            this.weight[o]++;
+            if (this.learn) this.weight[o]++;
             return false;
           }
-          this.dirty[o] = 1;
           this.enqueue(queue, o);
         }
       }
 
-      // Narrow crossing cells to letters some remaining word still uses. If one position
-      // caused every removal, its own letters all kept their support, so skip it.
+      // Narrow crossing cells to letters some remaining word still uses. With few words left, read
+      // their letters straight off (mode 1). With few just removed, only the letters those words
+      // used can have lost their support (mode 2). Otherwise ask about every letter (mode 0).
+      const codes = list.codes;
+      const seen = this.seen;
+      let mode = 0;
+      if (this.left[s] <= ENUMERATE) {
+        mode = 1;
+        seen.fill(0, 0, length);
+        const words = this.words[s];
+        const active = this.active[s];
+        for (let i = 0, limit = this.limits[s]; i < limit; i++) {
+          const chunk = active[i];
+          for (let x = words[chunk]; x; x &= x - 1) {
+            const offset = (chunk * 32 + 31 - Math.clz32(x & -x)) * length;
+            for (let p = 0; p < length; p++) seen[p] |= 1 << codes[offset + p];
+          }
+        }
+      } else if (gone >= 0 && removedCount <= ENUMERATE && (!wasDirty || dirtyId >= 0)) {
+        mode = 2;
+        seen.fill(0, 0, length);
+        for (let i = 0; i < gone; i++) {
+          const chunk = goneChunk[i];
+          for (let x = goneBits[i]; x; x &= x - 1) {
+            const offset = (chunk * 32 + 31 - Math.clz32(x & -x)) * length;
+            for (let p = 0; p < length; p++) seen[p] |= 1 << codes[offset + p];
+          }
+        }
+        if (wasDirty) for (let p = 0, offset = dirtyId * length; p < length; p++) seen[p] |= 1 << codes[offset + p];
+      }
+      // If one position caused every removal, its own letters all kept their support, so skip it.
       const skip = !wasDirty && changes === 1 ? source : -1;
       for (let p = 0; p < length; p++) {
         const o = this.crossSlot[base + p];
@@ -599,9 +699,13 @@
         const mask = this.cellMask[cell];
         if ((mask & (mask - 1)) === 0) continue;
         let next = mask;
-        for (let m = mask; m; m &= m - 1) {
-          const l = 31 - Math.clz32(m & -m);
-          if (!this.supported(s, (base + p) * 26 + l, list.index[p][l])) next &= ~(1 << l);
+        if (mode === 1) {
+          next = mask & seen[p];
+        } else {
+          for (let m = mode === 2 ? mask & seen[p] : mask; m; m &= m - 1) {
+            const l = 31 - Math.clz32(m & -m);
+            if (!this.supported(s, (base + p) * 26 + l, list.index[p][l])) next &= ~(1 << l);
+          }
         }
         if (next !== mask) {
           this.save(CELL | cell, mask);
@@ -663,7 +767,8 @@
             total += w;
             for (let p = 0; p < length; p++) mix[p * 26 + codes[offset + p]] += w;
           }
-          for (let i = 0; i < mix.length; i++) mix[i] /= total;
+          // Stored as logs: the reweighting below reads each entry thousands of times.
+          for (let i = 0; i < mix.length; i++) mix[i] = Math.log(mix[i] / total + 1e-9);
         }
         // Reweight every word by how well its letters agree with its crossings' mixes.
         for (const s of this.variables) {
@@ -677,7 +782,7 @@
             let sum = 0;
             for (let p = 0; p < length; p++) {
               const o = this.crossSlot[base + p];
-              if (o >= 0) sum += Math.log(mixes[o][this.crossPos[base + p] * 26 + codes[offset + p]] + 1e-9);
+              if (o >= 0) sum += mixes[o][this.crossPos[base + p] * 26 + codes[offset + p]];
             }
             logw[k] = sum;
           }
@@ -695,6 +800,7 @@
       for (const s of this.variables) {
         if (this.isSingleton(s)) continue;
         let score = Math.log(this.count(s)) + this.lookahead * this.hardness[s];
+        if (this.near !== null) score += NEAR_WEIGHT * this.near[s];
         if (this.wdeg) {
           let weight = 1 + this.weight[s];
           for (const o of this.neighbors[s]) if (!this.isSingleton(o)) weight += this.weight[o];
@@ -718,7 +824,10 @@
       const raised = Math.min(100, minScore + Math.min(LONG_MOST, this.longStep * over));
       if (raised > minScore) {
         const strict = words.atLeast(length, raised, allowPopular);
-        if (strict.count >= LONG_ENOUGH) return strict;
+        if (strict.count >= LONG_ENOUGH) {
+          this.raised = true;
+          return strict;
+        }
       }
       return words.atLeast(length, minScore, allowPopular);
     }
@@ -729,8 +838,9 @@
       return Math.min(LENGTH_CEILING, Math.max(LENGTH_FLOOR, weight));
     }
 
-    /* Slot s's words, best first: popular, and leaving crossing slots the most options. */
-    orderedWords(s) {
+    /* Slot s's words and a key to rank each by, higher first: a good score, and leaving crossing
+       slots the most options. */
+    rankWords(s) {
       const cells = this.slots[s].cells;
       const length = cells.length;
       const base = this.base[s];
@@ -764,9 +874,15 @@
         const jitter = shake ? shake * this.random() : 0;
         keys[k] = flex / checked + quality * scores[id] + jitter;
       }
-      const order = Uint32Array.from(ids.keys());
+      return { ids, keys };
+    }
+
+    /* The rest of a ranked list in order, once the first few picks are used up. */
+    sortRanked(ids, keys) {
+      const left = [];
+      for (let k = 0; k < ids.length; k++) if (keys[k] > -Infinity) left.push(k);
+      const order = Uint32Array.from(left);
       order.sort((a, b) => keys[b] - keys[a] || ids[b] - ids[a]);
-      for (let k = 0; k < order.length; k++) order[k] = ids[order[k]];
       return order;
     }
 
@@ -776,18 +892,51 @@
       this.nodes++;
       this.tick();
       const single = [s];
-      for (const id of this.orderedWords(s)) {
+      // A word this slot held in an earlier fill goes first: most of a known fill usually still stands.
+      let guided = this.guide ? this.guide[s] : -1;
+      if (guided >= 0 && !this.hasWord(s, guided)) guided = -1;
+      let first = guided;
+      let ids = null;
+      let keys = null;
+      let order = null;
+      let at = 0;
+      let picks = 0;
+      for (;;) {
+        let id = first;
+        first = -1;
+        if (id < 0) {
+          if (ids === null) ({ ids, keys } = this.rankWords(s));
+          // The first few come from a scan for the best key; sorting the lot waits until they fail.
+          if (picks < FIRST_PICKS && order === null) {
+            let best = -1;
+            let bestKey = -Infinity;
+            for (let k = 0; k < keys.length; k++) {
+              const key = keys[k];
+              if (key >= bestKey && key > -Infinity) {
+                best = k;
+                bestKey = key;
+              }
+            }
+            if (best < 0) break;
+            id = ids[best];
+            keys[best] = -Infinity;
+            picks++;
+          } else {
+            if (order === null) order = this.sortRanked(ids, keys);
+            if (at >= order.length) break;
+            id = ids[order[at++]];
+          }
+          if (id === guided) continue;
+        }
         if (!this.hasWord(s, id)) continue; // ruled out while refuting an earlier word
         const mark = this.tp;
         this.assignWord(s, id);
-        this.dirty[s] = 1;
         if (this.propagate(single) && this.search()) return true;
         this.undo(mark);
         this.failures++;
         if (++this.attemptFailures >= this.budget) throw RESTART;
         // That word can't go here: rule it out and propagate what that implies.
         this.removeWord(s, id);
-        this.dirty[s] = 1;
         if (this.limits[s] === 0 || !this.propagate(single)) return false;
       }
       return false;
@@ -796,25 +945,36 @@
     /* Search from the current state until deadline. true: solved, and the state holds the
        fill; false: proven impossible; null: out of time. Unless solved, the state is restored. */
     solve(deadline) {
-      const root = this.tp;
-      this.deadline = deadline;
+      this.beginSolve();
+      for (;;) {
+        const result = this.round(deadline);
+        if (result !== RESTART) return result;
+      }
+    }
+
+    beginSolve() {
       this.budget = FIRST_BUDGET;
       this.attemptFailures = 0;
       this.noise = this.baseNoise;
-      for (;;) {
-        try {
-          if (this.search()) return true;
-          this.undo(root);
-          return false; // every word was tried in every slot without a restart
-        } catch (signal) {
-          this.undo(root);
-          if (signal === OUT_OF_TIME) return null;
-          if (signal !== RESTART) throw signal;
-          this.restarts++;
-          this.attemptFailures = 0;
-          this.budget = Math.floor(this.budget * BUDGET_GROWTH);
-          this.noise = RESTART_NOISE;
-        }
+    }
+
+    /* One attempt, up to its failure budget: true, false or null as solve, or RESTART. */
+    round(deadline) {
+      const root = this.tp;
+      this.deadline = deadline;
+      try {
+        if (this.search()) return true;
+        this.undo(root);
+        return false; // every word was tried in every slot without a restart
+      } catch (signal) {
+        this.undo(root);
+        if (signal === OUT_OF_TIME) return null;
+        if (signal !== RESTART) throw signal;
+        this.restarts++;
+        this.attemptFailures = 0;
+        this.budget = Math.floor(this.budget * BUDGET_GROWTH);
+        this.noise = RESTART_NOISE;
+        return RESTART;
       }
     }
 
@@ -892,51 +1052,116 @@
     return { search };
   }
 
-  /* Fill grid from words (a WordList). Never throws for bad grids; returns
-     {success, grid, reason, stats}. options: those of prepare, plus timeLimit (seconds),
-     onProgress(rows, stats) and progressInterval (seconds). */
-  function fill(grid, words, options = {}) {
-    const { timeLimit = 30, onProgress = null, progressInterval = 0.25, longStep = LONG_STEP } = options;
-    const started = now();
-    const deadline = started + timeLimit * 1000;
-
-    /* Aim high first: hold the long entries above the grid's minimum score and see if that fills.
-       If it can't, in the share of the time set aside for it, settle for the plain minimum rather
-       than leave the grid empty — a tidy fill beats a perfect one that never arrives. */
-    const attempt = (step, until) => {
-      const { search, error } = prepare(grid, words, { ...options, longStep: step });
-      if (error) return { search, error };
-      search.onProgress = onProgress;
-      search.progressInterval = progressInterval * 1000;
-      search.started = started; // one clock across both attempts, so progress and stats add up
-      search.nextReport = now() + search.progressInterval;
-      return { search, solved: search.solve(until) };
-    };
-
-    let attempted = longStep > 0 ? attempt(longStep, Math.min(deadline, started + timeLimit * 1000 * STRICT_SHARE)) : null;
-    if (attempted && attempted.solved) {
-      return { success: true, grid: attempted.search.gridRows(), reason: "", stats: attempted.search.stats() };
+  /* Word ids per slot from the rows of an earlier fill, for slots still open; -1 where that fill's
+     letters don't spell a listed word. */
+  function guideFrom(search, words, rows) {
+    const letters = Array.from(rows, (row) => Array.from(row)).flat();
+    const guide = new Int32Array(search.slots.length).fill(-1);
+    for (const v of search.variables) {
+      const id = words.wordId(search.slots[v].cells.map((cell) => letters[cell] || "?").join(""));
+      if (id !== undefined) guide[v] = id;
     }
-    // Either the raised floors made it impossible, or they ran out of their share of the time.
-    const { search, error, solved } = attempt(0, deadline);
-    if (error) return { success: false, grid: null, reason: error, stats: search ? search.stats() : {} };
-    if (solved) return { success: true, grid: search.gridRows(), reason: "", stats: search.stats() };
-    const reason = solved === false
-      ? "No fill exists for this grid with these words. Try moving a block, removing a letter, or lowering the minimum word score."
-      : `No fill found within ${timeLimit} seconds. Try moving a block, or run it again.`;
-    return { success: false, grid: null, reason, stats: search.stats() };
+    return guide;
   }
 
-  /* Check which candidate words for one entry can be part of a full fill, one word at a time
-     from the top of the list down.
+  /* Fill grid from words (a WordList). Never throws for bad grids; returns
+     {success, grid, reason, stats, phase}. phase says which search found the fill: "strict", with long
+     entries held above the minimum score, or "plain". options: those of prepare, plus timeLimit
+     (seconds), onProgress(rows, stats), progressInterval (seconds) and guide (the rows of an earlier
+     fill of this grid: each entry tries the word it held there first, so a fill redone after a small
+     change keeps most of what was there). */
+  function fill(grid, words, options = {}) {
+    const { timeLimit = 30, onProgress = null, progressInterval = 0.25, longStep = LONG_STEP, guide = null } = options;
+    const started = now();
+    const deadline = started + timeLimit * 1000;
+    let strict = null;
+    let plain = null;
+    const totals = () => {
+      const stats = (plain || strict).stats();
+      if (plain && strict) for (const key of ["nodes", "failures", "restarts"]) stats[key] += strict[key];
+      return stats;
+    };
+    const ready = (step) => {
+      const { search, error } = prepare(grid, words, { ...options, longStep: step });
+      if (search && !error) {
+        search.onProgress = onProgress && ((rows) => onProgress(rows, totals()));
+        search.progressInterval = progressInterval * 1000;
+        search.started = started; // one clock across both searches, so progress and stats add up
+        search.nextReport = now() + search.progressInterval;
+        if (guide) search.guide = guideFrom(search, words, guide);
+        search.beginSolve();
+      }
+      return { search, error };
+    };
+
+    /* Two searches share the clock: a strict one that holds long entries above the grid's minimum
+       score, and a plain one that doesn't. They take turns a restart's worth at a time, whichever has
+       had less time going next, so a grid the raised floors can't fill costs about twice what the
+       plain search needs rather than a fixed share of the limit. A strict fill is returned at once. A
+       plain fill waits while the strict search gets a last chance, until it has had GRACE_FACTOR
+       times the plain search's time (and at least GRACE_LEAST seconds), since a strict fill is the
+       better one. The plain search is only set up once the strict one has run out its first budget,
+       so a grid that fills easily pays nothing for it. */
+    if (longStep > 0) {
+      const attempt = ready(longStep);
+      // Nothing is held higher on this grid, or the raised floors leave some entry no words at all.
+      if (!attempt.error && attempt.search.raised) strict = attempt.search;
+    }
+    let strictOpen = strict !== null; // still worth running
+    let held = null;
+    const used = { strict: 0, plain: 0 };
+    for (;;) {
+      let turn;
+      if (held || !plain) turn = strictOpen && (held || used.strict === 0) ? "strict" : "plain";
+      else turn = strictOpen && used.strict <= used.plain ? "strict" : "plain";
+      if (turn === "plain" && !plain) {
+        const attempt = ready(0);
+        if (attempt.error) return { success: false, grid: null, reason: attempt.error, stats: attempt.search ? attempt.search.stats() : {} };
+        plain = attempt.search;
+      }
+      const search = turn === "strict" ? strict : plain;
+      const until = held ? Math.min(deadline, now() + Math.max(GRACE_LEAST * 1000, GRACE_FACTOR * used.plain) - used.strict) : deadline;
+      const began = now();
+      const result = until > began ? search.round(until) : null;
+      used[turn] += now() - began;
+      if (result === RESTART) continue;
+      if (turn === "strict") {
+        if (result === true) return { success: true, grid: search.gridRows(), reason: "", stats: totals(), phase: "strict" };
+        if (held || result === null) break; // its last chance is over, or the whole time limit is
+        strictOpen = false; // impossible with the raised floors: the plain search carries on alone
+        continue;
+      }
+      if (result === true) {
+        held = { success: true, grid: search.gridRows(), reason: "", stats: null, phase: "plain" };
+        if (!strictOpen) break;
+      } else if (result === false) {
+        return { success: false, grid: null, reason: "No fill exists for this grid with these words. Try moving a block, removing a letter, or lowering the minimum word score.", stats: totals() };
+      } else break; // out of time
+    }
+    if (!held) return { success: false, grid: null, reason: `No fill found within ${timeLimit} seconds. Try moving a block, or run it again.`, stats: totals() };
+    held.stats = totals();
+    return held;
+  }
+
+  /* Check which candidate words for one entry can be part of a full fill, from the top of the
+     list down.
      target: {row, col, direction} of the entry; candidates: words, checked in this order.
      options: those of prepare, plus perWordSeconds.
      Returns {error}, or a checker with:
      - step(ms): checks words for about ms milliseconds and returns
        {updates: [[index, status, rows?], ...], done}. Statuses: "works" (a full fill uses the
        word, and rows is that fill), "fails" (no fill can use it), "unknown" (no fill found
-       within perWordSeconds).
-     - prioritize(index, seconds): check that word next, allowing it seconds. */
+       within perWordSeconds). A word reported "unknown" may be reported again later as "works".
+     - prioritize(index, seconds): check that word next, allowing it seconds.
+
+     Most words share most of a fill with the words around them, so each check reuses the fills
+     found before it. A full search tries each entry's word from the last fill first, and works
+     outward from the target entry so a dead end near it shows up at once. Each fill found also
+     becomes a few frames (see FRAME_RADII): in one, its words stay put beyond the radius, and every
+     word still to settle gets a short search over the entries inside. A word that fits a frame
+     works, and that's that; one that doesn't learns nothing, and waits for its own full search, so
+     "fails" still means a complete search found no fill. A radius that costs more per word than a
+     full search is dropped. */
   function checkOptions(grid, words, target, candidates, options = {}) {
     const { perWordSeconds = 0.5 } = options;
     // Picking a word by hand is the constructor's call, so the higher floor long entries get from
@@ -948,24 +1173,166 @@
     if (!search.list[s]) return { error: "That entry is already complete." };
     const noFillAtAll = Boolean(error);
     const ids = candidates.map((word) => words.wordId(word));
-    const settled = new Uint8Array(candidates.length);
+    const PENDING = 0, WORKS = 1, FAILS = 2, UNKNOWN = 3;
+    const state = new Uint8Array(candidates.length);
+    let open = candidates.length; // candidates still PENDING
     let next = 0;
     let urgent = null;
+    let screened = false;
 
-    /* Place one candidate, look for a full fill around it, and put the grid back. */
+    // How many crossings each open slot is from the target.
+    const distance = new Int32Array(search.slots.length).fill(1 << 30);
+    distance[s] = 0;
+    for (let ring = [s], d = 1; ring.length; d++) {
+      const outer = [];
+      for (const v of ring) {
+        for (const o of search.neighbors[v]) {
+          if (distance[o] > d) {
+            distance[o] = d;
+            outer.push(o);
+          }
+        }
+      }
+      ring = outer;
+    }
+    search.near = distance;
+    const rootMark = search.tp;
+    const waiting = []; // frames not yet run: {fill, radius}
+    let frame = null;   // the frame being run: {fill, radius, list, at, entered}
+
+    const fillIds = () => {
+      const fill = new Int32Array(search.slots.length).fill(-1);
+      for (const v of search.variables) fill[v] = search.firstWord(v);
+      return fill;
+    };
+    // A radius that leaves most of the grid free is no short cut, just a second full search.
+    const radii = FRAME_RADII.filter((radius) => {
+      let pinned = 0;
+      for (const v of search.variables) if (distance[v] > radius) pinned++;
+      return pinned >= FRAME_PINNED * search.variables.length;
+    });
+    // What each radius has cost per word it settled, against what a full search costs per word.
+    const spent = new Map(radii.map((radius) => [radius, { ms: 0, hits: 0, dropped: false }]));
+    let fullMs = 0;
+    let fullCount = 0;
+    // A frame is its fill beyond the radius, and nothing else: a new fill that matches an earlier one
+    // out there would only repeat that frame's answers, so it isn't run again.
+    const framed = new Set();
+    const learnFill = (fill) => {
+      search.guide = fill;
+      for (const radius of radii) {
+        if (spent.get(radius).dropped) continue;
+        let signature = `${radius}`;
+        for (const v of search.variables) if (distance[v] > radius) signature += `,${fill[v]}`;
+        if (framed.has(signature)) continue;
+        framed.add(signature);
+        waiting.push({ fill, radius });
+      }
+    };
+
+    const settle = (update, updates) => {
+      const [i, status] = update;
+      if (state[i] === PENDING) open--;
+      state[i] = status === "works" ? WORKS : status === "fails" ? FAILS : UNKNOWN;
+      updates.push(update);
+    };
+
+    /* Place one candidate at the root, look for a full fill around it, and put the grid back. */
     const check = (i, seconds) => {
       const id = ids[i];
       if (noFillAtAll || id === undefined || !search.hasWord(s, id)) return [i, "fails"];
       const mark = search.tp;
       search.assignWord(s, id);
-      search.dirty[s] = 1;
       let update = [i, "fails"]; // placing it already breaks a crossing
       if (search.propagate([s])) {
-        const solved = search.solve(now() + seconds * 1000);
-        update = solved ? [i, "works", search.gridRows()] : [i, solved === false ? "fails" : "unknown"];
+        const began = now();
+        const guided = search.guide !== null;
+        const solved = search.solve(began + seconds * 1000);
+        if (solved) {
+          // The first fill is found cold; the ones after start from a known fill, and those are
+          // what a frame has to beat.
+          if (guided) {
+            fullMs += now() - began;
+            fullCount++;
+          }
+          update = [i, "works", search.gridRows()];
+          learnFill(fillIds());
+        } else update = [i, solved === false ? "fails" : "unknown"];
       }
       search.undo(mark);
       return update;
+    };
+
+    const leaveFrame = () => {
+      if (frame && frame.entered) {
+        search.undo(rootMark);
+        frame.entered = false;
+      }
+    };
+
+    /* Pin the frame's fill beyond its radius and, the first time, list the words it still allows. */
+    const enterFrame = () => {
+      const pinned = [];
+      for (const v of search.variables) {
+        if (distance[v] <= frame.radius || !search.hasWord(v, frame.fill[v])) continue;
+        search.assignWord(v, frame.fill[v]);
+        pinned.push(v);
+      }
+      frame.entered = true;
+      if (!search.propagate(pinned)) return false;
+      if (!frame.list) {
+        frame.list = [];
+        for (let i = 0; i < ids.length; i++) {
+          if ((state[i] === PENDING || state[i] === UNKNOWN) && search.hasWord(s, ids[i])) frame.list.push(i);
+        }
+      }
+      return true;
+    };
+
+    /* One candidate inside the frame: a short search over the slots left free. A fill, or null. */
+    const checkInFrame = (i) => {
+      const mark = search.tp;
+      search.assignWord(s, ids[i]);
+      let update = null;
+      if (search.propagate([s])) {
+        search.beginSolve();
+        search.budget = FRAME_BUDGET;
+        if (search.round(now() + perWordSeconds * 1000) === true) update = [i, "works", search.gridRows()];
+      }
+      search.undo(mark);
+      return update;
+    };
+
+    /* Work through the current frame until it's done or the step's time is up. */
+    const runFrame = (end, updates) => {
+      search.learn = false; // a frame's dead ends are the frame's, not the grid's
+      const saved = search.guide;
+      search.guide = frame.fill;
+      const tally = spent.get(frame.radius);
+      const fullCost = fullCount ? fullMs / fullCount : Infinity;
+      const began = now();
+      if (!frame.entered && !enterFrame()) frame.at = frame.list ? frame.list.length : 0;
+      while (frame.list && frame.at < frame.list.length && now() < end) {
+        const i = frame.list[frame.at++];
+        if (state[i] === WORKS || state[i] === FAILS) continue;
+        const update = checkInFrame(i);
+        if (update) {
+          tally.hits++;
+          settle(update, updates);
+        }
+        const cost = tally.ms + now() - began;
+        if (cost > 40 && cost / (tally.hits + 1) > fullCost) {
+          tally.dropped = true; // dearer than searching from scratch
+          frame.at = frame.list.length;
+        }
+      }
+      tally.ms += now() - began;
+      search.learn = true;
+      search.guide = saved;
+      if (!frame.list || frame.at >= frame.list.length) {
+        leaveFrame();
+        frame = null;
+      }
     };
 
     return {
@@ -975,18 +1342,29 @@
       step(ms) {
         const end = now() + ms;
         const updates = [];
-        while (now() < end) {
-          let update;
-          if (urgent) {
-            update = check(urgent.index, urgent.seconds);
-            urgent = null;
-          } else {
-            while (next < candidates.length && settled[next]) next++;
-            if (next >= candidates.length) return { updates, done: true };
-            update = check(next, perWordSeconds);
+        if (!screened) {
+          // Words the given letters already rule out need no search at all.
+          screened = true;
+          for (let i = 0; i < ids.length; i++) {
+            if (noFillAtAll || ids[i] === undefined || !search.hasWord(s, ids[i])) settle([i, "fails"], updates);
           }
-          settled[update[0]] = 1;
-          updates.push(update);
+        }
+        while (now() < end) {
+          if (urgent) {
+            leaveFrame();
+            const { index, seconds } = urgent;
+            urgent = null;
+            if (state[index] !== WORKS && state[index] !== FAILS) settle(check(index, seconds), updates);
+          } else if (frame) {
+            runFrame(end, updates);
+          } else if (waiting.length && open > 0 && (fullCount >= CALIBRATE || next >= candidates.length)) {
+            frame = { ...waiting.shift(), list: null, at: 0, entered: false };
+          } else {
+            if (fullCount >= CALIBRATE) waiting.length = 0; // nothing left for them to settle
+            while (next < candidates.length && state[next] !== PENDING) next++;
+            if (next >= candidates.length) return { updates, done: true };
+            settle(check(next, perWordSeconds), updates);
+          }
         }
         return { updates, done: false };
       },
