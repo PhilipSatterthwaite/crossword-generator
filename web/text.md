@@ -111,37 +111,47 @@ A crossword starts as an empty square and ends as something a stranger can solve
 
 </nav>
 
-## 1. Decide what kind of puzzle it is
+## 1. Solve first, then choose your puzzle
 
-A **themed** puzzle has a handful of long answers that share an idea: a pun repeated four ways, a hidden word, a category. The theme is the reason the puzzle exists, and everything else in the grid is built to accommodate it. Most weekday newspaper crosswords are themed.
+The constructors who get published are nearly all heavy solvers. Solving tells you what a Monday feels like next to a Saturday, which words turn up week after week, and which clues make you smile. If you have a publication in mind, solve a month of its puzzles before you build one for it.
 
-A **themeless** puzzle has no such centre. Its pleasure is the fill itself: long, lively, surprising entries stacked against each other. Themelesses are harder to fill and are usually judged on how fresh the words are.
+Then decide what you're making. A **themed** puzzle has a handful of long answers that share one idea: a pun played four ways, a hidden word, a category with a twist. The theme is the reason the puzzle exists, and the rest of the grid is built around it. A **themeless** puzzle has no such center. Its pleasure is the fill itself, long and lively entries stacked against each other, and it's judged almost entirely on how fresh those words are.
 
-On size, the standard weekday grid is 15×15, a Sunday is 21×21, and a mini is 5×5 or 7×7. If this is your first puzzle, build a 7×7. It teaches the same lessons in ten minutes rather than an afternoon.
+Sizes follow the newspaper week. A daily is 15×15. Monday through Thursday are usually themed and get harder as the week goes on, and Friday and Saturday are usually themeless and hardest. A Sunday is a 21×21 themed puzzle. Many constructors' first acceptance is an early-week themed 15×15. For your very first grid, though, build a 7×7: it teaches the same lessons in ten minutes rather than an afternoon.
 
-## 2. Place the theme first
+## 2. Find a theme worth a puzzle
 
-Theme answers go in before a single block is drawn, because every other decision bends around them. Pick three to five for a 15×15. Then arrange them so the grid can stay symmetric:
+Editors turn down more puzzles for the theme than for anything else. A theme that gets accepted tends to have four qualities.
 
-- Theme entries are almost always Across, and are spread down the grid rather than bunched.
-- They sit in mirrored rows. An entry in row 3 pairs with one in row 13; an entry in row 5 pairs with one in row 11. A single odd entry can sit in the exact middle row.
-- Paired entries are the same length, so the blocks that bound them mirror each other.
+- **It has an aha.** Solvers should feel the moment they catch on. A list of things that merely share a category, such as five kinds of cheese, rarely does it.
+- **It's consistent.** Every theme entry follows exactly the same rule. If three answers hide a planet across two words, the fourth can't hide it inside one.
+- **It's tight.** The idea picks the entries, rather than you picking them. If a dozen other phrases would fit the rule just as well, ask why these ones.
+- **It's fresh.** Search past puzzles on XWord Info or Crossword Tracker before you build. A great idea that ran two years ago is a rejection.
 
-This is the step people skip, and it is the step that decides whether the puzzle is buildable. Two theme answers of awkward, unmatched lengths can make a grid impossible before you have typed a letter.
+Theme answers should be real phrases people say, not strings built to fit the gimmick. Many early-week themes end with a **revealer**, one last entry, often near the bottom, that names the idea and makes the aha land.
 
-## 3. Draw the grid
+Plan the theme answers before drawing a single block, because every other decision bends around them. Three to five is typical for a 15×15.
 
-American-style crosswords follow four rules that editors treat as absolute. Break one and the puzzle is not publishable, however good the fill.
+- They're almost always Across, spread down the grid rather than bunched together.
+- They sit in mirrored rows: an entry in row 3 pairs with one in row 13, and one in row 5 with one in row 11.
+- Paired entries have the same length, so the blocks around them mirror each other.
+- An entry in the exact middle row has to be centered, so it needs an odd number of letters.
+
+Two theme answers of awkward, unmatched lengths can make a grid impossible before you've typed a letter. So can two long theme answers in neighboring rows, where every Down entry has to cross both.
+
+## 3. Design the grid
+
+American-style crosswords follow four rules that editors treat as absolute. Break one and the puzzle isn't publishable, however good the fill.
 
 <div class="rules">
 
 ### The blocks are rotationally symmetric
 
-Turn the grid 180 degrees and the black squares land exactly where they were. Keep **Mirror blocks** ticked and fillmein places each block's partner as you draw. The tally under the grid tells you whether the symmetry holds.
+Turn the grid 180 degrees and the black squares land exactly where they were. Keep **Mirror blocks** ticked and fillmein places each block's partner as you draw. The tally under the grid tells you whether the symmetry holds. Some editors accept left-right mirror symmetry when a theme truly needs it, but rotational is the default.
 
 ### No entry is shorter than three letters
 
-Two-letter entries are not allowed. The autofill refuses a grid that contains one and tells you which run is too short.
+Two-letter entries aren't allowed. The autofill refuses a grid that contains one and tells you which run is too short.
 
 ### Every square is checked
 
@@ -153,52 +163,74 @@ You can walk from any white square to any other. A corner sealed off by blocks i
 
 </div>
 
-Beyond those, two numbers tell you whether a grid is in normal territory. A 15×15 should come in at no more than 78 entries if it's themed, 72 if it's themeless, and its black squares should stay at roughly a sixth of the grid or below. Both appear in the tally under the grid as you draw: **Words**, and **Blocks** with its percentage.
+Beyond those rules, a few numbers keep a grid in normal territory. At the New York Times, a themed 15×15 has at most 78 entries, a themeless at most 72, and a 21×21 Sunday at most 140. Other outlets are close. Black squares traditionally stay at about a sixth of the grid. Editors no longer hold to that strictly, but large clumps of blocks look lazy. The tally under the grid shows **Words**, and **Blocks** with its percentage, as you draw.
+
+Good grids also flow. Each corner should open onto the rest of the grid through more than one square, so a solver who's stuck in one section can get in from another. Use "cheater" squares sparingly. These are blocks that make the grid easier to fill without changing its word count. And leave room for a few long non-theme entries, seven to ten letters in the corners. They're where the grid's sparkle comes from.
 
 Beginners almost always use too many blocks. The result is a grid full of three- and four-letter entries, which is where dull fill comes from. Fewer blocks and longer entries make a better puzzle and a harder build.
 
 ## 4. Fill it
 
-fillmein separates the letters you chose from the letters it suggested. Letters you type or pick are **ink** and are never touched. Letters the autofill puts in are **pencil**, shown in blue, and are replaced every time you fill again. So type your theme answers first, then let the machine work around them.
+fillmein keeps the letters you chose apart from the letters it suggested. Letters you type or pick are **ink** and are never touched. Letters the autofill puts in are **pencil**, shown in blue, and are replaced whenever you fill again. So ink your theme answers first, then let the machine work around them.
 
-Press **Fill grid** and the solver looks for a complete fill. **Another fill** searches again from a different starting point, which is how you shop for a version you like. Three settings steer it:
+Press **Fill grid** and the solver looks for a complete fill. **Another fill** searches again from a different starting point, which is how you shop for a version you like. After you change a letter or a block, **Fill grid** keeps as much of the fill already there as still works. Three settings steer it:
 
-- **Min. word score** is the floor. Scores run 0 to 100: 50 is ordinary fill, 60 and up is lively, below 50 is weak. Starting at 50 and raising it is a good habit.
-- **Allow popular words below it** lets in everyday words that score under your floor. It helps a stubborn grid close.
-- **Search for** is how many seconds it may spend before giving up. A tight grid may need a minute.
+- **Min. score** is the floor. Scores run 0 to 100: 50 is ordinary fill, 60 and up is lively, and below 50 is weak. Start at 50 and raise it as far as the grid allows.
+- **Allow popular below it** lets in everyday words that score under your floor. It helps a stubborn grid close.
+- The box next to them sets how many **seconds** the search may take before it gives up. A tight grid may need a minute.
 
-To choose an entry yourself, click it. The panel beside the grid lists every word in the list that fits the letters already there, best score first, and then works down the list checking which of them the rest of the grid can still accommodate: a tick means a full fill exists with that word in place, a struck-through word means no fill does. Click one to preview it, press Enter to keep it.
+To choose an entry yourself, click it. The panel beside the grid lists every word that fits the letters already there, best score first, and checks each one against the rest of the grid. A tick means a full fill exists with that word in place, and a struck-through word means no fill does. Click a word to preview it, and press Enter to keep it.
 
-When a grid will not fill, the answer is almost always the grid rather than the settings. Move one block. A single square in the wrong place is usually what's strangling a corner.
+The autofill is a starting point, not the finished fill. Experienced constructors fill the hardest corner by hand, redo any section they don't love, and use software for the rest. When a grid won't fill at all, the answer is almost always the grid rather than the settings. Move one block. A single square in the wrong place is usually what's strangling a corner.
 
-## 5. Judge the fill
+## 5. Clean up the fill
 
-A complete grid is not a finished puzzle. What separates a good crossword from a bad one is whether a solver recognises the words in it.
+A complete grid isn't a finished puzzle. What separates a good crossword from a bad one is whether solvers recognize the words in it and enjoy finding them. Editors look hard at the weakest parts of a grid, and these are the problems that most often sink an otherwise good puzzle:
 
-- **Weakest entry** in the tally names the worst word in your grid and its score. If you fix one thing, fix that.
-- Tick **Tint weak words** and any entry scoring under 50 is shaded on the grid, so bad corners are visible at a glance.
-- Watch for crosswordese: the short, vowel-heavy words that exist only in crosswords. A few are unavoidable. A grid full of them is a grid that needs redrawing.
-- An entry that repeats a word used elsewhere is flagged **also at** on the grid and in the entry list. The same word must not appear twice in one puzzle.
+- **Crosswordese.** Short, vowel-heavy words that exist mainly in crosswords, such as old coins, obscure rivers and rare birds. A few are unavoidable. A grid full of them needs redrawing.
+- **Unfair crossings.** Two obscure names crossing at a letter no one could infer is a trap, not a challenge. Constructors call it a Natick, and editors reject puzzles for it.
+- **Filler that isn't a word.** Partial phrases like A TO or IN AN, arbitrary abbreviations, Roman numerals, and made-up words glued together from a prefix or suffix, like REEMAIL or UNSOGGY.
+- **The breakfast test.** Nothing gross, offensive or grim that a solver wouldn't want to meet over their morning coffee.
+- **Repeats.** The same word, or the same root, shouldn't appear twice in one puzzle.
+
+fillmein points you at all of these. **Weakest entry** in the tally names the worst word in your grid and its score, so if you fix one thing, fix that. Tick **Tint weak words** and any entry scoring under 50 is shaded on the grid, so bad corners are visible at a glance. An entry that repeats a word used elsewhere is flagged **also at** on the grid and in the entry list.
 
 ## 6. Write the clues
 
-Numbering happens automatically and follows the grid, so the Clues tab always matches what you have drawn. What's left is the writing, where a few conventions matter:
+Numbering happens automatically and follows the grid, so the Clues tab always matches what you've drawn. What's left is the writing, and it's where a puzzle gets its voice.
 
-- The clue and the answer must match in part of speech, tense and number. If the answer is a plural, the clue is plural; if the answer is past tense, so is the clue.
-- An abbreviated answer needs a signal: an abbreviation in the clue, or a tag such as "for short" or "briefly".
-- A question mark at the end marks wordplay rather than a straight definition. Use it honestly and sparingly.
-- A clue must not contain any word from its own answer.
-- Vary the difficulty. A puzzle of nothing but dictionary definitions is a vocabulary test, not a crossword.
+- **Match the answer exactly.** The clue and the answer agree in part of speech, tense and number. A plural answer gets a plural clue, and a past-tense answer gets a past-tense clue.
+- **Signal what's unusual.** An abbreviated answer needs an abbreviation in the clue, or a tag such as "for short" or "briefly." A question mark at the end marks wordplay rather than a straight definition. Use it honestly and sparingly.
+- **Never give the answer away.** A clue must not contain any word from its own answer.
+- **Pitch it to the day.** A Monday clue should be gettable by someone new to crosswords. A Saturday clue can misdirect, as long as it's fair once you see the answer.
+- **Find a fresh angle.** Look up how an entry has been clued before, then try to say something new. A clue with a little personality is remembered, and the stock one isn't.
+- **Check every fact.** Dates, spellings, titles, who said what. A single wrong fact is the kind of error an editor notices first.
 
-If you change a letter on the grid after writing its clue, the Clues tab marks that clue as written for an answer that has since changed, so nothing goes out describing a word that is no longer there.
+If you change a letter on the grid after writing its clue, the Clues tab marks that clue as written for an answer that has since changed. Nothing goes out describing a word that's no longer there.
 
-## 7. Check it, then send it out
+## 7. Read it like an editor
 
-The Export tab runs through the puzzle before you do anything with it: every square filled, every entry clued, every clue still matching its answer, and a title on the whole thing. Clear those four and it is ready.
+An editor reading your puzzle asks four questions: Is the theme worth it? Is the fill clean and lively? Are the clues accurate and pitched right for the day? Would solvers enjoy the whole thing? Answer those yourself before anyone else has to.
 
-From there you can download the puzzle as **.puz**, which nearly every solving app opens, as **.ipuz**, the open standard and the format to keep your own copy in, or as **.jpz** for Crossword Compiler and many web solvers. **Print or PDF** lays the puzzle and its clues on a single sheet with the answer key on a second. **Share a link** publishes it so anyone you send the address to can solve it in their browser, with no account and nothing to install.
+- **Get it test-solved.** Send it to two or three people who solve regularly and watch where they stall. A square nobody can get is a square to fix.
+- **Proofread it cold.** Put the puzzle down for a day, then read every clue against its answer.
+- **Let the Export tab check it.** It confirms that every square is filled, every entry is clued, every clue still matches its answer, and the puzzle has a title.
 
-If you are aiming at a publication, read its specifications before you build, not after. Word counts, grid sizes and what an editor will accept vary, and they are all easier to hit from the start than to retrofit.
+From there you can download the puzzle as **.puz**, which nearly every solving app opens, as **.ipuz**, the open standard and the format to keep your own copy in, or as **.jpz** for Crossword Compiler and many web solvers. **Print or PDF** lays the puzzle and its clues on a single sheet with the answer key on a second. **Share a link** lets anyone you send the address to solve it in their browser, with no account and nothing to install. That makes it the easy way to get test-solvers.
+
+## 8. Submit it
+
+Pick an outlet and read its specifications before you build, not after. Grid sizes, word counts and what an editor will accept vary, and they're all easier to hit from the start than to retrofit. For the New York Times, the specifications and the submission form are on [its crossword submissions page](https://www.nytimes.com/puzzles/submissions/crossword). The Times asks for a PDF in its own layout, with the filled grid and each clue beside its answer. Export a .puz from fillmein and a free converter will lay it out that way.
+
+A few courtesies apply almost everywhere:
+
+- **One outlet at a time.** Don't send the same puzzle anywhere else while it's under review. After a rejection, it's free to go elsewhere.
+- **Keep it unpublished.** Outlets want puzzles no one has seen. Share it with your test-solvers, not with the whole internet.
+- **Don't flood the queue.** Editors limit how many of your puzzles can wait at once, the Times included.
+
+Then be patient. Replies take months, and the big outlets receive hundreds of puzzles a week, so most submissions are declined, including many good ones. A rejection often comes with a note on what didn't work. Read it, revise, and try the Los Angeles Times, Universal, the Wall Street Journal or an independent outlet. An acceptance usually comes with edits, and editors often rewrite some of the clues.
+
+You don't have to do it alone. Plenty of first bylines come from co-constructing with someone who has been published. Communities like Crosscord, a Discord server for constructors, and the Crossword Puzzle Collaboration Directory, which pairs newcomers from underrepresented groups with mentors, are good places to find test-solvers, feedback and a partner. Most published constructors collected a stack of rejections before their first yes.
 
 [guide.ready]
 **Ready?** Start with a 7×7 and let the autofill show you what a grid wants to do. You can change the size, load an example to pull apart, or open a puzzle you made elsewhere.
