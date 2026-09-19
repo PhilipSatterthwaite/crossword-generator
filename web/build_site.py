@@ -107,7 +107,10 @@ KEY = re.compile(r"^\[([a-z0-9][a-z0-9.-]*)\]\s*$")
 # title or a meta tag. A {{key}} alone on a line keeps that line's indentation.
 ALONE = re.compile(r"^([ \t]*)\{\{([a-z0-9][a-z0-9.-]*)\}\}[ \t]*$", re.MULTILINE)
 INSIDE = re.compile(r"\{\{([a-z0-9][a-z0-9.-]*)(?:\|(plain|line))?\}\}")
+BOTH = re.compile(r"\*\*\*(.+?)\*\*\*")
 BOLD = re.compile(r"\*\*(.+?)\*\*")
+# One asterisk each side, not two: *italic*, where **bold** has already been dealt with.
+ITALIC = re.compile(r"(?<![*\w])\*(?![\s*])(.+?)(?<![\s*])\*(?![*\w])")
 LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
@@ -134,9 +137,11 @@ def read_words():
 
 
 def inline(text):
-    """**bold** and [a link](where.html), within a line."""
+    """**bold**, *italic*, ***both*** and [a link](where.html), within a line."""
     linked = LINK.sub(lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', text)
-    return BOLD.sub(lambda m: f"<b>{m.group(1)}</b>", linked)
+    both = BOTH.sub(lambda m: f"<b><i>{m.group(1)}</i></b>", linked)
+    bold = BOLD.sub(lambda m: f"<b>{m.group(1)}</b>", both)
+    return ITALIC.sub(lambda m: f"<i>{m.group(1)}</i>", bold)
 
 
 def slug(text):
@@ -176,7 +181,9 @@ def render(block):
 def plain(block):
     """A block as one line of words, safe inside an attribute."""
     text = " ".join(line.strip() for line in block.splitlines() if line.strip())
-    bare = BOLD.sub(lambda m: m.group(1), LINK.sub(lambda m: m.group(1), text))
+    bare = LINK.sub(lambda m: m.group(1), text)
+    for rule in (BOTH, BOLD, ITALIC):
+        bare = rule.sub(lambda m: m.group(1), bare)
     return escape(bare, quote=True)
 
 
