@@ -68,6 +68,10 @@
   .welcome p { margin: 0; line-height: 1.6; color: var(--muted); }
   .welcome b { color: var(--ink); }
   .welcome a { color: var(--pencil); }
+  /* A brief word on privacy under the welcome, quieter than the welcome itself. */
+  .privacy-note { margin: -12px 0 0; max-width: 74ch; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .privacy-note b { color: var(--ink); }
+  .privacy-note a { color: var(--pencil); }
 
   .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
   .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
@@ -134,11 +138,13 @@
   </main>
 
   <section class="welcome" aria-labelledby="welcome-title">
-    <h2 id="welcome-title">Welcome to fillmein</h2>
+    <h2 id="welcome-title">Welcome to <i>fillmein</i></h2>
     <p>Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them has always been quite high. It's really freaking hard to fill a grid with long, diverse, and interesting words. Even in the modern computer age, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made <b><i>fillmein</i></b>, a completely free crossword constructing page that runs in your web browser!</p>
     <p>If you're new to this, check out the <a href="guide.html">How to make a crossword</a> guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please <a href="contact.html">contact</a> us. This website is still in its early test phase, and we'd love to make improvements that matter to you!</p>
     <p>Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!</p>
   </section>
+
+  <p class="privacy-note"><b>Your privacy.</b> You don't need an account: without one, your puzzles never leave this browser. If you sign in, they're kept in our database so they follow you between devices. We count page views to see how the site gets used, but never on the page where a shared puzzle is solved. The <a href="privacy.html">privacy page</a> has the details.</p>
 
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
 </div>

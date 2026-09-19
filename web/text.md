@@ -60,7 +60,7 @@ Been sent a fillmein link? Open it and solve the puzzle right here, with no acco
 Browsing published puzzles: soon
 
 [home.welcome.heading]
-Welcome to fillmein
+Welcome to *fillmein*
 
 [home.welcome.body]
 Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them has always been quite high. It's really freaking hard to fill a grid with long, diverse, and interesting words. Even in the modern computer age, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made ***fillmein***, a completely free crossword constructing page that runs in your web browser!
@@ -68,6 +68,11 @@ Crossword puzzles have existed for over 100 years, but the barrier to entry for 
 If you're new to this, check out the [How to make a crossword](guide.html) guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please [contact](contact.html) us. This website is still in its early test phase, and we'd love to make improvements that matter to you!
 
 Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!
+
+
+// A short note under the welcome. The privacy page has the whole story; keep this one in step with it.
+[home.privacy]
+**Your privacy.** You don't need an account: without one, your puzzles never leave this browser. If you sign in, they're kept in our database so they follow you between devices. We count page views to see how the site gets used, but never on the page where a shared puzzle is solved. The [privacy page](privacy.html) has the details.
 
 
 // ============================================================ the guide

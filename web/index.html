@@ -67,6 +67,10 @@
   .welcome p { margin: 0; line-height: 1.6; color: var(--muted); }
   .welcome b { color: var(--ink); }
   .welcome a { color: var(--pencil); }
+  /* A brief word on privacy under the welcome, quieter than the welcome itself. */
+  .privacy-note { margin: -12px 0 0; max-width: 74ch; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .privacy-note b { color: var(--ink); }
+  .privacy-note a { color: var(--pencil); }
 
   .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
   .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
@@ -136,6 +140,8 @@
     <h2 id="welcome-title">{{home.welcome.heading|line}}</h2>
     {{home.welcome.body}}
   </section>
+
+  <p class="privacy-note">{{home.privacy|line}}</p>
 
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
 </div>
