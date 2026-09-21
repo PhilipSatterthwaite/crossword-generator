@@ -135,7 +135,7 @@
           const bytes = atob(popularText);
           for (let b = 0; b < bytes.length; b++) popular[b >>> 2] |= bytes.charCodeAt(b) << ((b & 3) * 8);
         }
-        this.lists[length] = { length, size, count: n, letters, codes, index, scores, popular, ids: null, cuts: new Map() };
+        this.lists[length] = { length, size, count: n, letters, codes, index, scores, popular, ids: null, cuts: new Map(), gone: null };
         this.size += n;
       }
     }
@@ -157,7 +157,47 @@
         list.ids = new Map();
         for (let i = 0; i < list.count; i++) list.ids.set(list.letters.substr(i * list.length, list.length), i);
       }
-      return list.ids.get(word);
+      const id = list.ids.get(word);
+      return id !== undefined && list.gone && list.gone[id >>> 5] & (1 << (id & 31)) ? undefined : id;
+    }
+
+    /* Take words out, or with gone false put them back: one bit each, so a word removed by hand
+       doesn't mean indexing its whole length again. Returns how many changed. */
+    hide(words, gone = true) {
+      let changed = 0;
+      for (const word of words) {
+        const list = this.lists[word.length];
+        if (!list) continue;
+        if (!list.ids) this.wordId(word);
+        const id = list.ids.get(word);
+        if (id === undefined) continue;
+        const chunk = id >>> 5;
+        const bit = 1 << (id & 31);
+        if (!list.gone) list.gone = new Uint32Array(list.size);
+        if (Boolean(list.gone[chunk] & bit) === gone) continue;
+        list.gone[chunk] ^= bit;
+        changed++;
+        this.size += gone ? -1 : 1;
+        if (gone) {
+          for (const cut of list.cuts.values()) {
+            if (cut.bits[chunk] & bit) {
+              cut.bits[chunk] &= ~bit;
+              cut.count--;
+            }
+          }
+        } else list.cuts.clear(); // worked out again, with the word back, when next asked for
+      }
+      return changed;
+    }
+
+    /* Put back every word hidden with hide(). */
+    unhideAll() {
+      for (const list of Object.values(this.lists)) {
+        if (!list.gone) continue;
+        for (let i = 0; i < list.size; i++) this.size += popcount32(list.gone[i]);
+        list.gone = null;
+        list.cuts.clear();
+      }
     }
 
     has(word) {
@@ -183,6 +223,7 @@
         bits.fill(0xffffffff, 0, above >>> 5);
         if (above & 31) bits[above >>> 5] = 2 ** (above & 31) - 1;
         if (allowPopular) for (let i = 0; i < list.size; i++) bits[i] |= list.popular[i];
+        if (list.gone) for (let i = 0; i < list.size; i++) bits[i] &= ~list.gone[i];
         let count = 0;
         for (let i = 0; i < list.size; i++) count += popcount32(bits[i]);
         cut = { count, bits };

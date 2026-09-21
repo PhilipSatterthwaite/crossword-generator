@@ -1,5 +1,5 @@
 /* Runs fills and word-option checks off the page's main thread so the grid stays responsive. */
-importScripts("words.js?v=9f774dc43a", "filler.js?v=3f61028ae0");
+importScripts("words.js?v=9f774dc43a", "filler.js?v=e22fb02675");
 
 let words = new Gridfill.WordList(self.GRIDFILL_WORDS);
 
@@ -74,6 +74,10 @@ self.onmessage = ({ data }) => {
     } catch (error) {
       self.postMessage({ type: "ready", count: words.size, error: `That word list didn't load: ${error.message}` });
     }
+  } else if (data.type === "hide") {
+    // A word removed by hand (or put back): one bit flips, and the page asks for any checks again.
+    if (data.clear) words.unhideAll();
+    else words.hide(data.words, data.gone);
   } else if (data.type === "prioritize") {
     if (job && job.id === data.id) job.check.prioritize(data.index, data.seconds);
   } else if (data.type === "cancel") {

@@ -550,6 +550,11 @@
 
   // The word list in use: the built-in one, or it rebuilt with the solver's custom lists and per-word edits.
   let wordData = window.GRIDFILL_WORDS;
+  // Words removed by hand since the list was last rebuilt. Rebuilding every edited word length took a
+  // second or more per Remove, so a removal only hides the word, here and in the solver; the next
+  // rebuild (another list, a new score, the next visit) folds it in for real.
+  const hidden = new Set();
+  const hiddenRescored = new Map(); // hidden word -> whether it had a score of its own before
   let wordListVersion = 0; // bumped when lists or per-word edits change, so the options are worked out again
   const lexicon = new Map();
   function lexiconFor(length) {
@@ -565,6 +570,7 @@
   // million words would cost far more memory) and remembered once found.
   const scoreCache = new Map();
   function scoreOf(word) {
+    if (hidden.has(word)) return null;
     if (scoreCache.has(word)) return scoreCache.get(word);
     const entry = lexiconFor(word.length);
     let score = null;
@@ -919,8 +925,10 @@
       let match = true;
       for (let p = 0; p < length && match; p++) if (pattern[p] && entry.letters.charCodeAt(offset + p) !== pattern[p]) match = false;
       if (!match) continue;
+      const word = entry.letters.substr(offset, length);
+      if (hidden.has(word)) continue;
       total++;
-      list.push({ word: entry.letters.substr(offset, length), score: entry.scores[w], status: null, popular: below });
+      list.push({ word, score: entry.scores[w], status: null, popular: below });
     }
     return { list, total };
   }
@@ -951,9 +959,7 @@
       button.title = `Take ${word} out of the word list`;
       button.addEventListener("click", async () => {
         if (!(await ensureEditable())) return;
-        await LISTS.removeWord(listChoice.id, word);
-        await refreshWordList();
-        noteUndo(word);
+        await removeFromList(word);
       });
     }
     box.append(button);
@@ -991,12 +997,114 @@
     const undo = document.createElement("button");
     undo.type = "button";
     undo.textContent = "Undo";
-    undo.addEventListener("click", async () => {
-      await LISTS.restoreWord(listChoice.id, word);
-      await refreshWordList();
-    });
+    undo.addEventListener("click", () => restoreToList(word));
     wrap.append(undo);
     note.append(wrap);
+  }
+
+  /* Take a word out of the list in use. The saved edit is made as before; the word is then hidden
+     rather than the list rebuilt, and only the option verdicts it could change are worked out again. */
+  async function removeFromList(word) {
+    const listed = scoreOf(word) !== null;
+    const rescored = Object.prototype.hasOwnProperty.call(listState.edits.scores, word);
+    await quietly(() => LISTS.removeWord(listChoice.id, word));
+    if (!listed) {
+      await refreshWordList();
+    } else {
+      hidden.add(word);
+      hiddenRescored.set(word, rescored);
+      runner.hide([word], true);
+      patchOptions(word, true);
+      await noteEdits();
+    }
+    noteUndo(word);
+  }
+
+  /* Undo a removal, or reset a score. A word hidden this visit comes straight back, unless it had a
+     score of its own before, which the undo drops: then the list is rebuilt as before. */
+  async function restoreToList(word) {
+    await quietly(() => LISTS.restoreWord(listChoice.id, word));
+    if (!hidden.has(word) || hiddenRescored.get(word)) {
+      await refreshWordList();
+      return;
+    }
+    hidden.delete(word);
+    hiddenRescored.delete(word);
+    runner.hide([word], false);
+    patchOptions(word, false);
+    await noteEdits();
+  }
+
+  // An edit made here, which the page applies itself: the change notice it sets off needn't rebuild.
+  let localEdits = 0;
+  async function quietly(edit) {
+    localEdits++;
+    try {
+      await edit();
+    } finally {
+      localEdits--;
+    }
+  }
+
+  /* The saved edits changed without a rebuild: pick them up for the lists dialog and the counts. */
+  async function noteEdits() {
+    listState = await LISTS.state(listChoice.id);
+    renderLists();
+    render();
+  }
+
+  /* Bring the options lists up to date with one word gone or back. Taking a word out can only break
+     fills that used it, so "works" stands unless its fill has the word, and "breaks" stands. Putting
+     one back can only help, so "works" stands and the rest are checked again. */
+  function patchOptions(word, gone) {
+    const current = options;
+    const jobs = new Set(optionCache.values());
+    if (current) jobs.add(current);
+    for (const job of jobs) {
+      if (!job.list) continue;
+      let list;
+      if (gone) {
+        list = job.list.filter((option) => option.word !== word);
+        for (const option of list) {
+          if (option.status === "works" && fillHas(option.fill, word)) {
+            option.status = null;
+            option.fill = null;
+          }
+        }
+      } else if (job === current && currentSlot() >= 0) {
+        const before = new Map(job.list.map((option) => [option.word, option]));
+        list = candidatesFor(slots[currentSlot()]).list.map((option) => {
+          const had = before.get(option.word);
+          return had && had.status === "works" ? had : option;
+        });
+      } else {
+        optionCache.delete(job.signature); // worked out again if that entry is chosen again
+        continue;
+      }
+      if (preview && preview.signature === job.signature) {
+        const at = list.findIndex((option) => option.word === preview.word);
+        if (at < 0) preview = null;
+        else preview.index = at;
+      }
+      job.list = list;
+      job.total = list.length;
+      job.done = list.every((option) => option.status !== null);
+      job.checkId = 0;
+    }
+    if (current && current.list) {
+      cancelCheck();
+      if (!current.done) scheduleCheck();
+    }
+    render();
+    renderOptions();
+  }
+
+  /* Whether a finished fill (rows of letters and '#') has the word as one of its entries. */
+  function fillHas(rows, word) {
+    if (!rows) return false;
+    const lines = rows.map((row) => (typeof row === "string" ? row : row.join("")));
+    for (let c = 0; c < lines[0].length; c++) lines.push(lines.slice(0, rows.length).map((line) => line[c]).join(""));
+    return lines.some((line) => line.split("#").includes(word));
   }
 
   function refreshOptions() {
@@ -1564,6 +1672,7 @@
             else {
               helper.loaded = true;
               if (wordData !== window.GRIDFILL_WORDS) this.sendWords(helper, { type: "words", lengths: wordData, all: true });
+              if (hidden.size) worker.postMessage({ type: "hide", words: [...hidden], gone: true });
             }
           } else if (data.type === "options") {
             this.fromOptions(worker, data);
@@ -1610,8 +1719,28 @@
     },
 
     wordList() {
-      if (!this.words) this.words = new G.WordList(wordData);
+      if (!this.words) {
+        this.words = new G.WordList(wordData);
+        if (hidden.size) this.words.hide(hidden);
+      }
       return this.words;
+    },
+
+    /* Hide words from the solver, or with gone false put them back, without rebuilding anything.
+       Helpers still loading get the hidden words once they have the list. */
+    hide(words, gone) {
+      const message = { type: "hide", words, gone };
+      if (this.words) this.words.hide(words, gone);
+      if (this.worker) this.worker.postMessage(message);
+      for (const helper of this.helpers) if (helper.loaded) helper.worker.postMessage(message);
+      this.count += gone ? -words.length : words.length;
+    },
+
+    /* Put every hidden word back: the list is about to be rebuilt with the removals in it. */
+    unhideAll() {
+      const message = { type: "hide", clear: true };
+      if (this.worker) this.worker.postMessage(message);
+      for (const helper of this.helpers) if (helper.loaded) helper.worker.postMessage(message);
     },
 
     /* Use a rebuilt word list from here on, and say when it's in place. Only the lengths that changed
@@ -1837,6 +1966,10 @@
     const plain = !ownWords && !editCount();
     const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: ownWords ? [chosen] : [], edits: listState.edits });
     wordData = merged;
+    // The rebuilt list has this visit's removals in it, so nothing needs hiding any more.
+    hidden.clear();
+    hiddenRescored.clear();
+    runner.unhideAll();
     lexicon.clear();
     scoreCache.clear();
     runner.words = null;
@@ -1865,7 +1998,7 @@
   // Syncing can add or drop lists underneath the page; when it does, use them.
   if (LISTS) {
     LISTS.onChange(() => {
-      if (!refreshing) refreshWordList({ recheck: false });
+      if (!refreshing && !localEdits) refreshWordList({ recheck: false });
     });
   }
 
@@ -2012,10 +2145,7 @@
       back.type = "button";
       back.className = "btn quiet small";
       back.textContent = removed ? "Put back" : "Reset";
-      back.addEventListener("click", async () => {
-        await LISTS.restoreWord(listChoice.id, word);
-        await refreshWordList();
-      });
+      back.addEventListener("click", () => restoreToList(word));
       row.append(name, what, back);
       editRows.append(row);
     }
@@ -2135,9 +2265,7 @@
     const word = action.dataset.word;
     if (!(await ensureEditable())) return;
     if (action.dataset.wordAction === "remove") {
-      await LISTS.removeWord(listChoice.id, word);
-      await refreshWordList();
-      noteUndo(word);
+      await removeFromList(word);
       return;
     }
     const holder = action.parentElement;

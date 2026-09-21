@@ -74,6 +74,10 @@ self.onmessage = ({ data }) => {
     } catch (error) {
       self.postMessage({ type: "ready", count: words.size, error: `That word list didn't load: ${error.message}` });
     }
+  } else if (data.type === "hide") {
+    // A word removed by hand (or put back): one bit flips, and the page asks for any checks again.
+    if (data.clear) words.unhideAll();
+    else words.hide(data.words, data.gone);
   } else if (data.type === "prioritize") {
     if (job && job.id === data.id) job.check.prioritize(data.index, data.seconds);
   } else if (data.type === "cancel") {
