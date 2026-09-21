@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bhfVC1yu3Kr+J1gxNHC/9wofkQtXoApX2nW0q89+e6w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-IrOsrhG7HFcW3TfJmOxtDHjngO99OuVAIdzQ0qcE454='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -873,7 +873,9 @@
     $("t-words").textContent = slots.length;
     $("t-words-cap").textContent = W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`;
     $("t-blocks").textContent = blockCount;
-    $("t-blocks-cap").textContent = `${Math.round((blockCount / (W * H)) * 100)}% of squares`;
+    // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
+    const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
+    $("t-blocks-cap").textContent = `${Math.round((blockCount / (W * H)) * 100)}% of squares${blockLimit}`;
     $("t-avg").textContent = slots.length ? (letters / slots.length).toFixed(2) : "–";
     $("t-score").textContent = scored.length ? Math.round(scored.reduce((sum, entry) => sum + entry.score, 0) / scored.length) : "–";
     $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
