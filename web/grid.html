@@ -131,6 +131,7 @@
   .entry-word { font: 700 17px / 1.2 var(--sans); letter-spacing: 0.1em; overflow-wrap: anywhere; }
   .entry-row .actions { margin-left: auto; gap: 6px; }
   .word-actions { display: contents; }
+  .word-score input { width: 90px; }
 
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -949,20 +950,25 @@
     return { list, total };
   }
 
-  /* The word filled into the selected entry: one button, to add it to the list or take it out. */
+  /* The word filled into the selected entry: add it to the list, or take it out or change its score. */
   function renderWordActions() {
     const box = $("word-actions");
     if (!box || !LISTS) return;
     const k = currentSlot();
     const full = k >= 0 && slots[k].cells.every((i) => ink[i] || pencil[i]);
     const word = full ? slots[k].cells.map((i) => ink[i] || pencil[i]).join("") : "";
+    const score = word ? scoreOf(word) : null;
+    // Left alone while it shows the same word and score, so a render mid-drag doesn't drop the slider.
+    const key = `${word}|${score}`;
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
     box.replaceChildren();
     box.hidden = !word;
     if (!word) return;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn quiet small";
-    if (scoreOf(word) === null) {
+    if (score === null) {
       button.textContent = "Add to list";
       button.title = `Add ${word} to the word list, scored 50`;
       button.addEventListener("click", async () => {
@@ -970,15 +976,41 @@
         await LISTS.setScore(listChoice.id, word, 50);
         await refreshWordList();
       });
-    } else {
-      button.textContent = "Remove from list";
-      button.title = `Take ${word} out of the word list`;
-      button.addEventListener("click", async () => {
-        if (!(await ensureEditable())) return;
-        await removeFromList(word);
-      });
+      box.append(button);
+      return;
     }
-    box.append(button);
+    // The score chip follows the slider as it moves; letting go saves the score.
+    const label = document.createElement("label");
+    label.className = "range word-score";
+    label.title = `Your score for ${word}`;
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = "100";
+    slider.value = String(score);
+    slider.setAttribute("aria-label", `Score for ${word}`);
+    slider.addEventListener("input", () => {
+      $("sel-score").innerHTML = scoreChip(Number(slider.value));
+    });
+    slider.addEventListener("change", async () => {
+      const value = Number(slider.value);
+      if (value === score) return;
+      if (!(await ensureEditable())) {
+        slider.value = String(score);
+        $("sel-score").innerHTML = scoreChip(score);
+        return;
+      }
+      await LISTS.setScore(listChoice.id, word, value);
+      await refreshWordList();
+    });
+    label.append(slider);
+    button.textContent = "Remove from list";
+    button.title = `Take ${word} out of the word list`;
+    button.addEventListener("click", async () => {
+      if (!(await ensureEditable())) return;
+      await removeFromList(word);
+    });
+    box.append(label, button);
   }
 
   /* The built-in list is the one everyone starts from, so it stays as it is. Anything that would change
