@@ -434,7 +434,6 @@
     <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
     <div><dt>Avg. word score</dt><dd><span id="t-score" class="value">–</span><span id="t-score-cap" class="cap"></span></dd></div>
     <div><dt>Weakest entry</dt><dd><span id="t-weak" class="value word">–</span><span id="t-weak-cap" class="cap"></span></dd></div>
-    <div><dt>Symmetry</dt><dd><span id="t-sym" class="value">–</span><span id="t-sym-cap" class="cap"></span></dd></div>
   </dl>
 
   <section class="entries" aria-label="Entries">
@@ -874,7 +873,6 @@
     // Tally
     const blockCount = blocks.filter(Boolean).length;
     const letters = slots.reduce((total, slot) => total + slot.cells.length, 0);
-    const symmetric = blocks.every((b, i) => b === blocks[W * H - 1 - i]);
     const scored = complete.filter((entry) => entry.score !== null);
     const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
     $("t-words").textContent = slots.length;
@@ -888,8 +886,6 @@
     $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
     $("t-weak").textContent = weakest ? weakest.word : "–";
     $("t-weak-cap").textContent = weakest ? `${weakest.slot.name}, score ${weakest.score}` : "";
-    $("t-sym").textContent = symmetric ? "Rotational" : "None";
-    $("t-sym-cap").textContent = symmetric ? "blocks match when turned 180°" : "most published grids are symmetric";
 
     renderCluesLink();
     updateButtons();

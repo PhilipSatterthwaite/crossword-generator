@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Qrz++iA+h9Zyt5fjeLZcMrEsGmihIK6B4W+NQP2QcUU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bxuk+XdFSCZfsexqWQUUYLKT9RyUvCwrne3WZcUPIj4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -450,7 +450,6 @@
     <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
     <div><dt>Avg. word score</dt><dd><span id="t-score" class="value">–</span><span id="t-score-cap" class="cap"></span></dd></div>
     <div><dt>Weakest entry</dt><dd><span id="t-weak" class="value word">–</span><span id="t-weak-cap" class="cap"></span></dd></div>
-    <div><dt>Symmetry</dt><dd><span id="t-sym" class="value">–</span><span id="t-sym-cap" class="cap"></span></dd></div>
   </dl>
 
   <section class="entries" aria-label="Entries">
@@ -890,7 +889,6 @@
     // Tally
     const blockCount = blocks.filter(Boolean).length;
     const letters = slots.reduce((total, slot) => total + slot.cells.length, 0);
-    const symmetric = blocks.every((b, i) => b === blocks[W * H - 1 - i]);
     const scored = complete.filter((entry) => entry.score !== null);
     const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
     $("t-words").textContent = slots.length;
@@ -904,8 +902,6 @@
     $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
     $("t-weak").textContent = weakest ? weakest.word : "–";
     $("t-weak-cap").textContent = weakest ? `${weakest.slot.name}, score ${weakest.score}` : "";
-    $("t-sym").textContent = symmetric ? "Rotational" : "None";
-    $("t-sym-cap").textContent = symmetric ? "blocks match when turned 180°" : "most published grids are symmetric";
 
     renderCluesLink();
     updateButtons();
