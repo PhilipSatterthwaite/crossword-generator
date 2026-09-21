@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Qg61xT+3Cm4EiqDEl4XySZP1qjbkL3dQWTwFLXS7rXg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-IgplkEfePR9xaX2iFa+V5NkPrwoeN7rbUCDQFn/udqo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -234,7 +234,14 @@
   }
   .entries h2 { margin: 0 0 8px; font: 600 24px / 1.2 var(--serif); text-wrap: balance; }
   .entries ol { list-style: none; margin: 0; padding: 0; columns: 2 13rem; column-gap: 24px; }
-  .entries li { break-inside: avoid; }
+  .entries li { display: flex; align-items: center; gap: 4px; break-inside: avoid; }
+  .entries li > button[data-slot] { flex: 1; min-width: 0; }
+  .entries .entry-edit {
+    flex: none; width: auto; padding: 1px 6px; border: 1px solid var(--rule); border-radius: 3px;
+    background: var(--surface); color: var(--muted); font: 600 11px / 1.5 var(--sans);
+  }
+  .entries .entry-edit:hover { border-color: var(--ink); background: var(--hover); color: var(--ink); }
+  .entries .entry-edit.drop:hover { border-color: var(--score-lo); background: var(--score-lo-bg); color: var(--score-lo); }
   .entries button {
     display: grid;
     grid-template-columns: 2.6ch minmax(0, 1fr) auto;
@@ -816,6 +823,7 @@
       if (tintEl.checked && score !== null && score < WEAK) for (const i of slot.cells) weak.add(i);
     }
     const scoreBySlot = new Map(complete.map((entry) => [entry.slot, entry.score]));
+    const wordBySlot = new Map(complete.map((entry) => [entry.slot, entry.word]));
     // The same word in two entries. The autofill never does it, but inked answers can.
     const uses = new Map();
     for (const entry of complete) uses.set(entry.word, [...(uses.get(entry.word) || []), entry.slot]);
@@ -863,8 +871,16 @@
     slots.forEach((slot, j) => {
       const chip = scoreBySlot.has(slot) ? scoreChip(scoreBySlot.get(slot)) : "";
       const twice = repeated.has(slot) ? `<span class="tag dupe" title="Also at ${alsoAt(slot)}">also at ${alsoAt(slot)}</span>` : "";
+      // A filled entry's word can come out of the list from here, and a removal made this visit undone.
+      const word = wordBySlot.get(slot);
+      let edit = "";
+      if (window.FillmeinLists && word && hidden.has(word)) {
+        edit = `<button type="button" class="entry-edit" data-word-action="undo" data-word="${word}" title="Put ${word} back in your word list">Undo</button>`;
+      } else if (window.FillmeinLists && word && scoreBySlot.get(slot) !== null) {
+        edit = `<button type="button" class="entry-edit drop" data-word-action="remove" data-word="${word}" title="Take ${word} out of your word list" aria-label="Remove ${word} from your word list">Remove</button>`;
+      }
       lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}${twice}</span>${chip}</button></li>`
+        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}${twice}</span>${chip}</button>${edit}</li>`
       );
     });
     $("across").innerHTML = lists.across.join("");
@@ -1475,7 +1491,14 @@
     render();
   });
 
-  document.querySelector(".entries").addEventListener("click", (event) => {
+  document.querySelector(".entries").addEventListener("click", async (event) => {
+    const action = event.target.closest("[data-word-action]");
+    if (action && LISTS) {
+      const word = action.dataset.word;
+      if (action.dataset.wordAction === "undo") await restoreToList(word);
+      else if (await ensureEditable()) await removeFromList(word);
+      return;
+    }
     const button = event.target.closest("button[data-slot]");
     if (!button) return;
     const slot = slots[Number(button.dataset.slot)];
