@@ -195,13 +195,19 @@ async function publish(pid, { listed = false } = {}) {
     author: (details.author || "").trim().slice(0, 200),
     width: grid.W,
     height: grid.H,
-    // One letter a square, as the rules for published puzzles require: a rebus square is solved by
-    // its first letter, as Across Lite takes one too.
+    // One character a square (the rules want cells as long as the grid); a rebus square's letters
+    // go in rebus as well, and the solve page asks for all of them.
     cells: grid.blocks.map((block, i) => (block ? "#" : grid.letters[i].charAt(0))).join(""),
     clues: text,
     updated: Date.now(),
     listed: Boolean(listed), // shown on the Explore page, as well as reachable by link
   };
+  // Only a puzzle with a rebus carries the field, so sharing any other works under the older rules too.
+  const rebus = {};
+  grid.letters.forEach((text, i) => {
+    if (!grid.blocks[i] && text.length > 1) rebus[i] = text;
+  });
+  if (Object.keys(rebus).length) data.rebus = rebus;
   const fs = await loadFirestore();
   await fs.setDoc(fs.doc(db, "published", pid), data);
   return data;

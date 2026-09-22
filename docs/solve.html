@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-CnQaqifVVaziVKxy/OkNAxI468K44IhazPvBTXW4iQo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-fhGvQNFvdk6HjZAkvnm5DXGz3hl5XpoPgzdJLAPIS7o='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solve · fillmein</title>
 <meta name="description" content="Solve a crossword someone made with fillmein.">
@@ -65,6 +65,11 @@
     cursor: pointer;
   }
   .sc.edge-right { border-right: 0; }
+  /* A rebus square: its letters shrink to fit, and while it's being typed it shows a caret. */
+  .sc.rebus .ch { font-size: calc(100cqi / var(--cols) * 0.56 * min(1, 1.5 / var(--n, 1))); letter-spacing: -0.03em; }
+  .sc.editing { outline: 2px solid var(--ink); outline-offset: -2px; z-index: 1; }
+  .sc.editing .ch::after { content: ""; display: inline-block; width: 1.5px; height: 0.9em; margin-left: 1px; vertical-align: -0.1em; background: currentColor; animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
   .sc.edge-bottom { border-bottom: 0; }
   .sc .num { position: absolute; top: 0.14em; left: 0.2em; font: 500 max(7px, 0.4em) / 1 var(--sans); }
   .sc.block { background: var(--block); border-color: var(--block); cursor: default; }
@@ -166,6 +171,7 @@
           <button type="button" id="reveal-word" class="btn quiet">Reveal this answer</button>
           <button type="button" id="reveal-all" class="btn quiet">Reveal everything</button>
           <button type="button" id="clear-solve" class="btn quiet">Start over</button>
+          <button type="button" id="rebus" class="btn quiet" aria-pressed="false" title="Type several letters into one square: press this (or Shift), type them, then press Enter">Rebus</button>
         </div>
         <p id="solve-status" class="solve-status" role="status"></p>
         <section id="done" class="done" hidden>
@@ -193,7 +199,7 @@
 <script src="filler.js?v=d650ada5fd"></script>
 <script src="store.js?v=a87c2ef649"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script type="module" src="account.js?v=8531ab1e20"></script>
+<script type="module" src="account.js?v=72e72603d5"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -213,20 +219,28 @@
   let touched = false; // whether the solver has picked a square yet
 
   const isBlock = (i) => puzzle.cells[i] === "#";
+  // What belongs in a square: its letter, or all of a rebus square's letters.
+  const answerAt = (i) => puzzle.rebus[i] || puzzle.cells[i];
+  // A rebus square being typed: its index, or -1, and the letters so far.
+  let rebusAt = -1;
+  let rebusText = "";
+  let shiftAlone = false;
+  const REBUS_MOST = 12;
   const at = (row, col) => row * puzzle.width + col;
   const slotsAt = { across: [], down: [] };
 
   const save = () => {
     try {
-      // A dot per empty square, so the letters keep their places.
-      localStorage.setItem(PROGRESS, JSON.stringify({ letters: letters.map((letter) => letter || ".").join(""), revealed: [...revealed], elapsed, done }));
+      // A list, one entry a square ("" when empty), since a rebus square holds several letters.
+      localStorage.setItem(PROGRESS, JSON.stringify({ letters, revealed: [...revealed], elapsed, done }));
     } catch (error) { /* storage unavailable: solving still works, it just won't come back */ }
   };
   const restore = () => {
     try {
       const saved = JSON.parse(localStorage.getItem(PROGRESS));
-      if (!saved || typeof saved.letters !== "string" || saved.letters.length !== puzzle.cells.length) return;
-      letters = Array.from(saved.letters, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
+      if (!saved || !saved.letters || saved.letters.length !== puzzle.cells.length) return;
+      // Earlier progress was a string, a character a square with "." for empty.
+      letters = Array.from(saved.letters, (text) => (typeof text === "string" && /^[A-Z]{1,12}$/.test(text) ? text : ""));
       revealed = new Set(Array.isArray(saved.revealed) ? saved.revealed : []);
       elapsed = Number(saved.elapsed) || 0;
       done = Boolean(saved.done);
@@ -328,7 +342,11 @@
       square.classList.toggle("selected", i === sel);
       square.classList.toggle("revealed", revealed.has(i));
       square.classList.toggle("wrong", wrong.has(i));
-      square.querySelector(".ch").textContent = letters[i] || "";
+      const text = i === rebusAt ? rebusText : letters[i] || "";
+      square.classList.toggle("editing", i === rebusAt);
+      square.classList.toggle("rebus", text.length > 1);
+      if (text.length > 1) square.style.setProperty("--n", text.length);
+      square.querySelector(".ch").textContent = text;
       square.setAttribute("aria-selected", String(i === sel));
       square.setAttribute("aria-label", `Row ${Math.floor(i / puzzle.width) + 1}, column ${(i % puzzle.width) + 1}: ${letters[i] || "empty"}`);
     });
@@ -390,7 +408,7 @@
 
   function checkDone() {
     if (done) return;
-    const solved = puzzle.cells.split("").every((cell, i) => cell === "#" || letters[i] === cell);
+    const solved = puzzle.cells.split("").every((cell, i) => cell === "#" || letters[i] === answerAt(i));
     if (!solved) return;
     done = true;
     stopClock();
@@ -427,6 +445,7 @@
     event.preventDefault();
     const i = Number(square.dataset.i);
     if (isBlock(i)) return;
+    if (rebusAt >= 0 && i !== rebusAt) finishRebus(false);
     // Clicking the square you're already on turns the corner, but the first click of all just starts there.
     if (touched && i === sel && slotsAt[other()][i] >= 0) dir = other();
     else if (slotsAt[dir][i] < 0) dir = other();
@@ -437,9 +456,80 @@
     startClock();
   });
 
+  /* A rebus: press and release Shift on its own (or press Rebus) and the square takes several letters;
+     Enter keeps them and moves on, Escape leaves the square as it was. */
+  function startRebus() {
+    if (revealed.has(sel) || isBlock(sel)) return;
+    rebusAt = sel;
+    rebusText = letters[sel] || "";
+    $("rebus").setAttribute("aria-pressed", "true");
+    render();
+  }
+
+  function finishRebus(move) {
+    const i = rebusAt;
+    rebusAt = -1;
+    $("rebus").setAttribute("aria-pressed", "false");
+    letters[i] = rebusText;
+    rebusText = "";
+    wrong.delete(i);
+    if (move) step(1);
+    checkDone();
+    render();
+  }
+
+  function cancelRebus() {
+    rebusAt = -1;
+    rebusText = "";
+    $("rebus").setAttribute("aria-pressed", "false");
+    render();
+  }
+
+  $("rebus").addEventListener("mousedown", (event) => event.preventDefault()); // keep the grid's focus
+  $("rebus").addEventListener("click", () => {
+    if (rebusAt >= 0) finishRebus(true);
+    else startRebus();
+    focusGrid();
+  });
+  $("solve-input").addEventListener("keyup", (event) => {
+    if (event.key === "Shift" && shiftAlone && rebusAt < 0) startRebus();
+    if (event.key === "Shift") shiftAlone = false;
+  });
+  $("solve-input").addEventListener("blur", () => {
+    if (rebusAt >= 0) finishRebus(false);
+  });
+
   $("solve-input").addEventListener("keydown", (event) => {
+    shiftAlone = event.key === "Shift" && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key;
+    if (rebusAt >= 0) {
+      if (/^[a-zA-Z]$/.test(key)) {
+        event.preventDefault();
+        if (rebusText.length < REBUS_MOST) rebusText += key.toUpperCase();
+        startClock();
+        render();
+        return;
+      }
+      if (key === "Backspace" || key === "Delete") {
+        event.preventDefault();
+        rebusText = rebusText.slice(0, -1);
+        render();
+        return;
+      }
+      if (key === "Enter") {
+        event.preventDefault();
+        finishRebus(true);
+        return;
+      }
+      if (key === "Escape") {
+        event.preventDefault();
+        cancelRebus();
+        return;
+      }
+      if (key === "Shift") return;
+      finishRebus(false); // anything else (an arrow, Tab) keeps the letters and does what it always does
+    }
     if (/^[a-zA-Z]$/.test(key)) {
       event.preventDefault();
       typeLetter(key.toUpperCase());
@@ -471,7 +561,8 @@
     // Phone keyboards insert text rather than sending key presses.
     const typed = event.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
     event.target.value = "";
-    for (const letter of typed) typeLetter(letter);
+    if (rebusAt >= 0) rebusText = (rebusText + typed).slice(0, REBUS_MOST);
+    else for (const letter of typed) typeLetter(letter);
     if (typed) {
       startClock();
       render();
@@ -483,7 +574,7 @@
     let mistakes = 0;
     puzzle.cells.split("").forEach((cell, i) => {
       if (cell === "#" || !letters[i]) return;
-      if (letters[i] !== cell) {
+      if (letters[i] !== answerAt(i)) {
         wrong.add(i);
         mistakes++;
       }
@@ -498,8 +589,8 @@
     const slot = currentSlot();
     if (!slot) return;
     for (const i of slot.cells) {
-      if (letters[i] !== puzzle.cells[i]) {
-        letters[i] = puzzle.cells[i];
+      if (letters[i] !== answerAt(i)) {
+        letters[i] = answerAt(i);
         revealed.add(i);
       }
       wrong.delete(i);
@@ -527,8 +618,8 @@
     button.classList.remove("stop");
     puzzle.cells.split("").forEach((cell, i) => {
       if (cell === "#") return;
-      if (letters[i] !== cell) revealed.add(i);
-      letters[i] = cell;
+      if (letters[i] !== answerAt(i)) revealed.add(i);
+      letters[i] = answerAt(i);
     });
     wrong = new Set();
     $("solve-status").textContent = "";
@@ -574,7 +665,13 @@
         height: data.height,
         cells: String(data.cells || ""),
         clues: data.clues || {},
+        rebus: {},
       };
+      // A rebus square's letters, kept only where they start with the square's own letter.
+      for (const [key, text] of Object.entries(data.rebus && typeof data.rebus === "object" ? data.rebus : {})) {
+        const i = Number(key);
+        if (typeof text === "string" && /^[A-Z]{2,12}$/.test(text) && puzzle.cells[i] === text[0]) puzzle.rebus[i] = text;
+      }
       if (!(puzzle.width > 0 && puzzle.height > 0) || puzzle.cells.length !== puzzle.width * puzzle.height) throw new Error("damaged puzzle");
     } catch (error) {
       $("loading").hidden = true;

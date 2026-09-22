@@ -19,7 +19,7 @@ service cloud.firestore {
       allow create, update: if signedIn()
         && request.resource.data.owner == request.auth.uid
         && (resource == null || resource.data.owner == request.auth.uid)
-        && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated", "listed"])
+        && request.resource.data.keys().hasOnly(["owner", "title", "author", "width", "height", "cells", "clues", "updated", "listed", "rebus"])
         && request.resource.data.width is int && request.resource.data.width >= 3 && request.resource.data.width <= 25
         && request.resource.data.height is int && request.resource.data.height >= 3 && request.resource.data.height <= 25
         && request.resource.data.cells is string
@@ -30,7 +30,10 @@ service cloud.firestore {
         // map's values, so Firestore's 1 MiB document limit is the only cap on the text itself.
         && request.resource.data.clues is map && request.resource.data.clues.size() <= 625
         && request.resource.data.updated is number
-        && request.resource.data.listed is bool;
+        && request.resource.data.listed is bool
+        // Squares holding several letters, {square index: letters}; only a puzzle with a rebus has it.
+        && (!("rebus" in request.resource.data)
+            || (request.resource.data.rebus is map && request.resource.data.rebus.size() <= 625));
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
 
