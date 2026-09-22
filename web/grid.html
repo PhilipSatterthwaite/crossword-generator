@@ -700,6 +700,27 @@
     return k >= 0 ? k : slotAt[other(dir)][sel];
   }
 
+  /* Tab: on to the next entry with a square still open, through the Acrosses and then the Downs (and
+     round again), landing on its first open square. Shift+Tab goes back. With the grid full, just
+     the next entry. */
+  function jumpEntry(delta) {
+    if (!slots.length) return;
+    const order = [...slots.filter((slot) => slot.direction === "across"), ...slots.filter((slot) => slot.direction === "down")];
+    const k = currentSlot();
+    const at = k >= 0 ? order.indexOf(slots[k]) : delta > 0 ? -1 : 0;
+    const empty = (i) => !ink[i] && !pencil[i];
+    for (const needOpen of [true, false]) {
+      for (let n = 1; n <= order.length; n++) {
+        const slot = order[(((at + delta * n) % order.length) + order.length) % order.length];
+        if (needOpen && !slot.cells.some(empty)) continue;
+        sel = needOpen ? slot.cells.find(empty) : slot.cells[0];
+        dir = slot.direction;
+        render();
+        return;
+      }
+    }
+  }
+
   function step(i, d, delta) {
     const r = Math.floor(i / W) + (d === "down" ? delta : 0);
     const c = (i % W) + (d === "across" ? delta : 0);
@@ -1574,6 +1595,9 @@
       event.preventDefault();
       dir = other(dir);
       render();
+    } else if (key === "Tab") {
+      event.preventDefault();
+      jumpEntry(event.shiftKey ? -1 : 1);
     } else if (key.startsWith("Arrow")) {
       event.preventDefault();
       const axis = key === "ArrowLeft" || key === "ArrowRight" ? "across" : "down";

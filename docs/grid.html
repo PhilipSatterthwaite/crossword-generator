@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Ee3p/3squFrKim16CZK0lryKQFH1NO6o4O/B9yK5rwI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-3Jtn4bt2ReXTV8AdAZtwh0RHFs89+Le8Wh4gQTxvF4Q='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -714,6 +714,27 @@
     if (blocks[sel]) return -1;
     const k = slotAt[dir][sel];
     return k >= 0 ? k : slotAt[other(dir)][sel];
+  }
+
+  /* Tab: on to the next entry with a square still open, through the Acrosses and then the Downs (and
+     round again), landing on its first open square. Shift+Tab goes back. With the grid full, just
+     the next entry. */
+  function jumpEntry(delta) {
+    if (!slots.length) return;
+    const order = [...slots.filter((slot) => slot.direction === "across"), ...slots.filter((slot) => slot.direction === "down")];
+    const k = currentSlot();
+    const at = k >= 0 ? order.indexOf(slots[k]) : delta > 0 ? -1 : 0;
+    const empty = (i) => !ink[i] && !pencil[i];
+    for (const needOpen of [true, false]) {
+      for (let n = 1; n <= order.length; n++) {
+        const slot = order[(((at + delta * n) % order.length) + order.length) % order.length];
+        if (needOpen && !slot.cells.some(empty)) continue;
+        sel = needOpen ? slot.cells.find(empty) : slot.cells[0];
+        dir = slot.direction;
+        render();
+        return;
+      }
+    }
   }
 
   function step(i, d, delta) {
@@ -1590,6 +1611,9 @@
       event.preventDefault();
       dir = other(dir);
       render();
+    } else if (key === "Tab") {
+      event.preventDefault();
+      jumpEntry(event.shiftKey ? -1 : 1);
     } else if (key.startsWith("Arrow")) {
       event.preventDefault();
       const axis = key === "ArrowLeft" || key === "ArrowRight" ? "across" : "down";
