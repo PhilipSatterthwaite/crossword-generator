@@ -380,11 +380,11 @@ Theme entries
 [grid.theme.note]
 Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in.
 
-[grid.theme.design]
-Design a grid
+[grid.design]
+Design blocks
 
-[grid.theme.design.note]
-No blocks yet? The designer builds a symmetric pattern around these entries, tries hundreds of them, and keeps the one that fills the most different ways. It replaces the grid you have.
+[grid.design.title]
+Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways. Theme entries are built into the pattern. This replaces the grid you have.
 
 [grid.scores]
 Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 50.

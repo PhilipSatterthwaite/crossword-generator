@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-wfwDT6ZV7qhKV7k8veyCj9mEf18r4v/wSyrI4FOya/I='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-fadOw2cY7+lnOCl0ROXDjAOupUzFAbBz0DG3T5KEy0s='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -231,8 +231,6 @@
   .theme-message { margin: 0; font-size: 13px; color: var(--muted); }
   .theme-message:empty { display: none; }
   .theme-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .theme-design { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-  .theme-design .theme-note { flex-basis: 100%; }
   .theme-list:empty { display: none; }
   .theme-row {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 100%; padding: 5px 6px 5px 10px;
@@ -422,6 +420,11 @@
         <label class="check"><input type="checkbox" id="tint" checked> Tint weak words</label>
       </div>
       <div class="control-group">
+        <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways. Theme entries are built into the pattern. This replaces the grid you have.">Design blocks</button>
+        <label class="field" title="The most squares the designer may leave black"><input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % blocks</label>
+        <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
+      </div>
+      <div class="control-group">
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
         <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
       </div>
@@ -495,12 +498,6 @@
     </form>
     <p id="theme-message" class="theme-message" role="status"></p>
     <ul id="theme-list" class="theme-list"></ul>
-    <div class="theme-design">
-      <button type="button" id="design" class="btn small" disabled>Design a grid</button>
-      <label class="field" title="The most squares the designer may leave black"><input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % blocks</label>
-      <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
-      <p class="theme-note">No blocks yet? The designer builds a symmetric pattern around these entries, tries hundreds of them, and keeps the one that fills the most different ways. It replaces the grid you have.</p>
-    </div>
   </section>
 
   <dl class="tally">
@@ -1112,7 +1109,7 @@
     const k = currentSlot();
     $("fill").disabled = running || !ready;
     $("another").disabled = running || !ready;
-    $("design").disabled = running || !ready || !theme.length;
+    $("design").disabled = running || !ready;
     $("stop").hidden = !running || runner.inline;
     $("undo").disabled = running || !past.length;
     $("redo").disabled = running || !future.length;
@@ -2265,11 +2262,11 @@
     updateButtons();
   }
 
-  /* Design a block pattern around the theme entries, replacing the grid. The designer scores a
-     pattern by filling it a few times over, so what comes back is a grid already known to work,
-     with one of its fills in pencil. */
+  /* Lay out the block pattern, replacing the grid. Any theme entries are built into it; with none
+     it designs a themeless grid. The designer scores a pattern by filling it a few times over, so
+     what comes back is a grid already known to work, with one of its fills in pencil. */
   function runDesign() {
-    if (running || !ready || !theme.length) return;
+    if (running || !ready) return;
     const percent = Math.min(30, Math.max(8, Number($("design-blocks").value) || 16));
     const timeLimit = Math.min(600, Math.max(15, Number($("design-time").value) || 60));
     running = true;
