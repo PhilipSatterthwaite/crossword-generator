@@ -53,6 +53,25 @@
   }
   .clue-text:focus { border-color: var(--ink); }
 
+  /* Past clues: what NYT puzzles have clued this answer with, under the box while it's being written. */
+  .clue-row { position: relative; }
+  .past {
+    position: absolute; z-index: 5; top: calc(100% - 6px); left: calc(2.6ch + 16px); right: 6px;
+    max-height: 300px; overflow-y: auto; margin: 0; padding: 0 0 4px; list-style: none;
+    border: 1.5px solid var(--ink); border-radius: 2px; background: var(--surface);
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.14);
+  }
+  .past-head {
+    position: sticky; top: 0; padding: 7px 10px 5px; background: var(--surface);
+    font: 600 11px / 1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  }
+  .past [role="option"] {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 6px 10px; font: 400 15px / 1.35 var(--serif); color: var(--ink); cursor: pointer;
+  }
+  .past [role="option"]:hover, .past [aria-selected="true"] { background: var(--hover); }
+  .past .uses { flex: none; font: 500 11px / 1.4 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+
   .side { position: sticky; top: 12px; display: grid; gap: 8px; min-width: 0; }
   #mini {
     --cols: 15;
@@ -141,6 +160,7 @@
       <div id="mini" role="img" aria-label="The grid, with the entry you're writing highlighted"></div>
       <p class="side-note">{{clues.note.squares|line}}</p>
       <p class="side-note">{{clues.note.next|line}}</p>
+      <p class="side-note">{{clues.note.past|line}}</p>
     </aside>
   </main>
   <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
@@ -213,7 +233,7 @@
           `<span class="n">${slot.number}</span>` +
           `<div class="answer"><label for="${inputId(slot)}">${letters}</label>${flag}</div>` +
           `<input id="${inputId(slot)}" class="clue-text" type="text" data-key="${key}" value="${escapeHtml(clue ? clue.text : "")}" ` +
-          `placeholder="Clue for ${slot.name}" autocomplete="off" spellcheck="true">` +
+          `placeholder="Clue for ${slot.name}" autocomplete="off" spellcheck="true" role="combobox" aria-autocomplete="list" aria-expanded="false">` +
         `</li>`
       );
     }
@@ -266,11 +286,126 @@
     renderMini();
   }
 
+  // --- past clues ---
+
+  // Clues NYT puzzles have used for an answer, from the xd crossword corpus (web/build_clues.py),
+  // offered under the clue box. Answers are filed by their first two letters, one file each.
+  const PAST_VERSION = "PASTCLUES_VERSION";
+  const pastFiles = new Map(); // two letters -> Promise of {answer: [[text, times used, last year], ...]}
+  let past = null;             // the open list: {box, clues, shown, at, el}
+
+  function pastFor(answer) {
+    const prefix = answer.slice(0, 2);
+    if (!pastFiles.has(prefix)) {
+      const file = fetch(`pastclues/${prefix}.json?v=${PAST_VERSION}`)
+        .then((response) => (response.ok ? response.json() : {}))
+        .catch(() => {
+          pastFiles.delete(prefix); // offline for now: try again next time
+          return {};
+        });
+      pastFiles.set(prefix, file);
+    }
+    return pastFiles.get(prefix).then((file) => file[answer] || []);
+  }
+
+  async function openPast(box) {
+    const slot = slotFor(box.dataset.key);
+    const answer = slot ? answerOf(slot) : "";
+    if (!slot || !isComplete(slot, answer) || !/^[A-Z]+$/.test(answer)) return closePast();
+    const key = box.dataset.key;
+    const clues = await pastFor(answer);
+    // The lists may have been drawn again while it loaded, so it's the box for this entry that counts.
+    const now = document.activeElement;
+    if (!now || !now.classList.contains("clue-text") || now.dataset.key !== key) return; // moved on meanwhile
+    closePast();
+    past = { box: now, answer, clues, shown: [], at: -1, el: null, typed: false };
+    drawPast();
+  }
+
+  /* Every past clue when the box is first chosen; once typing starts, those holding every word typed,
+     or none once the box holds one of them exactly. */
+  function drawPast() {
+    const { box, clues } = past;
+    const words = past.typed ? box.value.toLowerCase().split(/\s+/).filter(Boolean) : [];
+    const exact = past.typed && clues.some((clue) => clue[0] === box.value.trim());
+    past.shown = exact ? [] : clues.filter((clue) => words.every((word) => clue[0].toLowerCase().includes(word)));
+    past.at = Math.min(past.at, past.shown.length - 1);
+    if (!past.shown.length) {
+      if (past.el) past.el.remove();
+      past.el = null;
+      box.setAttribute("aria-expanded", "false");
+      box.removeAttribute("aria-activedescendant");
+      return;
+    }
+    if (!past.el) {
+      past.el = document.createElement("ul");
+      past.el.className = "past";
+      past.el.id = "past-list";
+      past.el.setAttribute("role", "listbox");
+      past.el.setAttribute("aria-label", `Past NYT clues for ${past.answer}`);
+      // Keep the focus in the box while a clue is clicked.
+      past.el.addEventListener("mousedown", (event) => event.preventDefault());
+      past.el.addEventListener("click", (event) => {
+        const option = event.target.closest("[data-past]");
+        if (option) pickPast(Number(option.dataset.past));
+      });
+      box.closest(".clue-row").append(past.el);
+      box.setAttribute("aria-controls", "past-list");
+    }
+    past.el.innerHTML = `<li class="past-head" role="presentation">Past NYT clues for ${past.answer}</li>` + past.shown.map(([text, uses, year], i) =>
+      `<li role="option" id="past-${i}" data-past="${i}" aria-selected="${i === past.at}" title="Used ${uses} ${uses === 1 ? "time" : "times"}, last in ${year}">` +
+        `<span>${escapeHtml(text)}</span><span class="uses">${uses}× · ${year}</span></li>`).join("");
+    box.setAttribute("aria-expanded", "true");
+    if (past.at >= 0) {
+      box.setAttribute("aria-activedescendant", `past-${past.at}`);
+      $(`past-${past.at}`).scrollIntoView({ block: "nearest" });
+    } else box.removeAttribute("aria-activedescendant");
+  }
+
+  function pickPast(i) {
+    const clue = past && past.shown[i];
+    if (!clue) return;
+    const box = past.box;
+    box.value = clue[0];
+    box.setSelectionRange(box.value.length, box.value.length);
+    box.dispatchEvent(new Event("input", { bubbles: true })); // saved as if typed
+  }
+
+  function closePast() {
+    if (!past) return;
+    if (past.el) past.el.remove();
+    past.box.setAttribute("aria-expanded", "false");
+    past.box.removeAttribute("aria-activedescendant");
+    past = null;
+  }
+
   // --- writing clues ---
 
   const columns = document.querySelector(".columns");
   columns.addEventListener("focusin", (event) => {
-    if (event.target.classList.contains("clue-text")) highlight(event.target.dataset.key);
+    if (!event.target.classList.contains("clue-text")) return;
+    highlight(event.target.dataset.key);
+    openPast(event.target);
+  });
+  columns.addEventListener("focusout", (event) => {
+    if (past && event.target === past.box) closePast();
+  });
+  // Up and Down move through the past clues, Enter takes the one marked, Escape closes the list.
+  columns.addEventListener("keydown", (event) => {
+    if (!past || event.target !== past.box || !past.el) return;
+    const n = past.shown.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      past.at = event.key === "ArrowDown" ? (past.at + 1) % n : past.at <= 0 ? n - 1 : past.at - 1;
+      drawPast();
+    } else if (event.key === "Enter" && past.at >= 0) {
+      event.preventDefault();
+      event.stopImmediatePropagation(); // not on to the next clue: this one was just chosen
+      pickPast(past.at);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closePast();
+    }
   });
   columns.addEventListener("input", (event) => {
     const box = event.target;
@@ -288,6 +423,10 @@
     const flag = box.closest(".clue-row").querySelector(".flag");
     if (flag && !S.isStale(grid, clues, slot)) flag.remove();
     renderProgress();
+    if (past && past.box === box) {
+      past.typed = true;
+      drawPast();
+    }
   });
   columns.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || !event.target.classList.contains("clue-text")) return;

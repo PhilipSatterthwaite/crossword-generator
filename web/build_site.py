@@ -206,6 +206,14 @@ def say(text, words, used, where):
     return INSIDE.sub(within, ALONE.sub(whole_line, text))
 
 
+def folder_version(folder):
+    """A short hash of every file in a folder, names and bytes."""
+    digest = hashlib.sha256()
+    for path in sorted(folder.iterdir()):
+        digest.update(path.name.encode() + b"/" + path.read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def stamp(text, versions):
     """Every quoted reference to a versioned file, as "name?v=hash" (404.html spells them from the root)."""
     for name, digest in versions.items():
@@ -237,13 +245,20 @@ def main():
     if spare:
         print(f"text.md: {len(spare)} unused ({', '.join(spare)})")
 
+    # Clues past NYT puzzles used, for the Clues page's suggestions (web/build_clues.py writes them).
+    # The page fetches one file per entry and adds this one stamp, a hash of them all, to each address.
+    shutil.rmtree(SITE / "pastclues", ignore_errors=True)
+    shutil.copytree(HERE / "pastclues", SITE / "pastclues")
+    past_clues = folder_version(HERE / "pastclues")
+
     versions = {name: version(SITE / name) for name in ASSETS}
     worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
     (SITE / "worker.js").write_text(worker, encoding="utf-8")
     versions["worker.js"] = version(SITE / "worker.js")
     for name in PAGES + ("grid.html",):
         path = SITE / name
-        path.write_text(stamp(path.read_text(encoding="utf-8"), versions), encoding="utf-8")
+        text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"')
+        path.write_text(text, encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included
 

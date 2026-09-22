@@ -410,6 +410,9 @@ Click a square to jump to its clue; click again for the other direction. Press E
 [clues.note.next]
 When the clues are done, name and download the puzzle on the [Export](export.html) tab.
 
+[clues.note.past]
+A finished answer's box lists clues New York Times puzzles have used for it, most used first; type to narrow them, and pick one to start from. They come from Saul Pwanson's [xd crossword corpus](https://xd.saul.pw/).
+
 
 // ============================================================ the export page
 
