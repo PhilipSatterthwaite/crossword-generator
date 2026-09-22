@@ -196,6 +196,39 @@
   .score[data-band="lo"] { background: var(--score-lo-bg); color: var(--score-lo); }
   .score[data-band="none"] { background: transparent; }
 
+  /* Theme entries: words the puzzle must hold, each with where it is now. */
+  .theme { display: grid; gap: 10px; padding-top: 16px; border-top: 1.5px solid var(--ink); }
+  .theme-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .theme h2 { margin: 0; font: 600 24px / 1.2 var(--serif); }
+  .theme-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .theme-form { display: flex; gap: 8px; max-width: 420px; }
+  /* width: 0 lets the box shrink on a phone instead of widening the page; flex grows it back. */
+  #theme-word {
+    flex: 1; width: 0; min-width: 0; padding: 6px 9px;
+    border: 1.5px solid var(--ink); border-radius: 2px; background: var(--surface); color: var(--ink);
+    font: 600 15px / 1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  #theme-word::placeholder { letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--muted); }
+  .theme-message { margin: 0; font-size: 13px; color: var(--muted); }
+  .theme-message:empty { display: none; }
+  .theme-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .theme-list:empty { display: none; }
+  .theme-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 100%; padding: 5px 6px 5px 10px;
+    border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); font-size: 13px;
+  }
+  .theme-word { font-weight: 700; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+  .theme-where { color: var(--muted); }
+  .theme-where.placed { color: var(--ink); }
+  button.theme-where { padding: 0; border: 0; background: none; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .theme-row .tiny {
+    padding: 1px 6px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface);
+    color: var(--muted); font: 600 11px / 1.5 var(--sans); cursor: pointer;
+  }
+  .theme-row .tiny:hover:not(:disabled) { border-color: var(--ink); background: var(--hover); color: var(--ink); }
+  .theme-row .tiny:disabled { opacity: 0.42; cursor: not-allowed; }
+  .theme-row .tiny.drop:hover { border-color: var(--score-lo); background: var(--score-lo-bg); color: var(--score-lo); }
+
   .tally {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -428,6 +461,19 @@
     </aside>
   </main>
 
+  <section class="theme" aria-labelledby="theme-title">
+    <div class="theme-head">
+      <h2 id="theme-title">{{grid.theme.heading|line}}</h2>
+      <p class="theme-note">{{grid.theme.note|line}}</p>
+    </div>
+    <form id="theme-form" class="theme-form" novalidate>
+      <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry" aria-label="Theme entry">
+      <button type="submit" class="btn small">Add</button>
+    </form>
+    <p id="theme-message" class="theme-message" role="status"></p>
+    <ul id="theme-list" class="theme-list"></ul>
+  </section>
+
   <dl class="tally">
     <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
     <div><dt>Blocks</dt><dd><span id="t-blocks" class="value">–</span><span id="t-blocks-cap" class="cap"></span></dd></div>
@@ -501,7 +547,7 @@
   if (S.missing()) {
     // The address names a puzzle this browser doesn't have (not synced down yet, or deleted): say so
     // rather than quietly starting a different one, and open it if it arrives from the account.
-    for (const part of document.querySelectorAll(".tabs, .controls, .bench, .tally, .entries, .note, #puzzle-title")) part.hidden = true;
+    for (const part of document.querySelectorAll(".tabs, .controls, .bench, .theme, .tally, .entries, .note, #puzzle-title")) part.hidden = true;
     $("no-puzzle").hidden = false;
     $("start-fresh").addEventListener("click", () => {
       location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
@@ -602,6 +648,8 @@
   // --- grid model ---
 
   let W = 15, H = 15;
+  let theme = []; // theme entries: words this puzzle must hold somewhere
+  const THEME_MOST = 30;
   let blocks = [], ink = [], pencil = [];
   let sel = 0, dir = "across";
   let slots = [], numbers = [], slotAt = { across: [], down: [] };
@@ -887,10 +935,85 @@
     $("t-weak").textContent = weakest ? weakest.word : "–";
     $("t-weak-cap").textContent = weakest ? `${weakest.slot.name}, score ${weakest.score}` : "";
 
+    renderTheme(complete, k);
     renderCluesLink();
     updateButtons();
     save();
   }
+
+  // --- theme entries ---
+
+  /* Each theme entry, where it is in the grid now, and a way to ink it into the selected entry. */
+  function renderTheme(complete, k) {
+    const listEl = $("theme-list");
+    const rows = theme.map((word, t) => {
+      const at = complete.find((entry) => entry.word === word);
+      const penciled = at && at.slot.cells.some((i) => !ink[i]);
+      const where = at
+        ? `<button type="button" class="theme-where placed" data-theme-go="${slots.indexOf(at.slot)}" title="Select ${at.slot.name}">${at.slot.name}${penciled ? ", penciled" : ""}</button>`
+        : `<span class="theme-where">${running ? "being placed" : "not in the grid yet"}</span>`;
+      let place = "";
+      const slot = k >= 0 ? slots[k] : null;
+      if (slot && slot.cells.length === word.length && !(at && at.slot === slot)) {
+        const clash = slot.cells.some((i, p) => ink[i] && ink[i] !== word[p]);
+        const title = clash ? `Its letters clash with ${slot.name}` : `Ink ${word} into ${slot.name}`;
+        place = `<button type="button" class="tiny" data-theme-place="${t}"${clash || running ? " disabled" : ""} title="${title}">Put in ${slot.name}</button>`;
+      }
+      return `<li class="theme-row"><span class="theme-word">${word}</span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
+    });
+    const html = rows.join("");
+    if (listEl.dataset.html !== html) {
+      listEl.dataset.html = html;
+      listEl.innerHTML = html;
+    }
+  }
+
+  $("theme-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("theme-word");
+    const message = $("theme-message");
+    const word = input.value.toUpperCase().replace(/[^A-Z]/g, "");
+    if (!word) message.textContent = "Type a word to add.";
+    else if (word.length < 3) message.textContent = "Theme entries need at least 3 letters.";
+    else if (word.length > Math.max(W, H)) message.textContent = `${word} has ${word.length} letters, more than the grid is wide.`;
+    else if (theme.includes(word)) message.textContent = `${word} is already a theme entry.`;
+    else if (theme.length >= THEME_MOST) message.textContent = `A puzzle can have up to ${THEME_MOST} theme entries.`;
+    else {
+      theme.push(word);
+      input.value = "";
+      message.textContent = "";
+      render();
+      return;
+    }
+    input.focus();
+  });
+
+  document.querySelector(".theme").addEventListener("click", (event) => {
+    const go = event.target.closest("[data-theme-go]");
+    const place = event.target.closest("[data-theme-place]");
+    const drop = event.target.closest("[data-theme-drop]");
+    if (go) {
+      const slot = slots[Number(go.dataset.themeGo)];
+      if (!slot) return;
+      sel = slot.cells[0];
+      dir = slot.direction;
+      render();
+    } else if (place) {
+      const word = theme[Number(place.dataset.themePlace)];
+      const k = currentSlot();
+      if (!word || k < 0 || slots[k].cells.length !== word.length) return;
+      edit(() => {
+        slots[k].cells.forEach((i, p) => {
+          ink[i] = word[p];
+          pencil[i] = "";
+        });
+      });
+    } else if (drop) {
+      theme.splice(Number(drop.dataset.themeDrop), 1);
+      $("theme-message").textContent = "";
+      render();
+    }
+  });
 
   function updateButtons() {
     const k = currentSlot();
@@ -1917,7 +2040,7 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide };
+    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme };
     runner.fill(
       rows,
       fillOptions,
@@ -2394,6 +2517,7 @@
       allowPopular: allowPopularEl.checked,
       timeLimit: timeLimit(),
       lists: { id: listChoice.id },
+      theme,
     };
   }
 
@@ -2424,6 +2548,7 @@
       const id = typeof data.lists.id === "string" ? data.lists.id : data.lists.use === "built-in" ? "built-in" : first;
       listChoice = { id: id || "built-in" };
     }
+    theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^[A-Z]{2,}$/.test(word)).slice(0, THEME_MOST) : [];
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();

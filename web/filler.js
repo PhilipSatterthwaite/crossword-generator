@@ -1112,6 +1112,7 @@
      fill of this grid: each entry tries the word it held there first, so a fill redone after a small
      change keeps most of what was there). */
   function fill(grid, words, options = {}) {
+    if (options.required && options.required.length) return fillWithTheme(grid, words, options);
     const { timeLimit = 30, onProgress = null, progressInterval = 0.25, longStep = LONG_STEP, guide = null } = options;
     const started = now();
     const deadline = started + timeLimit * 1000;
@@ -1179,9 +1180,136 @@
         return { success: false, grid: null, reason: "No fill exists for this grid with these words. Try moving a block, removing a letter, or lowering the minimum word score.", stats: totals() };
       } else break; // out of time
     }
-    if (!held) return { success: false, grid: null, reason: `No fill found within ${timeLimit} seconds. Try moving a block, or run it again.`, stats: totals() };
+    if (!held) return { success: false, grid: null, reason: `No fill found within ${timeLimit} seconds. Try moving a block, or run it again.`, stats: totals(), timedOut: true };
     held.stats = totals();
     return held;
+  }
+
+  /* fill() for a grid that must also hold some theme words (options.required), wherever they fit.
+     Theme words the given letters already spell count as placed. The rest go into the entries they
+     fit, longest first; a placement that leaves some entry no word at all is dropped at once, and
+     each other one gets a short fill search of its own. Placements that ran out of time get longer
+     searches once every placement has had a turn. Without variety, a theme word goes first where an
+     earlier fill (options.guide) had it, then where it would mirror one of the same length (turned
+     180°), then across before down. */
+  function fillWithTheme(grid, words, options) {
+    const { timeLimit = 30, onProgress = null, variety = false, seed = 1, guide = null } = options;
+    const started = now();
+    const deadline = started + timeLimit * 1000;
+    const before = guide ? Array.from(guide, (row) => Array.from(row)).flat() : null;
+    const plain = { ...options, required: null };
+    const fail = (reason, stats = {}) => ({ success: false, grid: null, reason, stats });
+    let parsed;
+    try {
+      parsed = parseGrid(grid);
+    } catch (error) {
+      if (error instanceof GridError) return fail(error.message);
+      throw error;
+    }
+    const { cells, slots, width, height } = parsed;
+    const given = new Set();
+    for (const slot of slots) {
+      const letters = slot.cells.map((i) => cells[i]);
+      if (letters.every(Boolean)) given.add(letters.join(""));
+    }
+    const todo = [...new Set(options.required.map((word) => String(word).toUpperCase().replace(/[^A-Z]/g, "")))].filter((word) => word.length >= 2 && !given.has(word));
+    if (!todo.length) return fill(grid, words, plain);
+
+    const letters = cells.slice();
+    const fits = (word, slot) => slot.cells.length === word.length && slot.cells.every((i, p) => !letters[i] || letters[i] === word[p]);
+    for (const word of todo) {
+      if (!slots.some((slot) => fits(word, slot))) return fail(`No ${word.length}-letter entry in the grid can take the theme entry ${word}.`);
+    }
+    todo.sort((a, b) => b.length - a.length || slots.filter((slot) => fits(a, slot)).length - slots.filter((slot) => fits(b, slot)).length);
+
+    // Each slot's mirror image, turned 180°.
+    const byStart = new Map(slots.map((slot, s) => [`${slot.direction}:${slot.cells[0]}`, s]));
+    const mirror = slots.map((slot) => byStart.get(`${slot.direction}:${width * height - 1 - slot.cells[slot.cells.length - 1]}`));
+    const random = mulberry32(seed);
+    const rows = () => Array.from({ length: height }, (_, r) => letters.slice(r * width, (r + 1) * width).map((ch) => ch || ""));
+    const opens = () => !prepare(rows(), words, { ...plain, longStep: 0, lookahead: 0 }).error;
+    const used = [];
+    let placed = 0; // placements that didn't break the grid at once
+
+    function* placements(k) {
+      if (k === todo.length) {
+        placed++;
+        yield rows();
+        return;
+      }
+      const word = todo[k];
+      let order = slots.map((_, s) => s).filter((s) => !used.includes(s) && fits(word, slots[s]));
+      if (variety) {
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(random() * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+      } else {
+        const mirrors = new Set(used.filter((s) => slots[s].cells.length === word.length).map((s) => mirror[s]));
+        const guided = (s) => before && slots[s].cells.every((i, p) => before[i] === word[p]);
+        const rank = (s) => (guided(s) ? -4 : 0) + (mirrors.has(s) ? 0 : 2) + (slots[s].direction === "across" ? 0 : 1);
+        order = order.map((s, at) => [rank(s), at, s]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((entry) => entry[2]);
+      }
+      for (const s of order) {
+        if (now() >= deadline) return;
+        const { cells: run } = slots[s];
+        const before = run.map((i) => letters[i]);
+        run.forEach((i, p) => (letters[i] = word[p]));
+        used.push(s);
+        if (opens()) yield* placements(k + 1);
+        used.pop();
+        run.forEach((i, p) => (letters[i] = before[p]));
+      }
+    }
+
+    let stats = {};
+    const attempt = (grid, seconds) => {
+      const result = fill(grid, words, {
+        ...plain,
+        timeLimit: seconds,
+        onProgress: onProgress && ((partial, progress) => onProgress(partial, { ...progress, seconds: (now() - started) / 1000 })),
+      });
+      stats = { ...result.stats, seconds: (now() - started) / 1000 };
+      result.stats = stats;
+      return result;
+    };
+    const left = () => (deadline - now()) / 1000;
+    let seconds = Math.max(1, timeLimit / 10);
+    const waiting = []; // placements whose search ran out of time
+    for (const grid of placements(0)) {
+      if (left() <= 0) break;
+      const result = attempt(grid, Math.min(left(), seconds));
+      if (result.success) return result;
+      if (result.timedOut) waiting.push(grid);
+    }
+    while (waiting.length && left() > 0) {
+      seconds *= 2;
+      for (let k = 0; k < waiting.length && left() > 0; ) {
+        const result = attempt(waiting[k], Math.min(left(), seconds));
+        if (result.success) return result;
+        if (result.timedOut) k++;
+        else waiting.splice(k, 1);
+      }
+    }
+    if (left() <= 0) return fail(`No fill with the theme entries found within ${timeLimit} seconds. Try moving a block, or run it again.`, stats);
+    if (!placed) {
+      // Name the theme words that can't go anywhere even on their own.
+      const alone = (word) => slots.some((slot) => {
+        if (!fits(word, slot)) return false;
+        const was = slot.cells.map((i) => letters[i]);
+        slot.cells.forEach((i, p) => (letters[i] = word[p]));
+        const open = opens();
+        slot.cells.forEach((i, p) => (letters[i] = was[p]));
+        return open;
+      });
+      const stuck = todo.filter((word) => !alone(word));
+      if (stuck.length) {
+        const names = stuck.length === 1 ? stuck[0] : `${stuck.slice(0, -1).join(", ")} and ${stuck[stuck.length - 1]}`;
+        return fail(`${names} can't go in any entry that fits without leaving a crossing entry no word fits. Move a block, clear some letters or lower the minimum score.`, stats);
+      }
+      return fail("The theme entries can't all go in this grid together: every way of placing them leaves some entry no word fits.", stats);
+    }
+    return fail("No fill exists with the theme entries in any of the places they fit. Try moving a block or lowering the minimum word score.", stats);
   }
 
   /* Check which candidate words for one entry can be part of a full fill, from the top of the
