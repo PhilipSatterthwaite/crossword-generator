@@ -1132,23 +1132,24 @@
     box.append(label, button);
   }
 
-  /* The built-in list is the one everyone starts from, so it stays as it is. Anything that would change
-     it asks first: copy it and edit the copy, pick another list, or leave it be. */
+  /* The lists that come with the site stay as they are. Anything that would change one asks first:
+     copy it and edit the copy, pick another list, or leave it be. */
   async function ensureEditable() {
-    if (listChoice.id !== "built-in") return true;
+    if (!isBuiltIn(listChoice.id)) return true;
     const mine = listState.lists.length;
+    const which = BUILT_INS[listChoice.id].the;
     const pick = await window.fillmeinChoose({
-      title: "You're on the built-in list",
-      text: "It's the list every puzzle starts from, so it can't be edited. Scores and removals belong to a list of your own.",
+      title: `You're on ${which}`,
+      text: "It comes with the site, so it can't be edited. Scores and removals belong to a list of your own.",
       choices: [
         { value: "copy", label: "Copy it and edit the copy", note: "Same words to start with, and the copy becomes the list you're filling from.", kind: "primary" },
         mine
           ? { value: "switch", label: "Switch to one of my lists", note: "Opens your lists so you can pick one." }
           : { value: "switch", label: "Add a list of my own", note: "Opens your lists so you can upload or make one." },
-        { value: "stay", label: "Stay on the built-in list", note: "Nothing changes." },
+        { value: "stay", label: `Stay on ${which}`, note: "Nothing changes." },
       ],
     });
-    if (pick === "copy") return cloneList({ id: "built-in", name: "Built-in list", builtIn: true });
+    if (pick === "copy") return cloneList(builtInEntry(listChoice.id));
     if (pick === "switch") await openLists();
     return false;
   }
@@ -2093,7 +2094,58 @@
 
   const LISTS = window.FillmeinLists;
   let listChoice = { id: "built-in" }; // the list this puzzle fills from: "built-in", or one of theirs
-  let builtInWords = 0;
+  // The read-only lists that come with the site: every scored word, and the answers of past NYT puzzles.
+  const BUILT_INS = {
+    "built-in": { name: "Built-in list", the: "the built-in list" },
+    nyt: { name: "NYT answers", the: "the NYT answers list" },
+  };
+  const isBuiltIn = (id) => Object.prototype.hasOwnProperty.call(BUILT_INS, id);
+  const builtInEntry = (id) => ({ id, name: BUILT_INS[id].name, count: builtInCount(id), builtIn: true });
+  const builtInWords = {};
+  let nytData = null;
+
+  /* A built-in list's words, packed as words.js packs them. */
+  function builtInData(id) {
+    return id === "nyt" ? nytWords() : window.GRIDFILL_WORDS;
+  }
+
+  /* Every word in words.js marked as a published answer, keeping its score, except that answers
+     Broda's list lacks score NYT_UNVETTED instead of their estimate; best first, as the solver needs. */
+  const NYT_UNVETTED = 50;
+  function nytWords() {
+    if (nytData) return nytData;
+    nytData = {};
+    const bit = (bytes, i) => (bytes.charCodeAt(i >>> 3) >> (i & 7)) & 1;
+    for (const [key, entry] of Object.entries(window.GRIDFILL_WORDS || {})) {
+      const length = Number(key);
+      const [letters, scoreText, popularText, publishedText, unvettedText] = entry;
+      if (!publishedText) continue;
+      const published = atob(publishedText);
+      const unvetted = unvettedText ? atob(unvettedText) : "";
+      const popular = popularText ? atob(popularText) : "";
+      const scores = scoreText.split(",");
+      const rows = [];
+      for (let i = 0; i < scores.length; i++) {
+        if (!bit(published, i)) continue;
+        const score = unvetted && bit(unvetted, i) ? NYT_UNVETTED : Number(scores[i]);
+        rows.push([i, score, popular ? bit(popular, i) : 0]);
+      }
+      if (!rows.length) continue;
+      rows.sort((a, b) => b[1] - a[1] || a[0] - b[0]); // same score keeps words.js order
+      const bytes = new Uint8Array((rows.length + 7) >>> 3);
+      rows.forEach((row, k) => {
+        if (row[2]) bytes[k >>> 3] |= 1 << (k & 7);
+      });
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      nytData[length] = [
+        rows.map((row) => letters.substr(row[0] * length, length)).join(""),
+        rows.map((row) => row[1]).join(","),
+        rows.some((row) => row[2]) ? btoa(binary) : "",
+      ];
+    }
+    return nytData;
+  }
   let sentLengths = null; // the word lengths the worker currently holds, so only changes are sent
   let listState = { lists: [], edits: { scores: {}, removed: [] } };
 
@@ -2133,12 +2185,14 @@
   async function rebuildWordList({ recheck }) {
     listState = await LISTS.state(listChoice.id);
     const chosen = listState.lists.find((list) => list.id === listChoice.id) || null;
-    if (!chosen && listChoice.id !== "built-in") listChoice = { id: "built-in" }; // it was deleted
-    // A copy of the built-in list keeps no words of its own: the built-in words, with its edits on top.
-    const ownWords = chosen && chosen.basedOn !== "built-in";
+    if (!chosen && !isBuiltIn(listChoice.id)) listChoice = { id: "built-in" }; // it was deleted
+    // A copy of a built-in list keeps no words of its own: that list's words, with its edits on top.
+    const ownWords = chosen && !isBuiltIn(chosen.basedOn);
     const use = ownWords ? "custom" : "built-in";
-    const plain = !ownWords && !editCount();
-    const merged = plain ? window.GRIDFILL_WORDS : LISTS.merge(window.GRIDFILL_WORDS, { use, lists: ownWords ? [chosen] : [], edits: listState.edits });
+    const base = builtInData(ownWords ? "built-in" : chosen ? chosen.basedOn : listChoice.id);
+    const untouched = !ownWords && !editCount();
+    const plain = untouched && base === window.GRIDFILL_WORDS;
+    const merged = untouched ? base : LISTS.merge(base, { use, lists: ownWords ? [chosen] : [], edits: listState.edits });
     wordData = merged;
     // The rebuilt list has this visit's removals in it, so nothing needs hiding any more.
     hidden.clear();
@@ -2183,16 +2237,18 @@
     // For a list that isn't in use, the solver hasn't built it: its own removals still come off.
     const edits = (listState.byList || {})[list.id];
     const removed = edits && Array.isArray(edits.removed) ? edits.removed.length : 0;
-    // A copy of the built-in list holds no words of its own; it counts as the built-in list does.
-    const base = list.basedOn === "built-in" ? builtInCount() : list.count || 0;
+    // A copy of a built-in list holds no words of its own; it counts as that list does.
+    const base = isBuiltIn(list.basedOn) ? builtInCount(list.basedOn) : list.count || 0;
     return Math.max(0, base - removed);
   }
 
-  function builtInCount() {
-    if (!builtInWords) {
-      for (const [length, entry] of Object.entries(window.GRIDFILL_WORDS || {})) builtInWords += entry[0].length / Number(length);
+  function builtInCount(id = "built-in") {
+    if (!builtInWords[id]) {
+      let count = 0;
+      for (const [length, entry] of Object.entries(builtInData(id) || {})) count += entry[0].length / Number(length);
+      builtInWords[id] = count;
     }
-    return builtInWords;
+    return builtInWords[id];
   }
 
   /* The dropdown in the controls: the built-in list, then theirs, then a way into this dialog. */
@@ -2207,10 +2263,10 @@
       select.append(element);
       return element;
     };
-    option("built-in", `Built-in list (${wordCount({ id: "built-in", count: builtInCount() }).toLocaleString()})`);
+    for (const id of Object.keys(BUILT_INS)) option(id, `${BUILT_INS[id].name} (${wordCount(builtInEntry(id)).toLocaleString()})`);
     for (const list of listState.lists) option(list.id, `${list.name} (${wordCount(list).toLocaleString()})`);
     option("__manage", "Add or manage lists…");
-    const known = listChoice.id === "built-in" || listState.lists.some((list) => list.id === listChoice.id);
+    const known = isBuiltIn(listChoice.id) || listState.lists.some((list) => list.id === listChoice.id);
     select.value = known ? listChoice.id : "built-in";
   }
 
@@ -2219,7 +2275,7 @@
     renderListChoice();
     const rows = $("list-rows");
     rows.replaceChildren();
-    const entries = [{ id: "built-in", name: "Built-in list", count: builtInCount(), builtIn: true }, ...listState.lists];
+    const entries = [...Object.keys(BUILT_INS).map(builtInEntry), ...listState.lists];
     for (const list of entries) {
       const row = document.createElement("li");
       row.className = "list-row";
@@ -2228,7 +2284,7 @@
       name.textContent = list.name
         + (listChoice.id === list.id ? " · in use" : "")
         + (list.builtIn ? " · can't be edited" : "")
-        + (list.basedOn === "built-in" ? " · from the built-in list" : "");
+        + (isBuiltIn(list.basedOn) ? ` · from ${BUILT_INS[list.basedOn].the}` : "");
       const count = document.createElement("span");
       count.className = "count";
       count.textContent = `${wordCount(list).toLocaleString()} words`;
@@ -2280,7 +2336,7 @@
           const signedIn = Boolean(window.Fillmein && window.Fillmein.user());
           const sure = await askFirst({
             title: `Delete ${list.name}?`,
-            text: (list.basedOn === "built-in"
+            text: (isBuiltIn(list.basedOn)
               ? "Its scores, removals and added words go for good"
               : `Its ${list.count.toLocaleString()} words go for good`)
               + (signedIn ? ", on every device signed in to your account" : "") + ". This can't be undone.",
@@ -2338,9 +2394,9 @@
     $("lists-note").textContent = `Copying ${list.name}…`;
     try {
       const from = list.builtIn ? null : (await LISTS.all()).find((other) => other.id === list.id);
-      const derived = list.builtIn || (from && from.basedOn === "built-in");
-      const copy = derived
-        ? await LISTS.create(`${list.name} copy`, [], { basedOn: "built-in", count: builtInCount() })
+      const basedOn = list.builtIn ? list.id : from && isBuiltIn(from.basedOn) ? from.basedOn : "";
+      const copy = basedOn
+        ? await LISTS.create(`${list.name} copy`, [], { basedOn, count: builtInCount(basedOn) })
         : await LISTS.create(`${list.name} copy`, from.words);
       // A copy should look exactly like what it was copied from, edits and all.
       if (!list.builtIn) {
@@ -2400,13 +2456,14 @@
     listChoice = { id: value };
     save();
     await refreshWordList();
+    if (ready && !running) setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
   });
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });
   $("clone-list").addEventListener("click", () => {
     const inUse = listState.lists.find((list) => list.id === listChoice.id);
-    cloneList(inUse || { id: "built-in", name: "Built-in list", builtIn: true });
+    cloneList(inUse || builtInEntry(isBuiltIn(listChoice.id) ? listChoice.id : "built-in"));
   });
   $("list-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];

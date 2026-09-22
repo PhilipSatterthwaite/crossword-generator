@@ -21,9 +21,11 @@ can't gain any just because their words are common: that's how "green paint" get
 Words on a block list (compileWords/blocklist*.txt: slurs and obscenities, one per line) are
 left out entirely, whatever their score.
 
-Each length becomes [letters, scores, popular]: the words run together (they're all the same
-length), best score first; their scores as a comma list; and which of them are popular
-(see popularity), as a base64 bitset.
+Each length becomes [letters, scores, popular, published, unvetted]: the words run together
+(they're all the same length), best score first; their scores as a comma list; and three base64
+bitsets: which of them are popular (see popularity), which have appeared in published
+crosswords, and which of those Broda's list lacks. The site's NYT answers list is the published
+words, with the unvetted ones scored NYT_UNVETTED_SCORE instead of their estimate.
 """
 
 import argparse
@@ -318,7 +320,8 @@ def main():
     for length, words in sorted(by_length.items()):
         # Among equal scores, words seen in published puzzles come first.
         words.sort(key=lambda w: (-scores[w], -counts.get(w, 0), w))
-        data[length] = ["".join(words), ",".join(str(scores[w]) for w in words), bitset_base64([w in popular for w in words])]
+        data[length] = ["".join(words), ",".join(str(scores[w]) for w in words), bitset_base64([w in popular for w in words]),
+                        bitset_base64([w in counts for w in words]), bitset_base64([w in counts and w not in broda for w in words])]
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))
