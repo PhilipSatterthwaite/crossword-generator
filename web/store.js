@@ -150,7 +150,13 @@
     touch("grid");
   }
 
-  /* A saved grid as {W, H, blocks, letters, slots}, or null if the Grid page hasn't saved one. */
+  /* A saved grid as {W, H, blocks, letters, slots}, or null if the Grid page hasn't saved one. A rebus
+     square's letters are all in its place in letters ("HEART"), so answers spell out in full. */
+  const rebusOf = (data, i) => {
+    const text = data.rebus && typeof data.rebus === "object" ? data.rebus[i] : "";
+    return typeof text === "string" && /^[A-Z]{2,12}$/.test(text) && text[0] === data.ink[i] ? text : "";
+  };
+
   function loadGrid(pid = id) {
     const data = gridData(pid);
     const n = data && data.W > 0 && data.H > 0 ? data.W * data.H : 0;
@@ -161,7 +167,7 @@
       W: data.W,
       H: data.H,
       blocks: Array.from(data.blocks, (ch) => ch === "#"),
-      letters: Array.from({ length: n }, (_, i) => letterOf(data.ink[i]) || letterOf(data.pencil[i])),
+      letters: Array.from({ length: n }, (_, i) => rebusOf(data, i) || letterOf(data.ink[i]) || letterOf(data.pencil[i])),
       slots: root.Gridfill.parseGrid(rows).slots,
     };
   }

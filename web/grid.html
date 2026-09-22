@@ -62,6 +62,11 @@
     cursor: pointer;
   }
   .cell:last-child { border-right: 0; }
+  /* A rebus square: its letters shrink to fit, and while it's being typed it shows a caret. */
+  .cell.rebus .ch { font-size: calc(100cqi / var(--cols) * 0.56 * min(1, 1.5 / var(--n, 1))); letter-spacing: -0.03em; }
+  .cell.editing { outline: 2px solid var(--ink); outline-offset: -2px; z-index: 1; }
+  .cell.editing .ch::after { content: ""; display: inline-block; width: 1.5px; height: 0.9em; margin-left: 1px; vertical-align: -0.1em; background: currentColor; animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
   [role="row"]:last-child .cell { border-bottom: 0; }
   .cell .num { position: absolute; top: 0.14em; left: 0.2em; font-size: max(7px, 0.4em); font-weight: 500; }
   .cell .ch { font-weight: 700; }
@@ -411,11 +416,11 @@
       <div id="grid-wrap" class="grid-wrap">
         <div id="grid" role="grid" aria-label="Crossword grid"></div>
         <input id="grid-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-               aria-label="Grid cursor. Type letters, Space blanks a square, period makes a block, arrow keys move, Enter switches direction."
+               aria-label="Grid cursor. Type letters, Space blanks a square, period makes a block, arrow keys move, Enter switches direction. Press and release Shift to type several letters into one square, then Enter."
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
-      <p class="keys"><span class="swatch" aria-hidden="true">A</span> ink <span class="swatch pencil" aria-hidden="true">A</span> pencil <span class="swatch weak" aria-hidden="true"></span> scores under 50 <span class="dot">·</span> <kbd>Space</kbd> blank <span class="dot">·</span> <kbd>.</kbd> block <span class="dot">·</span> <kbd>⌫</kbd> erase, or open a block <span class="dot">·</span> arrows move <span class="dot">·</span> <kbd>Enter</kbd> across/down <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
+      <p class="keys"><span class="swatch" aria-hidden="true">A</span> ink <span class="swatch pencil" aria-hidden="true">A</span> pencil <span class="swatch weak" aria-hidden="true"></span> scores under 50 <span class="dot">·</span> <kbd>Space</kbd> blank <span class="dot">·</span> <kbd>.</kbd> block <span class="dot">·</span> <kbd>⌫</kbd> erase, or open a block <span class="dot">·</span> arrows move <span class="dot">·</span> <kbd>Enter</kbd> across/down <span class="dot">·</span> <kbd>Shift</kbd> rebus, then <kbd>Enter</kbd> <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
     </section>
 
     <aside class="panel" aria-label="Autofill and word options">
@@ -649,6 +654,11 @@
 
   let W = 15, H = 15;
   let theme = []; // theme entries: words this puzzle must hold somewhere
+  // A rebus square being typed (see startRebus): its index, or -1, and the letters so far.
+  let rebusAt = -1;
+  let rebusText = "";
+  let shiftAlone = false;
+  const REBUS_MOST = 12;
   const THEME_MOST = 30;
   let blocks = [], ink = [], pencil = [];
   let sel = 0, dir = "across";
@@ -745,12 +755,37 @@
       const row = [];
       for (let c = 0; c < W; c++) {
         const i = r * W + c;
-        row.push(blocks[i] ? "#" : ink[i] || (withPencil ? pencil[i] : ""));
+        row.push(blocks[i] ? "#" : (ink[i] || (withPencil ? pencil[i] : "")).charAt(0));
       }
       rows.push(row);
     }
     return rows;
   }
+
+  /* The squares holding more than one letter, as {square: letters}, for the solver and for saving. */
+  function rebusMap() {
+    const map = {};
+    ink.forEach((text, i) => {
+      if (text && text.length > 1 && !blocks[i]) map[i] = text;
+    });
+    return map;
+  }
+
+  /* A word laid over an entry's squares: a letter a square, except that a rebus square takes as many
+     as it holds. */
+  function spread(slot, word) {
+    const parts = [];
+    let at = 0;
+    for (const i of slot.cells) {
+      const n = ink[i] && ink[i].length > 1 ? ink[i].length : 1;
+      parts.push(word.substr(at, n));
+      at += n;
+    }
+    return parts;
+  }
+
+  /* How many letters an entry's answer has: its squares, plus a rebus square's extra letters. */
+  const entryLength = (slot) => slot.cells.reduce((total, i) => total + (ink[i] && ink[i].length > 1 ? ink[i].length : 1), 0);
 
   // --- undo and redo ---
 
@@ -851,11 +886,13 @@
         if (/^[A-Z]$/.test(letter)) shown[r * W + c] = letter;
       }));
     }
-    slots[k].cells.forEach((cell, p) => (shown[cell] = preview.word[p]));
+    const parts = spread(slots[k], preview.word);
+    slots[k].cells.forEach((cell, p) => (shown[cell] = parts[p]));
     return shown;
   }
 
   function render() {
+    if (rebusAt >= 0 && sel !== rebusAt) finishRebus(false); // moved away from a rebus being typed: keep it
     refreshOptions();
     if (preview && (!options || options.signature !== preview.signature)) {
       preview = null; // the preview belonged to another entry or an earlier grid
@@ -898,14 +935,22 @@
       else if (previewed) cls += inWord.has(i) ? " preview-word" : " preview";
       else if (pencil[i]) cls += " pencil";
       if (fresh.has(i)) cls += " fresh";
+      const text = blocks[i] ? "" : i === rebusAt ? rebusText : ink[i] || previewed || pencil[i];
+      if (i === rebusAt) cls += " editing";
+      if (text.length > 1) {
+        cls += " rebus";
+        el.style.setProperty("--n", text.length);
+      }
       el.className = cls;
       el.firstChild.textContent = numbers[i] || "";
-      el.lastChild.textContent = blocks[i] ? "" : ink[i] || previewed || pencil[i];
+      el.lastChild.textContent = text;
       el.setAttribute("aria-label", describeCell(i));
     }
     const r = Math.floor(sel / W), c = sel % W;
     Object.assign(input.style, { left: `${(c / W) * 100}%`, top: `${(r / H) * 100}%`, width: `${100 / W}%`, height: `${100 / H}%` });
-    $("cell-desc").textContent = describeCell(sel) + (k >= 0 ? `, in ${slots[k].name}` : "");
+    $("cell-desc").textContent = rebusAt >= 0
+      ? `Rebus square: ${rebusText || "no letters yet"}. Type its letters, then press Enter.`
+      : describeCell(sel) + (k >= 0 ? `, in ${slots[k].name}` : "");
 
     // Selected entry: the letters as they stand, and a note if the word is used elsewhere too.
     if (k >= 0) {
@@ -975,8 +1020,9 @@
         : `<span class="theme-where">${running ? "being placed" : "not in the grid yet"}</span>`;
       let place = "";
       const slot = k >= 0 ? slots[k] : null;
-      if (slot && slot.cells.length === word.length && !(at && at.slot === slot)) {
-        const clash = slot.cells.some((i, p) => ink[i] && ink[i] !== word[p]);
+      if (slot && entryLength(slot) === word.length && !(at && at.slot === slot)) {
+        const parts = spread(slot, word);
+        const clash = slot.cells.some((i, p) => ink[i] && ink[i] !== parts[p]);
         const title = clash ? `Its letters clash with ${slot.name}` : `Ink ${word} into ${slot.name}`;
         place = `<button type="button" class="tiny" data-theme-place="${t}"${clash || running ? " disabled" : ""} title="${title}">Put in ${slot.name}</button>`;
       }
@@ -1022,10 +1068,11 @@
     } else if (place) {
       const word = theme[Number(place.dataset.themePlace)];
       const k = currentSlot();
-      if (!word || k < 0 || slots[k].cells.length !== word.length) return;
+      if (!word || k < 0 || entryLength(slots[k]) !== word.length) return;
+      const parts = spread(slots[k], word);
       edit(() => {
         slots[k].cells.forEach((i, p) => {
-          ink[i] = word[p];
+          ink[i] = parts[p];
           pencil[i] = "";
         });
       });
@@ -1066,12 +1113,18 @@
   let optionsRenderQueued = false;
 
   function candidatesFor(slot) {
-    const length = slot.cells.length;
+    // One letter code per letter of the answer, 0 where it's open; a rebus square gives all of its.
+    const pattern = [];
+    for (const i of slot.cells) {
+      const text = ink[i] || pencil[i];
+      if (text) for (const letter of text) pattern.push(letter.charCodeAt(0));
+      else pattern.push(0);
+    }
+    const length = pattern.length;
     const entry = lexiconFor(length);
     const list = [];
     let total = 0;
     if (!entry) return { list, total };
-    const pattern = slot.cells.map((i) => (ink[i] || pencil[i] ? (ink[i] || pencil[i]).charCodeAt(0) : 0));
     const min = minScore();
     const withPopular = allowPopularEl.checked && entry.popular;
     for (let w = 0; w < entry.scores.length; w++) {
@@ -1355,7 +1408,7 @@
     const id = ++checkSerial;
     job.checkId = id;
     job.pending = pending;
-    const settings = { minScore: minScore(), allowPopular: allowPopularEl.checked };
+    const settings = { minScore: minScore(), allowPopular: allowPopularEl.checked, rebus: rebusMap() };
     if (seconds) settings.perWordSeconds = seconds;
     runner.checkOptions(id, solverRows(true), job.target, pending.map((i) => job.list[i].word), settings, (message) => {
       let previewChanged = false;
@@ -1419,9 +1472,10 @@
     const { word, index } = preview;
     const option = options.list[index];
     const fill = withFill && option && option.fill;
+    const parts = spread(slot, word);
     edit(() => {
       slot.cells.forEach((cell, p) => {
-        ink[cell] = word[p];
+        ink[cell] = parts[p];
         pencil[cell] = "";
       });
       if (fill) for (let i = 0; i < W * H; i++) if (!blocks[i] && !ink[i]) pencil[i] = fill[Math.floor(i / W)][i % W] || "";
@@ -1559,9 +1613,81 @@
     });
   }
 
+  /* A rebus: press and release Shift on its own and the square takes several letters; Enter keeps
+     them and moves on, Escape leaves the square as it was. Shift held for a capital or Shift+Tab
+     doesn't count. */
+
+  function startRebus() {
+    if (running || blocks[sel]) return;
+    rebusAt = sel;
+    rebusText = ink[sel] || pencil[sel] || "";
+    render();
+  }
+
+  function finishRebus(move) {
+    const i = rebusAt;
+    const text = rebusText;
+    rebusAt = -1;
+    rebusText = "";
+    edit(() => {
+      ink[i] = text;
+      pencil[i] = "";
+      if (move) {
+        const next = step(i, dir, 1);
+        if (next >= 0 && !blocks[next]) sel = next;
+      }
+    });
+  }
+
+  function cancelRebus() {
+    rebusAt = -1;
+    rebusText = "";
+    render();
+  }
+
+  input.addEventListener("keyup", (event) => {
+    if (event.key === "Shift" && shiftAlone && rebusAt < 0) startRebus();
+    if (event.key === "Shift") shiftAlone = false;
+  });
+  input.addEventListener("blur", () => {
+    if (rebusAt >= 0) finishRebus(false);
+  });
+
   input.addEventListener("keydown", (event) => {
+    shiftAlone = event.key === "Shift" && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey;
     if (event.ctrlKey || event.metaKey || event.altKey) return; // shortcuts are handled on the document
     const key = event.key;
+    if (rebusAt >= 0) {
+      if (/^[a-zA-Z]$/.test(key)) {
+        event.preventDefault();
+        if (rebusText.length < REBUS_MOST) rebusText += key.toUpperCase();
+        render();
+        return;
+      }
+      if (key === "Backspace" || key === "Delete") {
+        event.preventDefault();
+        rebusText = rebusText.slice(0, -1);
+        render();
+        return;
+      }
+      if (key === "Enter") {
+        event.preventDefault();
+        finishRebus(true);
+        return;
+      }
+      if (key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelRebus();
+        return;
+      }
+      if (key === "Shift") return;
+      if (key === "." || key === " ") {
+        event.preventDefault();
+        return;
+      }
+      finishRebus(false); // anything else (an arrow, Tab) keeps the letters and does what it always does
+    }
     if (/^[a-zA-Z]$/.test(key)) {
       event.preventDefault();
       typeLetter(key.toUpperCase());
@@ -2065,7 +2191,7 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme };
+    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
     runner.fill(
       rows,
       fillOptions,
@@ -2590,7 +2716,9 @@
     return {
       v: 2, W, H, sel, dir,
       blocks: blocks.map((b) => (b ? "#" : ".")).join(""),
-      ink: ink.map((x) => x || ".").join(""),
+      // One character a square, so older pages still read it; a rebus square's letters are in rebus.
+      ink: ink.map((x) => (x ? x[0] : ".")).join(""),
+      rebus: rebusMap(),
       pencil: pencil.map((x) => x || ".").join(""),
       symmetry: symmetryEl.checked,
       tint: tintEl.checked,
@@ -2615,6 +2743,10 @@
     H = data.H;
     blocks = Array.from(data.blocks, (ch) => ch === "#");
     ink = Array.from(data.ink, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
+    for (const [key, text] of Object.entries(data.rebus && typeof data.rebus === "object" ? data.rebus : {})) {
+      const i = Number(key);
+      if (ink[i] && typeof text === "string" && /^[A-Z]{2,12}$/.test(text) && text[0] === ink[i]) ink[i] = text;
+    }
     pencil = Array.from(data.pencil, (ch) => (/[A-Z]/.test(ch) ? ch : ""));
     sel = Math.min(Math.max(0, data.sel | 0), n - 1);
     dir = data.dir === "down" ? "down" : "across";

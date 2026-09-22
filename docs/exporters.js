@@ -82,7 +82,7 @@
     if (width > 255 || height > 255) throw new Error("Across Lite grids can be at most 255 squares on a side.");
     requireFull(puzzle, "to .puz");
 
-    const solution = cells.map((cell) => (cell === "#" ? 0x2e : cell.charCodeAt(0))); // "." marks a block
+    const solution = cells.map((cell) => (cell === "#" ? 0x2e : cell.charCodeAt(0))); // "." marks a block; a rebus square its first letter
     const state = cells.map((cell) => (cell === "#" ? 0x2e : 0x2d));                   // "-" marks an unsolved square
     const title = latin1(puzzle.title || "Untitled");
     const author = latin1(puzzle.author);
@@ -126,11 +126,31 @@
       ...terminated(copyright),
       ...clues.flatMap(terminated),
       ...terminated(notes),
+      ...rebusSections(cells),
     ];
     const file = new Uint8Array(header.length + body.length);
     file.set(header);
     file.set(body, header.length);
     return file;
+  }
+
+  /* Across Lite's rebus tables, after the notes: GRBS gives each square 0, or 1 + its rebus's number in
+     RTBL, which lists each rebus as " 0:HEART;" (numbers right-aligned in two places). Each section is
+     its name, its length and checksum (16-bit, little-endian), the bytes, then a NUL. */
+  function rebusSections(cells) {
+    const numbers = new Map();
+    const grbs = cells.map((cell) => {
+      if (cell === "#" || cell.length < 2) return 0;
+      if (!numbers.has(cell)) numbers.set(cell, numbers.size);
+      return numbers.get(cell) + 1;
+    });
+    if (!numbers.size) return [];
+    const rtbl = latin1([...numbers].map(([text, n]) => `${String(n).padStart(2, " ")}:${text};`).join(""));
+    const section = (name, data) => {
+      const sum = checksum(data);
+      return [...latin1(name), data.length & 0xff, data.length >> 8, sum & 0xff, sum >> 8, ...data, 0];
+    };
+    return [...section("GRBS", grbs), ...section("RTBL", rtbl)];
   }
 
   // --- .jpz (Crossword Compiler XML) ---

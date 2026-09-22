@@ -236,8 +236,12 @@
   // --- grid ---
 
   /* grid: rows (strings or arrays). '#' or '■' is a block; ' ', '.', '_' or '' is empty.
-     Returns {height, width, cells, slots}; cells hold BLOCK, a letter, or null. */
-  function parseGrid(grid) {
+     rebus: {square index: letters} for squares holding more than one letter.
+     Returns {height, width, cells, slots}; cells hold BLOCK, a letter, or null. A rebus square keeps
+     its first letter, and each letter after it gets a square of its own past the grid's (index
+     width * height and up) that both of its entries run through, so an entry's cells spell its whole
+     answer. */
+  function parseGrid(grid, rebus = null) {
     const rows = Array.from(grid, (row) => Array.from(row));
     if (!rows.length || !rows[0].length) throw new GridError("The grid is empty.");
     const width = rows[0].length;
@@ -276,15 +280,31 @@
         }
       }
     }
+    if (rebus) {
+      const squares = new Map(); // rebus square -> the squares its letters are in
+      for (const [key, text] of Object.entries(rebus)) {
+        const i = Number(key);
+        const letters = String(text).toUpperCase();
+        if (!/^[A-Z]{2,}$/.test(letters) || !(i >= 0 && i < width * height) || cells[i] === BLOCK) continue;
+        cells[i] = letters[0];
+        const run = [i];
+        for (const letter of letters.slice(1)) {
+          run.push(cells.length);
+          cells.push(letter);
+        }
+        squares.set(i, run);
+      }
+      if (squares.size) for (const slot of slots) slot.cells = slot.cells.flatMap((i) => squares.get(i) || [i]);
+    }
     return { height, width, cells, slots };
   }
 
   // --- search ---
 
   class Search {
-    constructor(grid, words, heuristic, minScore, allowPopular, longStep = LONG_STEP) {
+    constructor(grid, words, heuristic, minScore, allowPopular, longStep = LONG_STEP, rebus = null) {
       this.longStep = longStep;
-      const { height, width, cells, slots } = parseGrid(grid);
+      const { height, width, cells, slots } = parseGrid(grid, rebus);
       this.height = height;
       this.width = width;
       this.slots = slots;
@@ -1070,7 +1090,7 @@
     const { minScore = 0, allowPopular = false, qualityWeight = 0.035, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1 } = options;
     let search;
     try {
-      search = new Search(grid, words, heuristic, minScore, allowPopular, longStep);
+      search = new Search(grid, words, heuristic, minScore, allowPopular, longStep, options.rebus || null);
     } catch (error) {
       if (error instanceof GridError) return { error: error.message };
       throw error;
@@ -1201,7 +1221,7 @@
     const fail = (reason, stats = {}) => ({ success: false, grid: null, reason, stats });
     let parsed;
     try {
-      parsed = parseGrid(grid);
+      parsed = parseGrid(grid, options.rebus || null);
     } catch (error) {
       if (error instanceof GridError) return fail(error.message);
       throw error;

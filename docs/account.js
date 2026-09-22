@@ -195,7 +195,9 @@ async function publish(pid, { listed = false } = {}) {
     author: (details.author || "").trim().slice(0, 200),
     width: grid.W,
     height: grid.H,
-    cells: grid.blocks.map((block, i) => (block ? "#" : grid.letters[i])).join(""),
+    // One letter a square, as the rules for published puzzles require: a rebus square is solved by
+    // its first letter, as Across Lite takes one too.
+    cells: grid.blocks.map((block, i) => (block ? "#" : grid.letters[i].charAt(0))).join(""),
     clues: text,
     updated: Date.now(),
     listed: Boolean(listed), // shown on the Explore page, as well as reachable by link
