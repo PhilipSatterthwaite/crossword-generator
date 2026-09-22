@@ -787,16 +787,16 @@
        layer, the crossings' words are first weighted by how well they agree with their own
        crossings. A 15 crossed at every square scores far lower (harder) than a 3, even though
        more 15-letter words exist. Big slots are estimated from an even sample of their words. */
-    scanHardness(layers) {
+    scanHardness(layers, sample = SCAN_SAMPLE) {
       const n = this.slots.length;
       const samples = new Array(n).fill(null);    // candidate ids per slot, sampled
       const logWeights = new Array(n).fill(null); // log weight per sampled word
       const mixes = new Array(n).fill(null);      // mixes[s][p * 26 + l]: weighted share with letter l at p
       for (const s of this.variables) {
         let ids = this.wordIds(s);
-        if (ids.length > SCAN_SAMPLE) {
-          const stride = ids.length / SCAN_SAMPLE;
-          ids = Int32Array.from({ length: SCAN_SAMPLE }, (_, k) => ids[Math.floor(k * stride)]);
+        if (ids.length > sample) {
+          const stride = ids.length / sample;
+          ids = Int32Array.from({ length: sample }, (_, k) => ids[Math.floor(k * stride)]);
         }
         samples[s] = ids;
         logWeights[s] = new Float64Array(ids.length);
@@ -1084,10 +1084,11 @@
      0 weighs every length the same), longStep (how much higher the score floor climbs per letter
      past six; 0 holds every length to the same floor), seed, variety (shuffle from the start for
      a different fill), heuristic ("wdeg" or "mrv"), lookahead (how much scanned hardness
-     counts when picking the next slot; 0 turns the scan off) and layers (how many crossings
-     deep the scan looks). */
+     counts when picking the next slot; 0 turns the scan off), layers (how many crossings
+     deep the scan looks) and scanSample (most words per slot the scan samples; a smaller sample
+     still spots a clearly better grid, which is what the designer screens patterns with). */
   function prepare(grid, words, options = {}) {
-    const { minScore = 0, allowPopular = false, qualityWeight = 0.035, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1 } = options;
+    const { minScore = 0, allowPopular = false, qualityWeight = 0.035, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1, scanSample = SCAN_SAMPLE } = options;
     let search;
     try {
       search = new Search(grid, words, heuristic, minScore, allowPopular, longStep, options.rebus || null);
@@ -1109,7 +1110,7 @@
       const dead = search.deadSlot >= 0 ? search.deadSlot : search.variables.find((s) => search.limits[s] === 0);
       return { search, error: `No fill exists: nothing in the word list fits ${search.slots[dead].name} with the letters around it.` };
     }
-    if (lookahead > 0) search.scanHardness(layers);
+    if (lookahead > 0) search.scanHardness(layers, scanSample);
     return { search };
   }
 
@@ -1584,7 +1585,7 @@
     return problems;
   }
 
-  const api = { BLOCK, GridError, WordList, parseGrid, fill, checkOptions, checkFill };
+  const api = { BLOCK, GridError, WordList, parseGrid, prepare, fill, checkOptions, checkFill };
   root.Gridfill = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

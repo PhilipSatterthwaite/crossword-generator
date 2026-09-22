@@ -217,6 +217,8 @@
   .theme-message { margin: 0; font-size: 13px; color: var(--muted); }
   .theme-message:empty { display: none; }
   .theme-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .theme-design { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .theme-design .theme-note { flex-basis: 100%; }
   .theme-list:empty { display: none; }
   .theme-row {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 100%; padding: 5px 6px 5px 10px;
@@ -477,6 +479,12 @@
     </form>
     <p id="theme-message" class="theme-message" role="status"></p>
     <ul id="theme-list" class="theme-list"></ul>
+    <div class="theme-design">
+      <button type="button" id="design" class="btn small" disabled>{{grid.theme.design|line}}</button>
+      <label class="field" title="The most squares the designer may leave black"><input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % blocks</label>
+      <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
+      <p class="theme-note">{{grid.theme.design.note|line}}</p>
+    </div>
   </section>
 
   <dl class="tally">
@@ -536,6 +544,7 @@
 
 <script src="words.js"></script>
 <script src="filler.js"></script>
+<script src="designer.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
 <script src="lists.js"></script>
@@ -1087,6 +1096,7 @@
     const k = currentSlot();
     $("fill").disabled = running || !ready;
     $("another").disabled = running || !ready;
+    $("design").disabled = running || !ready || !theme.length;
     $("stop").hidden = !running || runner.inline;
     $("undo").disabled = running || !past.length;
     $("redo").disabled = running || !future.length;
@@ -1094,7 +1104,7 @@
     $("clear-entry").disabled = running || k < 0 || !slots[k].cells.some((i) => ink[i] || pencil[i]);
     $("erase").disabled = running || !pencil.some(Boolean);
     $("clear").disabled = running || !(pencil.some(Boolean) || ink.some(Boolean));
-    for (const id of ["new-grid", "cols", "rows", "example", "symmetry", "min-score", "allow-popular", "time-limit"]) $(id).disabled = running;
+    for (const id of ["new-grid", "cols", "rows", "example", "symmetry", "min-score", "allow-popular", "time-limit", "design-blocks", "design-time"]) $(id).disabled = running;
   }
 
   function setStatus(state, text) {
@@ -1969,6 +1979,13 @@
             this.onResult = null;
             this.onProgress = null;
             if (done) done(data.result);
+          } else if (data.type === "design-progress") {
+            if (this.onDesignProgress) this.onDesignProgress(data.progress);
+          } else if (data.type === "design-result") {
+            const done = this.onDesignResult;
+            this.onDesignResult = null;
+            this.onDesignProgress = null;
+            if (done) done(data.result);
           } else if (data.type === "options") {
             this.fromOptions(worker, data);
           }
@@ -2097,6 +2114,19 @@
       this.worker.postMessage({ type: "fill", grid, options });
     },
 
+    design(spec, onProgress, onResult) {
+      this.cancelOptions();
+      if (this.inline) {
+        // No worker: designing means filling candidate patterns over and over, and each of those
+        // would freeze the page, so it keeps a short leash however long the page asked for.
+        setTimeout(() => onResult(Griddesign.designGrid({ ...spec, timeLimit: Math.min(spec.timeLimit || 60, 10) }, this.wordList())), 40);
+        return;
+      }
+      this.onDesignProgress = onProgress;
+      this.onDesignResult = onResult;
+      this.worker.postMessage({ type: "design", spec });
+    },
+
     checkOptions(id, grid, target, candidates, options, onOptions) {
       this.optionsId = id;
       this.onOptions = onOptions;
@@ -2219,6 +2249,59 @@
     updateButtons();
   }
 
+  /* Design a block pattern around the theme entries, replacing the grid. The designer scores a
+     pattern by filling it a few times over, so what comes back is a grid already known to work,
+     with one of its fills in pencil. */
+  function runDesign() {
+    if (running || !ready || !theme.length) return;
+    const percent = Math.min(30, Math.max(8, Number($("design-blocks").value) || 16));
+    const timeLimit = Math.min(600, Math.max(15, Number($("design-time").value) || 60));
+    running = true;
+    updateButtons();
+    setStatus("busy", "Designing a grid…");
+    runner.design(
+      {
+        width: W,
+        height: H,
+        themes: theme.slice(),
+        minLength: 3,
+        maxBlockRatio: percent / 100,
+        timeLimit,
+        seed: Math.floor(Math.random() * 2 ** 31),
+        minScore: minScore(),
+        allowPopular: allowPopularEl.checked,
+      },
+      (progress) => {
+        const found = progress.best ? `, best fills ${progress.best.distinct} ways` : "";
+        setStatus("busy", `Designing… ${progress.elapsed.toFixed(0)} s of ${timeLimit}, ${plural(progress.stats.screened, "pattern")} tried${found}`);
+      },
+      (result) => {
+        running = false;
+        if (!result.success) {
+          setStatus("error", result.reason);
+          updateButtons();
+          return;
+        }
+        remember(snapshot());
+        blocks = result.blocks.map(Boolean);
+        ink = new Array(W * H).fill("");
+        pencil = new Array(W * H).fill("");
+        for (const place of result.placements) {
+          for (let k = 0; k < place.length; k++) ink[place.start + k] = place.word[k];
+        }
+        sel = Math.max(0, blocks.indexOf(false));
+        fresh.clear();
+        analyze();
+        if (result.fill) applyRows(result.fill, true);
+        render();
+        const count = result.blockCount;
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), fills ${plural(result.distinct, "different way")}.`);
+        updateButtons();
+      }
+    );
+  }
+
+  $("design").addEventListener("click", runDesign);
   $("fill").addEventListener("click", () => runFill(false));
   $("another").addEventListener("click", () => runFill(true));
   $("stop").addEventListener("click", () => {

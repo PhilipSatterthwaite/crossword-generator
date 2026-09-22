@@ -1,5 +1,6 @@
-/* Runs fills and word-option checks off the page's main thread so the grid stays responsive. */
-importScripts("words.js?v=ed9a1ba31e", "filler.js?v=d650ada5fd");
+/* Runs fills, grid designs and word-option checks off the page's main thread so the grid stays
+   responsive. */
+importScripts("words.js?v=ed9a1ba31e", "filler.js?v=8904f4f420", "designer.js?v=2675017c3e");
 
 let words = new Gridfill.WordList(self.GRIDFILL_WORDS);
 
@@ -39,6 +40,19 @@ self.onmessage = ({ data }) => {
       result = { success: false, grid: null, reason: `The solver hit an error: ${error.message}`, stats: {} };
     }
     self.postMessage({ type: "result", result });
+  } else if (data.type === "design") {
+    // Designing a grid means filling candidate patterns over and over, so it belongs off the page
+    // even more than a single fill does.
+    job = null;
+    let result;
+    try {
+      result = Griddesign.designGrid(data.spec, words, {
+        onProgress: (progress) => self.postMessage({ type: "design-progress", progress }),
+      });
+    } catch (error) {
+      result = { success: false, reason: `The designer hit an error: ${error.message}`, stats: {} };
+    }
+    self.postMessage({ type: "design-result", result });
   } else if (data.type === "options") {
     const check = Gridfill.checkOptions(data.grid, words, data.target, data.candidates, data.options);
     if (check.error) {

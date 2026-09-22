@@ -27,6 +27,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
+          "designer.js",
           "exporters.js", "importers.js", "words.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
