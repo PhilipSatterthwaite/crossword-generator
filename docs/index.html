@@ -28,7 +28,8 @@
   /* The three ways in, as numbered entries on one ruled line. */
   .choices {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    /* Two by two: four cards of a size, rather than one tall one beside a hole. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
     padding-top: 24px;
     border-top: 1.5px solid var(--ink);
@@ -48,7 +49,6 @@
   .choice h2 { margin: 0; font: 600 25px / 1.2 var(--serif); }
   .choice p { margin: 0; max-width: 46ch; color: var(--muted); text-wrap: pretty; }
   .choice .btn { justify-self: start; }
-  .choice.keep { grid-row: span 2; }
   .note { font-size: 13px; }
   .soon {
     justify-self: start;
@@ -121,7 +121,7 @@
   .file-link:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 
   @media (max-width: 640px) {
-    .choice.keep { grid-row: auto; }
+    .choices { grid-template-columns: minmax(0, 1fr); }
     .puzzle { grid-template-columns: 40px minmax(0, 1fr); }
     .thumb { width: 40px; height: 40px; }
     .thumb svg { max-width: 40px; max-height: 40px; }

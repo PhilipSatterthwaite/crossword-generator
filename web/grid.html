@@ -148,6 +148,7 @@
   .key { width: 12px; height: 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--cell); }
   .key.works { background: var(--works-bg); border-color: var(--works-ink); }
   .key.fails { background: repeating-linear-gradient(135deg, var(--rule) 0 1.5px, var(--cell) 1.5px 4px); }
+  .options-empty { display: grid; place-items: center; min-height: 120px; padding: 18px 16px; font-size: 13px; color: var(--muted); text-align: center; text-wrap: balance; }
   .options-list {
     list-style: none;
     margin: 0;
@@ -258,7 +259,7 @@
     border-top: 1.5px solid var(--ink);
   }
   .entries h2 { margin: 0 0 8px; font: 600 24px / 1.2 var(--serif); text-wrap: balance; }
-  .entries ol { list-style: none; margin: 0; padding: 0; columns: 2 13rem; column-gap: 24px; }
+  .entries ol { list-style: none; margin: 0; padding: 0; columns: 2 15rem; column-gap: 20px; }
   .entries li { display: flex; align-items: center; gap: 4px; break-inside: avoid; }
   .entries li > button[data-slot] { flex: 1; min-width: 0; }
   .entries .entry-edit {
@@ -286,7 +287,8 @@
   .entries button:hover { background: var(--hover); }
   .entries button[aria-current="true"] { background: var(--word); }
   .entries .n { flex: none; width: 2.6ch; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .entries .w { letter-spacing: 0.1em; overflow-wrap: anywhere; }
+  .entries .w { letter-spacing: 0.08em; overflow-wrap: anywhere; }
+  .entries .w.long { font-size: 11px; letter-spacing: 0; } /* a 15 fits on one line beside its buttons */
   .entries .score { margin-left: auto; }
   .w .k { font-weight: 700; }
   .w .p { color: var(--pencil); font-weight: 500; }
@@ -984,7 +986,7 @@
         edit = `<button type="button" class="entry-edit drop" data-word-action="remove" data-word="${word}" title="Take ${word} out of your word list" aria-label="Remove ${word} from your word list">Remove</button>`;
       }
       lists[slot.direction].push(
-        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w">${letterSpans(slot.cells)}${twice}</span>${chip}</button>${edit}</li>`
+        `<li><button type="button" data-slot="${j}"${j === k ? ' aria-current="true"' : ""}><span class="n">${slot.number}</span><span class="w${slot.cells.length >= 13 ? " long" : ""}">${letterSpans(slot.cells)}${twice}</span>${chip}</button>${edit}</li>`
       );
     });
     $("across").innerHTML = lists.across.join("");
@@ -1550,10 +1552,14 @@
     $("count-fails").textContent = fails;
 
     if (!options || options.message) {
-      listEl.replaceChildren();
+      // Nothing to list: say why inside the box, rather than leaving it a blank white rectangle.
+      const empty = document.createElement("li");
+      empty.className = "options-empty";
+      empty.textContent = options ? options.message : "";
+      listEl.replaceChildren(empty);
       optionRows.clear();
       summary.textContent = "";
-      note.textContent = options ? options.message : "";
+      if (!note.querySelector(".undo-note")) note.textContent = "";
       return;
     }
 
