@@ -18,7 +18,8 @@
    constructive seed that is already legal. Legality is checked before scoring, since it costs
    microseconds and scoring costs milliseconds: every entry at least minLength long, all white
    squares connected and no section hanging off the rest by fewer than minOpening squares, blocks
-   under the cap, and every theme entry still exactly its own length. Requiring every run to
+   under the cap, no pockets (see pockets), and every theme entry still exactly its own length.
+   Requiring every run to
    reach minLength in both directions also rules out unchecked squares, so there is no separate
    test for them.
 */
@@ -84,6 +85,7 @@
         }
       }
     }
+    if (pockets(blocks, W, H)) return false;
     return opening(blocks, W, H, blocks.length - count) >= minOpening;
   }
 
@@ -181,6 +183,26 @@
     }
     return second;
   }
+
+  /* Pockets: a white square with blocks (or the edge) on two adjacent sides and a block on the
+     corner diagonally opposite. The square starts both an across and a down entry, each of which
+     turns away at once around that corner block, leaving a two-wide channel that snakes diagonally:
+     the S-bends that make a pattern look machine-drawn. Published grids have none, so a legal
+     pattern has none. */
+  function pockets(blocks, W, H) {
+    const at = (r, c) => (r < 0 || r >= H || c < 0 || c >= W ? 1 : blocks[r * W + c]);
+    let count = 0;
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        if (blocks[r * W + c]) continue;
+        for (const [dr, dc] of POCKET_CORNERS) {
+          if (at(r - dr, c) && at(r, c - dc) && r + dr >= 0 && r + dr < H && c + dc >= 0 && c + dc < W && blocks[(r + dr) * W + c + dc]) count++;
+        }
+      }
+    }
+    return count;
+  }
+  const POCKET_CORNERS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
   function connected(blocks, W, H, whites) {
     const start = blocks.indexOf(0);
@@ -805,7 +827,7 @@
     };
   }
 
-  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, themeLayouts, seedPattern, gridRows };
+  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, pockets, themeLayouts, seedPattern, gridRows };
   root.Griddesign = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);
