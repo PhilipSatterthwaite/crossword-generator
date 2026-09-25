@@ -240,13 +240,24 @@
      by length; at most one may be left over, and only if it can sit centred in the middle row.
      Placing one of a pair fixes the other, so a layout is a choice of row and starting column per
      pair. Layouts are sampled rather than enumerated: the count runs to thousands and they are
-     mostly alike. */
-  function themeLayouts(entries, W, H, rng, limit) {
+     mostly alike. `anchored` are theme entries already inked on the grid, as placements: they stay
+     put, and an entry of the same length goes in the mirror of one before any pairing. */
+  function themeLayouts(entries, W, H, rng, limit, anchored = []) {
     const byLength = new Map();
     for (const word of entries) {
       const n = word.length;
       if (!byLength.has(n)) byLength.set(n, []);
       byLength.get(n).push(word);
+    }
+    const fixedPlacements = anchored.map((p) => ({ ...p }));
+    for (const a of anchored) {
+      const row = H - 1 - a.row;
+      const col = W - a.col - a.length;
+      if (row === a.row && col === a.col) continue; // sits centred: needs no partner
+      if (anchored.some((o) => o.row === row && o.col === col)) continue; // its partner is inked too
+      const words = byLength.get(a.length);
+      if (!words || !words.length) continue; // an inked entry without a partner is the constructor's call
+      fixedPlacements.push({ word: words.shift(), row, col, direction: "across", length: a.length });
     }
     const pairs = [];
     let centre = null;
@@ -276,8 +287,8 @@
     const seen = new Set();
     const layouts = [];
     for (let attempt = 0; attempt < limit * 8 && layouts.length < limit; attempt++) {
-      const used = [];
-      const placements = [];
+      const used = fixedPlacements.map((p) => p.row);
+      const placements = fixedPlacements.map((p) => ({ ...p }));
       let ok = true;
       for (const [a, b] of pairs) {
         const choices = rowsFor(a.length).filter((r) => used.every((u) => Math.abs(u - r) >= THEME_GAP));
@@ -299,7 +310,7 @@
       seen.add(key);
       layouts.push(placements);
     }
-    if (!layouts.length) return { error: "No symmetric arrangement of those theme entries fits this grid. Try a taller grid or fewer entries." };
+    if (!layouts.length) return { error: anchored.length ? "No symmetric arrangement of the remaining theme entries fits around the ones already inked. Try fewer entries, or ink the rest in by hand." : "No symmetric arrangement of those theme entries fits this grid. Try a taller grid or fewer entries." };
     return { layouts };
   }
 
@@ -310,10 +321,22 @@
      run is, split near the middle, until nothing runs much past SEED_RUN or the budget is gone.
      Starting from a sane pattern matters: from an empty grid the search would spend its whole
      budget rediscovering that a crossword needs about thirty blocks. */
-  function seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun = SEED_RUN, minOpening = MIN_OPENING) {
+  function seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun = SEED_RUN, minOpening = MIN_OPENING, fixed = null) {
     const blocks = new Uint8Array(W * H);
     const frozen = new Uint8Array(W * H); // squares the annealer may not touch
     const mustStayOpen = new Uint8Array(W * H);
+    // What the grid already has stays as it is: its blocks stay black, its lettered squares white.
+    if (fixed) {
+      for (let i = 0; i < W * H; i++) {
+        if (fixed.blocks[i]) {
+          blocks[i] = 1;
+          frozen[i] = 1;
+        } else if (fixed.letters[i]) {
+          frozen[i] = 1;
+          mustStayOpen[i] = 1;
+        }
+      }
+    }
     for (const p of placements) {
       for (let k = 0; k < p.length; k++) {
         frozen[p.start + k] = 1;
@@ -450,7 +473,9 @@
 
   /* Design a grid around some theme entries.
 
-     spec: width, height, themes (placed as across entries), minLength (3), maxBlockRatio (0.16),
+     spec: width, height, themes (placed as across entries), blocks and letters (what the grid
+     already has, kept as it is: blocks stay, lettered squares stay white with their letters given;
+     a rebus square's letters go in rebus), minLength (3), maxBlockRatio (0.16),
      minOpening (3: the fewest squares any section may be joined to the rest by), timeLimit
      (seconds), seed, minScore, allowPopular, screenTrials/deepTrials (fills per probe) and
      probeSeconds (how long one of those fills may take).
@@ -467,6 +492,9 @@
       width: W = 15,
       height: H = 15,
       themes = [],
+      blocks: keptBlocks = null,
+      letters: keptLetters = null,
+      rebus = null,
       minLength = 3,
       maxBlockRatio = 0.16,
       minOpening = MIN_OPENING,
@@ -483,12 +511,80 @@
     const deadline = started + timeLimit * 1000;
     const rng = mulberry32(seed);
     const maxBlocks = Math.floor(maxBlockRatio * W * H);
-    const probeOptions = { minScore, allowPopular };
+    const probeOptions = { minScore, allowPopular, rebus };
+    const fixed = keptBlocks || keptLetters
+      ? { blocks: Uint8Array.from({ length: W * H }, (_, i) => (keptBlocks && keptBlocks[i] ? 1 : 0)), letters: Array.from({ length: W * H }, (_, i) => (keptLetters && keptLetters[i]) || "") }
+      : null;
     const stats = { layouts: 0, seeded: 0, seedFailed: 0, screened: 0, impossible: 0, deepened: 0, moves: 0, kept: 0 };
 
     const clean = themes.map((w) => String(w).toUpperCase().replace(/[^A-Z]/g, "")).filter(Boolean);
-    const { layouts, error } = themeLayouts(clean, W, H, rng, LAYOUT_TRIES);
-    if (error) return { success: false, reason: error, stats };
+    // Theme entries already inked in full stay where they are. One that reads across anchors a
+    // partner of its length in the mirror row; one that reads down is simply already there.
+    const anchored = [];
+    const remaining = [];
+    const inkedAt = (word, across) => {
+      const n = word.length;
+      const outer = across ? H : W;
+      const inner = across ? W : H;
+      const at = (a, b) => (across ? a * W + b : b * W + a);
+      for (let a = 0; a < outer; a++) {
+        for (let b = 0; b + n <= inner; b++) {
+          let hit = true;
+          for (let k = 0; k < n && hit; k++) {
+            const text = fixed.letters[at(a, b + k)];
+            if (!text || text[0] !== word[k]) hit = false;
+          }
+          if (!hit) continue;
+          // Its ends must be caps or become them: a letter beyond either end means it's part of something longer.
+          if ((b > 0 && fixed.letters[at(a, b - 1)]) || (b + n < inner && fixed.letters[at(a, b + n)])) continue;
+          return across ? { word, row: a, col: b, direction: "across", length: n } : { word, direction: "down", length: n };
+        }
+      }
+      return null;
+    };
+    for (const word of clean) {
+      const across = fixed ? inkedAt(word, true) : null;
+      if (across) anchored.push(across);
+      else if (!(fixed && inkedAt(word, false))) remaining.push(word);
+    }
+    // Any other complete inked across entry (blocks or the edge at both ends) of the same length as
+    // a theme entry still to place anchors one too: an inked fifteen wants its partner opposite.
+    if (fixed && remaining.length) {
+      const lengths = new Set(remaining.map((word) => word.length));
+      for (let r = 0; r < H; r++) {
+        for (let c = 0; c < W; c++) {
+          if (!fixed.letters[r * W + c] || (c > 0 && !fixed.blocks[r * W + c - 1])) continue;
+          let n = 0;
+          while (c + n < W && fixed.letters[r * W + c + n]) n++;
+          const capped = c + n === W || fixed.blocks[r * W + c + n];
+          if (capped && lengths.has(n) && !anchored.some((p) => p.row === r && p.col === c)) {
+            let word = "";
+            for (let k = 0; k < n; k++) word += fixed.letters[r * W + c + k][0];
+            anchored.push({ word, row: r, col: c, direction: "across", length: n });
+          }
+          c += n;
+        }
+      }
+    }
+    const found = themeLayouts(remaining, W, H, rng, LAYOUT_TRIES, anchored);
+    if (found.error) return { success: false, reason: found.error, stats };
+    // Only layouts that agree with what the grid already has: no theme letter on a block or over
+    // a different letter, and no cap (the block at either end) on a lettered square.
+    const agrees = (p) => {
+      for (let k = 0; k < p.length; k++) {
+        const i = p.start + k;
+        if (fixed.blocks[i] || (fixed.letters[i] && fixed.letters[i][0] !== p.word[k])) return false;
+      }
+      if (p.col > 0 && fixed.letters[p.start - 1]) return false;
+      if (p.col + p.length < W && fixed.letters[p.start + p.length]) return false;
+      return true;
+    };
+    const layouts = fixed ? found.layouts.filter((placements) => placements.every(agrees)) : found.layouts;
+    if (!layouts.length) return { success: false, reason: "None of the symmetric arrangements of those theme entries fits around the blocks and letters already on the grid. Clear some, or put the theme entries in by hand.", stats };
+    if (fixed) {
+      const already = fixed.blocks.reduce((a, b) => a + b, 0);
+      if (already > maxBlocks) return { success: false, reason: `The grid already has ${already} blocks, over the ${Math.round(maxBlockRatio * 100)}% cap of ${maxBlocks}. Raise the cap or clear some blocks.`, stats };
+    }
     stats.layouts = layouts.length;
 
     let best = null;
@@ -507,10 +603,10 @@
     const breadthUntil = started + (deadline - started) * 0.5;
     while (now() < breadthUntil) {
       const placements = layouts[Math.floor(rng() * layouts.length)];
-      const letters = new Array(W * H).fill("");
+      const letters = fixed ? fixed.letters.map((text) => text.charAt(0)) : new Array(W * H).fill("");
       for (const p of placements) for (let k = 0; k < p.length; k++) letters[p.start + k] = p.word[k];
       const targetRun = 6 + Math.floor(rng() * 3);
-      const built = seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun, minOpening);
+      const built = seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun, minOpening, fixed);
       if (!built) { stats.seedFailed++; continue; }
       stats.seeded++;
       const rows = gridRows(built.blocks, letters, W, H);

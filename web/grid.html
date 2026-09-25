@@ -2278,11 +2278,16 @@
     running = true;
     updateButtons();
     setStatus("busy", "Designing a grid…");
+    // What's on the grid stays: its blocks, and every inked word. Theme entries already inked
+    // in full are left where they are; the designer lays the rest out around them.
     runner.design(
       {
         width: W,
         height: H,
         themes: theme.slice(),
+        blocks: blocks.map(Number),
+        letters: ink.slice(),
+        rebus: rebusMap(),
         minLength: 3,
         maxBlockRatio: percent / 100,
         timeLimit,
@@ -2303,7 +2308,6 @@
         }
         remember(snapshot());
         blocks = result.blocks.map(Boolean);
-        ink = new Array(W * H).fill("");
         pencil = new Array(W * H).fill("");
         for (const place of result.placements) {
           for (let k = 0; k < place.length; k++) ink[place.start + k] = place.word[k];
