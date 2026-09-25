@@ -1007,7 +1007,8 @@
     const scored = complete.filter((entry) => entry.score !== null);
     const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
     $("t-words").textContent = slots.length;
-    $("t-words-cap").textContent = W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`;
+    const short = slots.filter((slot) => slot.cells.length === 3).length;
+    $("t-words-cap").textContent = (W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`) + ` · ${short} of 3 letters`;
     $("t-blocks").textContent = blockCount;
     // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
     const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
@@ -2318,7 +2319,7 @@
         if (result.fill) applyRows(result.fill, true);
         render();
         const count = result.blockCount;
-        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), fills ${plural(result.distinct, "different way")}.`);
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.`);
         updateButtons();
       }
     );

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-iKMuWbXRpGeQN2bUdA2sn8ZxNy7JiiHm6rAWCRzGKTU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-LwlFobRSLzb596keh+YbnIZaltwdUSZ0CBIcj1hWl/U='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -568,7 +568,7 @@
 
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="filler.js?v=8904f4f420"></script>
-<script src="designer.js?v=5f3a5760a5"></script>
+<script src="designer.js?v=3980bdf382"></script>
 <script src="store.js?v=a87c2ef649"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=b151bdf539"></script>
@@ -1023,7 +1023,8 @@
     const scored = complete.filter((entry) => entry.score !== null);
     const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
     $("t-words").textContent = slots.length;
-    $("t-words-cap").textContent = W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`;
+    const short = slots.filter((slot) => slot.cells.length === 3).length;
+    $("t-words-cap").textContent = (W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`) + ` · ${short} of 3 letters`;
     $("t-blocks").textContent = blockCount;
     // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
     const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
@@ -1976,7 +1977,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=4aa6717114");
+          worker = new Worker("worker.js?v=2715541dcc");
         } catch (error) {
           useInline();
           return;
@@ -2037,7 +2038,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=4aa6717114");
+          worker = new Worker("worker.js?v=2715541dcc");
         } catch (error) {
           return;
         }
@@ -2334,7 +2335,7 @@
         if (result.fill) applyRows(result.fill, true);
         render();
         const count = result.blockCount;
-        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), fills ${plural(result.distinct, "different way")}.`);
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.`);
         updateButtons();
       }
     );

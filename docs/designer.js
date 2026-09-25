@@ -390,16 +390,46 @@
 
     /* Then the long runs come down to about SEED_RUN, split near the middle so entries come out
        evenly sized. A run that can't be split is passed over rather than ending the seed: the one
-       stubborn run is usually a column the theme entries have pinned. */
+       stubborn run is usually a column the theme entries have pinned, or a run of seven or eight
+       that would only split into threes. */
     for (let guard = 0; guard < W * H; guard++) {
       if (count() + 2 > maxBlocks) break;
       const longs = scan().filter((run) => run.len > targetRun).sort((a, b) => b.len - a.len);
       if (!longs.length) break;
       let placed = false;
       for (const run of longs) {
+        // Near the middle, and better still where the block would touch one already there (beside
+        // it, or at a corner), so blocks grow into runs and staircases rather than a scatter.
+        const touches = (k) => {
+          const i = run.start + run.step * k;
+          const r = (i / W) | 0;
+          const c = i % W;
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+            if ((dr || dc) && r + dr >= 0 && r + dr < H && c + dc >= 0 && c + dc < W && blocks[(r + dr) * W + c + dc]) return true;
+          }
+          return false;
+        };
+        // Both pieces at least four long: a three-letter entry is only ever the fill nobody wanted,
+        // so the seeder makes none on purpose (theme caps and the edges make a few anyway).
+        const least = Math.max(minLength, 4);
         const order = [];
-        for (let k = minLength; k <= run.len - minLength; k++) order.push(k);
-        order.sort((a, b) => Math.abs(a - run.len / 2) - Math.abs(b - run.len / 2) + (rng() - 0.5));
+        for (let k = least; k <= run.len - least; k++) order.push(k);
+        // ...and counting the threes the block and its mirror would make in the other direction too.
+        const before = threes(blocks, W, H) + 4 * walls(blocks, W, H);
+        const made = (k) => {
+          const i = run.start + run.step * k;
+          const j = W * H - 1 - i;
+          const wasI = blocks[i];
+          const wasJ = blocks[j];
+          blocks[i] = 1;
+          blocks[j] = 1;
+          const after = threes(blocks, W, H) + 4 * walls(blocks, W, H);
+          blocks[i] = wasI;
+          blocks[j] = wasJ;
+          return after - before;
+        };
+        const cost = (k) => Math.abs(k - run.len / 2) - (touches(k) ? run.len / 2 : 0) + 3 * made(k);
+        order.sort((a, b) => cost(a) - cost(b) + (rng() - 0.5));
         for (const k of order) {
           const i = run.start + run.step * k;
           if (frozen[i] || frozen[W * H - 1 - i] || blocks[i]) continue;
@@ -461,10 +491,87 @@
     return { hits, runs, distinct: distinct.size, ms: spent, fill: best };
   }
 
-  /* Better means more different fills, then more fills, then found sooner. */
+  /* How many entries are three letters long: the fill nobody remembers, so a pattern with fewer
+     is the better one when they fill alike. */
+  function threes(blocks, W, H) {
+    let count = 0;
+    for (let r = 0; r < H; r++) {
+      let run = 0;
+      for (let c = 0; c <= W; c++) {
+        if (c < W && !blocks[r * W + c]) run++;
+        else {
+          if (run === 3) count++;
+          run = 0;
+        }
+      }
+    }
+    for (let c = 0; c < W; c++) {
+      let run = 0;
+      for (let r = 0; r <= H; r++) {
+        if (r < H && !blocks[r * W + c]) run++;
+        else {
+          if (run === 3) count++;
+          run = 0;
+        }
+      }
+    }
+    return count;
+  }
+
+  /* Blocks standing alone inside the grid: no other block beside them, above or below, or at a
+     corner. Real grids gather their blocks into runs and staircases; a scatter of single blocks,
+     with the zigzag channels it leaves between them, is what a pattern looks like when a machine
+     drew it. A single block on the edge is ordinary and doesn't count. */
+  function loneBlocks(blocks, W, H) {
+    let count = 0;
+    for (let r = 1; r < H - 1; r++) {
+      for (let c = 1; c < W - 1; c++) {
+        if (!blocks[r * W + c]) continue;
+        let near = 0;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if ((dr || dc) && blocks[(r + dr) * W + c + dc]) near++;
+        if (!near) count++;
+      }
+    }
+    return count;
+  }
+
+  /* Straight walls of four or more blocks that don't touch the edge: the other way a machine-drawn
+     pattern gives itself away. Three in a row, and any run against the edge, are ordinary. */
+  function walls(blocks, W, H) {
+    let count = 0;
+    for (let r = 0; r < H; r++) {
+      let run = 0;
+      for (let c = 0; c <= W; c++) {
+        if (c < W && blocks[r * W + c]) run++;
+        else {
+          if (run >= 4 && c - run > 0 && c < W) count++;
+          run = 0;
+        }
+      }
+    }
+    for (let c = 0; c < W; c++) {
+      let run = 0;
+      for (let r = 0; r <= H; r++) {
+        if (r < H && blocks[r * W + c]) run++;
+        else {
+          if (run >= 4 && r - run > 0 && r < H) count++;
+          run = 0;
+        }
+      }
+    }
+    return count;
+  }
+
+  /* What's wrong with a pattern's shape, to be kept small: its three-letter entries, its lone
+     blocks counted three times over (each usually brings a few threes with it), and its walls. */
+  const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H);
+
+  /* Better means more different fills, then a better shape (see ugliness), then more fills, then
+     found sooner. */
   function better(a, b) {
     if (!b) return true;
     if (a.distinct !== b.distinct) return a.distinct > b.distinct;
+    if (a.ugliness !== b.ugliness) return a.ugliness < b.ugliness;
     if (a.hits !== b.hits) return a.hits > b.hits;
     return a.ms < b.ms;
   }
@@ -615,7 +722,7 @@
       const result = probe(rows, words, probeOptions, screenTrials, probeSeconds, rng);
       stats.screened++;
       if (!result.hits) { stats.impossible++; continue; }
-      const entry = { key, rows, blocks: built.blocks, frozen: built.frozen, letters, placements, ...result };
+      const entry = { key, rows, blocks: built.blocks, frozen: built.frozen, letters, placements, threes: threes(built.blocks, W, H), lone: loneBlocks(built.blocks, W, H), ugliness: ugliness(built.blocks, W, H), ...result };
       survivors.push(entry);
       if (better(entry, best)) best = entry;
       report("breadth");
@@ -664,7 +771,7 @@
         continue;
       }
       const rows = gridRows(blocks, best.letters, W, H);
-      const result = probe(rows, words, probeOptions, deepTrials, probeSeconds, rng);
+      const result = { ...probe(rows, words, probeOptions, deepTrials, probeSeconds, rng), threes: threes(blocks, W, H), lone: loneBlocks(blocks, W, H), ugliness: ugliness(blocks, W, H) };
       if (result.hits && better(result, best)) {
         best = { key: rows.join(""), rows, blocks: Uint8Array.from(blocks), frozen: best.frozen, letters: best.letters, placements: best.placements, ...result };
         stats.kept++;
@@ -686,17 +793,19 @@
       hits: best.hits,
       blockCount: count,
       blockRatio: count / (W * H),
+      threes: best.threes,
+      lone: best.lone,
       candidates: survivors
         .filter((s) => s !== best)
         .sort((a, b) => (better(a, b) ? -1 : 1))
         .slice(0, 3)
-        .map((s) => ({ rows: s.rows, distinct: s.distinct, hits: s.hits })),
+        .map((s) => ({ rows: s.rows, distinct: s.distinct, hits: s.hits, threes: s.threes, lone: s.lone })),
       stats,
       reason: "",
     };
   }
 
-  const api = { designGrid, probe, legal, opening, themeLayouts, seedPattern, gridRows };
+  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, themeLayouts, seedPattern, gridRows };
   root.Griddesign = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);
