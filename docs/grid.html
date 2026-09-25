@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-13qp5O66kR2aj14XNDGvIRCPafA/lQPdYCkidjjua1k='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-qJpZZCDSWkHStwEJ1L6yBPYGbdVz8aQ7QIt8PPSWTB0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -261,6 +261,7 @@
   .tally div { min-width: 0; }
   .tally dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .tally dd { margin: 2px 0 0; }
+  .tally .warn .value, .tally .warn .cap { color: var(--danger); }
   .tally .value { display: block; font: 700 26px / 1.1 var(--sans); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .tally .value.word { font-size: 18px; letter-spacing: 0.08em; line-height: 1.45; }
   .tally .cap { display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--muted); }
@@ -447,7 +448,7 @@
       <section class="fill blocks" aria-labelledby="blocks-title">
         <div class="fill-head"><span id="blocks-title" class="label">Blocks</span></div>
         <div class="control-group fill-settings">
-          <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways. Theme entries are built into the pattern. This replaces the grid you have.">Design blocks</button>
+          <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways, never one with a section hanging off the rest by just one or two squares. Theme entries are built into the pattern. This replaces the grid you have.">Design blocks</button>
           <label class="field" title="The most squares the designer may leave black">Up to <input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % black</label>
           <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
           <label class="check" title="Placing a block places its mirror image too, turned 180°"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
@@ -512,6 +513,7 @@
   <dl class="tally">
     <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
     <div><dt>Blocks</dt><dd><span id="t-blocks" class="value">–</span><span id="t-blocks-cap" class="cap"></span></dd></div>
+    <div><dt>Openings</dt><dd><span id="t-open" class="value">–</span><span id="t-open-cap" class="cap"></span></dd></div>
     <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
     <div><dt>Avg. word score</dt><dd><span id="t-score" class="value">–</span><span id="t-score-cap" class="cap"></span></dd></div>
     <div><dt>Weakest entry</dt><dd><span id="t-weak" class="value word">–</span><span id="t-weak-cap" class="cap"></span></dd></div>
@@ -566,7 +568,7 @@
 
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="filler.js?v=8904f4f420"></script>
-<script src="designer.js?v=2675017c3e"></script>
+<script src="designer.js?v=89b4cc0174"></script>
 <script src="store.js?v=a87c2ef649"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=b151bdf539"></script>
@@ -1026,6 +1028,13 @@
     // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
     const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
     $("t-blocks-cap").textContent = `${Math.round((blockCount / (W * H)) * 100)}% of squares${blockLimit}`;
+    // How narrowly the grid's sections join: a corner hanging off one or two squares is what editors reject.
+    const open = window.Griddesign ? window.Griddesign.opening(Uint8Array.from(blocks, Number), W, H, W * H - blockCount) : 3;
+    $("t-open").textContent = open >= 3 ? "3+" : String(open);
+    $("t-open-cap").textContent = open >= 3 ? "squares join every section: no narrow passages"
+      : open === 0 ? "the grid is in separate pieces"
+      : `a section hangs off ${open === 1 ? "a single square" : "just two squares"}`;
+    $("t-open").parentElement.parentElement.classList.toggle("warn", open < 3);
     $("t-avg").textContent = slots.length ? (letters / slots.length).toFixed(2) : "–";
     $("t-score").textContent = scored.length ? Math.round(scored.reduce((sum, entry) => sum + entry.score, 0) / scored.length) : "–";
     $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
@@ -1967,7 +1976,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=3fde5e1b92");
+          worker = new Worker("worker.js?v=9c0a17aeff");
         } catch (error) {
           useInline();
           return;
@@ -2028,7 +2037,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=3fde5e1b92");
+          worker = new Worker("worker.js?v=9c0a17aeff");
         } catch (error) {
           return;
         }

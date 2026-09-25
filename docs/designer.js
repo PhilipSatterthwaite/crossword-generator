@@ -17,9 +17,10 @@
    The search is simulated annealing over 180°-symmetric block pairs, starting from a
    constructive seed that is already legal. Legality is checked before scoring, since it costs
    microseconds and scoring costs milliseconds: every entry at least minLength long, all white
-   squares connected, blocks under the cap, and every theme entry still exactly its own length.
-   Requiring every run to reach minLength in both directions also rules out unchecked squares,
-   so there is no separate test for them.
+   squares connected and no section hanging off the rest by fewer than minOpening squares, blocks
+   under the cap, and every theme entry still exactly its own length. Requiring every run to
+   reach minLength in both directions also rules out unchecked squares, so there is no separate
+   test for them.
 */
 (function (root) {
   "use strict";
@@ -35,6 +36,8 @@
   const SEED_RUN = 7;          // the seeder breaks non-theme runs down to about this length
   const THEME_GAP = 2;         // rows left clear between theme entries
   const LAYOUT_TRIES = 400;    // random theme layouts examined before settling on the candidates
+  const MIN_OPENING = 3;       // squares any section must be joined to the rest by, at the least
+  const SECTION = 4;           // white squares that make a piece of grid a section, for that rule
 
   // --- random ---
 
@@ -53,9 +56,10 @@
   // --- pattern geometry ---
 
   /* True when the pattern could be a crossword: no entry shorter than minLength in either
-     direction, every white square reachable from every other, and blocks within the cap. Called
-     before every score, so it sweeps the grid rather than allocating. */
-  function legal(blocks, W, H, minLength, maxBlocks) {
+     direction, every white square reachable from every other through at least minOpening squares
+     (see opening), and blocks within the cap. Called before every score, so the cheap sweeps come
+     first and the graph work last. */
+  function legal(blocks, W, H, minLength, maxBlocks, minOpening = MIN_OPENING) {
     let count = 0;
     for (let i = 0; i < blocks.length; i++) if (blocks[i]) count++;
     if (count > maxBlocks) return false;
@@ -80,7 +84,102 @@
         }
       }
     }
-    return connected(blocks, W, H, blocks.length - count);
+    return opening(blocks, W, H, blocks.length - count) >= minOpening;
+  }
+
+  /* How well the white squares hang together: the fewest squares whose removal would cut a
+     section of the grid off from the rest, capped at 3. 0 means it's already in pieces; 1 means a
+     section hangs off a single square; 2 that some section is reached only through two, the narrow
+     passages solvers and editors dislike; 3 means every section is joined by three or more. A
+     section is any piece of at least SECTION squares, so a lone corner square (which never has more
+     than two neighbours) doesn't count, but a corner holding a few entries does. */
+  function opening(blocks, W, H, whites) {
+    if (!connected(blocks, W, H, whites)) return 0;
+    for (const a of cutSquares(blocks, W, H, -1)) if (stranded(blocks, W, H, a, -1) >= SECTION) return 1;
+    for (let v = 0; v < blocks.length; v++) {
+      if (blocks[v]) continue;
+      for (const a of cutSquares(blocks, W, H, v)) if (stranded(blocks, W, H, v, a) >= SECTION) return 2;
+    }
+    return 3;
+  }
+
+  const side = (i, W, H, k) => {
+    const r = (i / W) | 0;
+    const c = i % W;
+    return k === 0 ? (c > 0 ? i - 1 : -1) : k === 1 ? (c < W - 1 ? i + 1 : -1) : k === 2 ? (r > 0 ? i - W : -1) : r < H - 1 ? i + W : -1;
+  };
+
+  /* The white squares whose removal would split the rest, with square `skip` treated as black:
+     Tarjan's articulation points, found iteratively. Only the part reachable from the first white
+     square is searched; whatever `skip` already cut off is the caller's business. */
+  function cutSquares(blocks, W, H, skip) {
+    const n = W * H;
+    const disc = new Int32Array(n);
+    const low = new Int32Array(n);
+    const parent = new Int32Array(n).fill(-1);
+    const next = new Uint8Array(n);
+    let start = -1;
+    for (let i = 0; i < n && start < 0; i++) if (!blocks[i] && i !== skip) start = i;
+    const cuts = [];
+    if (start < 0) return cuts;
+    let time = 0;
+    let rootChildren = 0;
+    const stack = [start];
+    disc[start] = low[start] = ++time;
+    while (stack.length) {
+      const i = stack[stack.length - 1];
+      if (next[i] < 4) {
+        const j = side(i, W, H, next[i]++);
+        if (j < 0 || blocks[j] || j === skip) continue;
+        if (!disc[j]) {
+          parent[j] = i;
+          disc[j] = low[j] = ++time;
+          if (i === start) rootChildren++;
+          stack.push(j);
+        } else if (j !== parent[i] && disc[j] < low[i]) low[i] = disc[j];
+      } else {
+        stack.pop();
+        const p = parent[i];
+        if (p < 0) continue;
+        if (low[i] < low[p]) low[p] = low[i];
+        if (p !== start && low[i] >= disc[p] && cuts[cuts.length - 1] !== p) cuts.push(p);
+      }
+    }
+    if (rootChildren > 1) cuts.push(start);
+    return cuts;
+  }
+
+  /* With squares a and b black, the size of the biggest piece of white squares other than the
+     main one: what those two squares were holding on to the grid. */
+  function stranded(blocks, W, H, a, b) {
+    const n = W * H;
+    const seen = new Uint8Array(n);
+    seen[a] = 1;
+    if (b >= 0) seen[b] = 1;
+    let largest = 0;
+    let second = 0;
+    for (let i = 0; i < n; i++) {
+      if (blocks[i] || seen[i]) continue;
+      let size = 0;
+      const stack = [i];
+      seen[i] = 1;
+      while (stack.length) {
+        const x = stack.pop();
+        size++;
+        for (let k = 0; k < 4; k++) {
+          const j = side(x, W, H, k);
+          if (j >= 0 && !blocks[j] && !seen[j]) {
+            seen[j] = 1;
+            stack.push(j);
+          }
+        }
+      }
+      if (size > largest) {
+        second = largest;
+        largest = size;
+      } else if (size > second) second = size;
+    }
+    return second;
   }
 
   function connected(blocks, W, H, whites) {
@@ -211,7 +310,7 @@
      run is, split near the middle, until nothing runs much past SEED_RUN or the budget is gone.
      Starting from a sane pattern matters: from an empty grid the search would spend its whole
      budget rediscovering that a crossword needs about thirty blocks. */
-  function seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun = SEED_RUN) {
+  function seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun = SEED_RUN, minOpening = MIN_OPENING) {
     const blocks = new Uint8Array(W * H);
     const frozen = new Uint8Array(W * H); // squares the annealer may not touch
     const mustStayOpen = new Uint8Array(W * H);
@@ -282,7 +381,7 @@
           const i = run.start + run.step * k;
           if (frozen[i] || frozen[W * H - 1 - i] || blocks[i]) continue;
           const before = blocks.slice();
-          if (put(i) && legal(blocks, W, H, minLength, maxBlocks) && themesIntact(blocks, W, placements)) {
+          if (put(i) && legal(blocks, W, H, minLength, maxBlocks, minOpening) && themesIntact(blocks, W, placements)) {
             placed = true;
             break;
           }
@@ -292,7 +391,7 @@
       }
       if (!placed) break;
     }
-    if (!legal(blocks, W, H, minLength, maxBlocks) || !themesIntact(blocks, W, placements)) return null;
+    if (!legal(blocks, W, H, minLength, maxBlocks, minOpening) || !themesIntact(blocks, W, placements)) return null;
     return { blocks, frozen };
   }
 
@@ -352,8 +451,9 @@
   /* Design a grid around some theme entries.
 
      spec: width, height, themes (placed as across entries), minLength (3), maxBlockRatio (0.16),
-     timeLimit (seconds), seed, minScore, allowPopular, screenTrials/deepTrials (fills per probe)
-     and probeSeconds (how long one of those fills may take).
+     minOpening (3: the fewest squares any section may be joined to the rest by), timeLimit
+     (seconds), seed, minScore, allowPopular, screenTrials/deepTrials (fills per probe) and
+     probeSeconds (how long one of those fills may take).
      Returns {success, rows, blocks, placements, fill, distinct, hits, candidates, stats, reason}.
 
      Three phases share the budget. Breadth seeds many patterns across many theme layouts and gives
@@ -369,6 +469,7 @@
       themes = [],
       minLength = 3,
       maxBlockRatio = 0.16,
+      minOpening = MIN_OPENING,
       timeLimit = 60,
       seed = 1,
       minScore = 50,
@@ -409,7 +510,7 @@
       const letters = new Array(W * H).fill("");
       for (const p of placements) for (let k = 0; k < p.length; k++) letters[p.start + k] = p.word[k];
       const targetRun = 6 + Math.floor(rng() * 3);
-      const built = seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun);
+      const built = seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun, minOpening);
       if (!built) { stats.seedFailed++; continue; }
       stats.seeded++;
       const rows = gridRows(built.blocks, letters, W, H);
@@ -429,7 +530,7 @@
         stats,
         reason: stats.seeded
           ? `Seeded ${stats.seeded} patterns from those theme entries and none of them could be filled. Try a looser block cap, a lower minimum word score, or one fewer theme entry.`
-          : `None of the ${layouts.length} symmetric arrangements of those theme entries could be seeded into a legal pattern. Try a looser block cap or a shorter minimum entry.`,
+          : `None of the ${layouts.length} symmetric arrangements of those theme entries could be seeded into a legal pattern (every section joined to the rest by ${minOpening}+ squares). Try a looser block cap or a shorter minimum entry.`,
       };
     }
 
@@ -461,7 +562,7 @@
       blocks[i] = was ? 0 : 1;
       blocks[j] = blocks[i];
       stats.moves++;
-      if (!legal(blocks, W, H, minLength, maxBlocks) || !themesIntact(blocks, W, best.placements)) {
+      if (!legal(blocks, W, H, minLength, maxBlocks, minOpening) || !themesIntact(blocks, W, best.placements)) {
         blocks[i] = was;
         blocks[j] = was;
         continue;
@@ -499,7 +600,7 @@
     };
   }
 
-  const api = { designGrid, probe, legal, themeLayouts, seedPattern, gridRows };
+  const api = { designGrid, probe, legal, opening, themeLayouts, seedPattern, gridRows };
   root.Griddesign = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

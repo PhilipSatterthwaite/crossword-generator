@@ -247,6 +247,7 @@
   .tally div { min-width: 0; }
   .tally dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .tally dd { margin: 2px 0 0; }
+  .tally .warn .value, .tally .warn .cap { color: var(--danger); }
   .tally .value { display: block; font: 700 26px / 1.1 var(--sans); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .tally .value.word { font-size: 18px; letter-spacing: 0.08em; line-height: 1.45; }
   .tally .cap { display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--muted); }
@@ -496,6 +497,7 @@
   <dl class="tally">
     <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
     <div><dt>Blocks</dt><dd><span id="t-blocks" class="value">–</span><span id="t-blocks-cap" class="cap"></span></dd></div>
+    <div><dt>Openings</dt><dd><span id="t-open" class="value">–</span><span id="t-open-cap" class="cap"></span></dd></div>
     <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
     <div><dt>Avg. word score</dt><dd><span id="t-score" class="value">–</span><span id="t-score-cap" class="cap"></span></dd></div>
     <div><dt>Weakest entry</dt><dd><span id="t-weak" class="value word">–</span><span id="t-weak-cap" class="cap"></span></dd></div>
@@ -1010,6 +1012,13 @@
     // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
     const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
     $("t-blocks-cap").textContent = `${Math.round((blockCount / (W * H)) * 100)}% of squares${blockLimit}`;
+    // How narrowly the grid's sections join: a corner hanging off one or two squares is what editors reject.
+    const open = window.Griddesign ? window.Griddesign.opening(Uint8Array.from(blocks, Number), W, H, W * H - blockCount) : 3;
+    $("t-open").textContent = open >= 3 ? "3+" : String(open);
+    $("t-open-cap").textContent = open >= 3 ? "squares join every section: no narrow passages"
+      : open === 0 ? "the grid is in separate pieces"
+      : `a section hangs off ${open === 1 ? "a single square" : "just two squares"}`;
+    $("t-open").parentElement.parentElement.classList.toggle("warn", open < 3);
     $("t-avg").textContent = slots.length ? (letters / slots.length).toFixed(2) : "–";
     $("t-score").textContent = scored.length ? Math.round(scored.reduce((sum, entry) => sum + entry.score, 0) / scored.length) : "–";
     $("t-score-cap").textContent = scored.length ? `over ${scored.length} of ${slots.length} entries` : "shows once entries are filled";
