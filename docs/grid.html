@@ -141,7 +141,8 @@
   .panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .fill { display: grid; gap: 10px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
   .fill-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
-  .fill-head .status { flex: 1 1 200px; font-size: 13px; }
+  .panel-status { flex: none; margin: 0; font-size: 13px; }
+  .blocks .fill-settings .btn { margin-right: 4px; }
   .fill-settings { gap: 8px 10px; font-size: 13px; }
   .fill-settings .range input { width: 100px; }
   .fill-settings .number { width: 3.6em; }
@@ -418,13 +419,7 @@
           <option value="stair7">7×7 staircase</option>
           <option value="open5">5×5, no blocks</option>
         </select>
-        <label class="check"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
         <label class="check"><input type="checkbox" id="tint" checked> Tint weak words</label>
-      </div>
-      <div class="control-group">
-        <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways. Theme entries are built into the pattern. This replaces the grid you have.">Design blocks</button>
-        <label class="field" title="The most squares the designer may leave black"><input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % blocks</label>
-        <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
       </div>
       <div class="control-group">
         <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
@@ -447,8 +442,20 @@
     </section>
 
     <aside class="panel" aria-label="Autofill and word options">
+      <p id="status" class="status panel-status" data-state="busy" role="status">Loading the word list…</p>
+
+      <section class="fill blocks" aria-labelledby="blocks-title">
+        <div class="fill-head"><span id="blocks-title" class="label">Blocks</span></div>
+        <div class="control-group fill-settings">
+          <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways. Theme entries are built into the pattern. This replaces the grid you have.">Design blocks</button>
+          <label class="field" title="The most squares the designer may leave black">Up to <input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % black</label>
+          <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
+          <label class="check" title="Placing a block places its mirror image too, turned 180°"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
+        </div>
+      </section>
+
       <section class="fill" aria-labelledby="fill-title">
-        <div class="fill-head"><span id="fill-title" class="label">Autofill</span><p id="status" class="status" data-state="busy" role="status">Loading the word list…</p></div>
+        <div class="fill-head"><span id="fill-title" class="label">Autofill</span></div>
         <div class="actions">
           <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
           <button type="button" id="another" class="btn" disabled>Another fill</button>
