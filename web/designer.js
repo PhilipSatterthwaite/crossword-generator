@@ -35,9 +35,12 @@
   const T_START = 4;           // annealing temperature, in units of the bottleneck's log score
   const T_END = 0.15;
   const SEED_RUN = 7;          // the seeder breaks non-theme runs down to about this length
-  const THEME_GAP = 3;         // rows between theme entries: two clear, so the downs between them aren't pinned at both ends
+  const THEME_GAP = 2;         // rows between theme entries: one clear row, the usual five-themer spacing
+  const WIDE_GAP = 3;          // ...but two clear rows between two entries that each nearly span the grid
   const LAYOUT_TRIES = 400;    // random theme layouts examined before settling on the candidates
   const SEED_BATCH = 12;       // seeds made per probe, the best-shaped of which is the one probed
+  const CAP_STEP = 0.03;       // how much the block cap grows when nothing survives under it...
+  const CAP_MOST = 0.24;       // ...and the most it may grow to
   const MIN_OPENING = 3;       // squares any section must be joined to the rest by, at the least
   const SECTION = 4;           // white squares that make a piece of grid a section, for that rule
 
@@ -321,6 +324,8 @@
     for (const [a, b] of pairs) if (a.length > W) return { error: `${a} is longer than the grid is wide.` };
 
     const middle = (H - 1) / 2;
+    // Two near-full-width entries one row apart pin every down between them at both ends.
+    const gapNeeded = (a, b) => (a >= W - 2 && b >= W - 2 ? WIDE_GAP : THEME_GAP);
     const rowsFor = (n) => {
       // Upper rows a pair may use: never the outermost two, never the middle, and spaced apart.
       const out = [];
@@ -330,21 +335,21 @@
     const seen = new Set();
     const layouts = [];
     for (let attempt = 0; attempt < limit * 8 && layouts.length < limit; attempt++) {
-      const used = fixedPlacements.map((p) => p.row);
+      const used = fixedPlacements.map((p) => ({ row: p.row, length: p.length }));
       const placements = fixedPlacements.map((p) => ({ ...p }));
       let ok = true;
       for (const [a, b] of pairs) {
-        const choices = rowsFor(a.length).filter((r) => used.every((u) => Math.abs(u - r) >= THEME_GAP));
+        const choices = rowsFor(a.length).filter((r) => used.every((u) => Math.abs(u.row - r) >= gapNeeded(u.length, a.length)));
         if (!choices.length) { ok = false; break; }
         const row = choices[Math.floor(rng() * choices.length)];
         const col = Math.floor(rng() * (W - a.length + 1));
-        used.push(row);
+        used.push({ row, length: a.length });
         placements.push({ word: a, row, col, direction: "across", length: a.length });
         placements.push({ word: b, row: H - 1 - row, col: W - col - a.length, direction: "across", length: b.length });
       }
       if (!ok) continue;
       if (centre) {
-        if (used.some((u) => Math.abs(u - middle) < THEME_GAP)) continue;
+        if (used.some((u) => Math.abs(u.row - middle) < gapNeeded(u.length, centre.length))) continue;
         placements.push({ word: centre, row: middle, col: (W - centre.length) / 2, direction: "across", length: centre.length });
       }
       for (const p of placements) p.start = p.row * W + p.col;
@@ -614,6 +619,85 @@
      blocks counted three times over (each usually brings a few threes with it), and its walls. */
   const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H);
 
+  /* The entry the filler proves dead at once, if any: with the theme letters in place, arc
+     consistency finds an entry no word fits in a few milliseconds and names it. null when the
+     filler can't say (a fill exists, or only a search could tell). */
+  function deadEntry(rows, words, options) {
+    const quick = Gridfill.fill(rows, words, { ...options, timeLimit: 0.02, onProgress: null });
+    if (quick.success) return null;
+    const match = /fits (\d+-(?:Across|Down)) with/.exec(quick.reason);
+    return match ? match[1] : null;
+  }
+
+  /* White runs shorter than minLength, as [start, step, length]. */
+  function shortRuns(blocks, W, H, minLength) {
+    const out = [];
+    for (let r = 0; r < H; r++) {
+      let n = 0;
+      for (let c = 0; c <= W; c++) {
+        if (c < W && !blocks[r * W + c]) n++;
+        else { if (n && n < minLength) out.push([r * W + c - n, 1, n]); n = 0; }
+      }
+    }
+    for (let c = 0; c < W; c++) {
+      let n = 0;
+      for (let r = 0; r <= H; r++) {
+        if (r < H && !blocks[r * W + c]) n++;
+        else { if (n && n < minLength) out.push([(r - n) * W + c, W, n]); n = 0; }
+      }
+    }
+    return out;
+  }
+
+  /* Fix a seed the filler proves unfillable: a column running through several theme entries, say,
+     with the letters they pin in it and no word for them. Each dead entry the filler names gets a
+     block (and its mirror) at a square of it, near its middle, and the filler is asked again, until
+     it stops naming entries or nothing helps. A block that leaves a stub of one or two squares
+     against the edge takes the stub with it, blocks to the edge, which is how the rows between
+     stacked theme entries look in print. The seeder can't see any of this for itself, and each
+     check costs milliseconds. */
+  function reviveSeed(built, letters, placements, words, options, W, H, minLength, maxBlocks, minOpening) {
+    const n = W * H;
+    const free = (i) => !built.frozen[i] && !built.frozen[n - 1 - i] && !letters[i] && !letters[n - 1 - i];
+    for (let round = 0; round < 12; round++) {
+      const rows = gridRows(built.blocks, letters, W, H);
+      const name = deadEntry(rows, words, options);
+      if (!name) return true;
+      const slot = Gridfill.parseGrid(rows).slots.find((entry) => entry.name === name);
+      if (!slot) return false;
+      const middle = (slot.cells.length - 1) / 2;
+      const order = slot.cells.map((i, k) => [i, Math.abs(k - middle)]).sort((a, b) => a[1] - b[1]).map((entry) => entry[0]);
+      let placed = false;
+      for (const i of order) {
+        if (built.blocks[i] || !free(i)) continue;
+        const before = built.blocks.slice();
+        built.blocks[i] = 1;
+        built.blocks[n - 1 - i] = 1;
+        // Stubs the block leaves become blocks too, when every square of them is free.
+        let ok = true;
+        for (let pass = 0; pass < 4 && ok; pass++) {
+          const stubs = shortRuns(built.blocks, W, H, minLength);
+          if (!stubs.length) break;
+          for (const [start, step, len] of stubs) {
+            const squares = Array.from({ length: len }, (_, k) => start + step * k);
+            if (!squares.every(free)) { ok = false; break; }
+            for (const sq of squares) {
+              built.blocks[sq] = 1;
+              built.blocks[n - 1 - sq] = 1;
+            }
+          }
+        }
+        if (ok && legal(built.blocks, W, H, minLength, maxBlocks, minOpening) && themesIntact(built.blocks, W, placements)) {
+          placed = true;
+          break;
+        }
+        built.blocks.set(before);
+      }
+      if (!placed) return false;
+    }
+    return false;
+  }
+
   /* Better means more different fills, then a better shape (see ugliness), then more fills, then
      found sooner. */
   function better(a, b) {
@@ -665,12 +749,13 @@
     const started = now();
     const deadline = started + timeLimit * 1000;
     const rng = mulberry32(seed);
-    const maxBlocks = Math.floor(maxBlockRatio * W * H);
+    let cap = maxBlockRatio;
+    let maxBlocks = Math.floor(cap * W * H);
     const probeOptions = { minScore, allowPopular, rebus };
     const fixed = keptBlocks || keptLetters
       ? { blocks: Uint8Array.from({ length: W * H }, (_, i) => (keptBlocks && keptBlocks[i] ? 1 : 0)), letters: Array.from({ length: W * H }, (_, i) => (keptLetters && keptLetters[i]) || "") }
       : null;
-    const stats = { layouts: 0, seeded: 0, seedFailed: 0, screened: 0, impossible: 0, deepened: 0, moves: 0, kept: 0 };
+    const stats = { layouts: 0, seeded: 0, seedFailed: 0, dead: 0, screened: 0, impossible: 0, deepened: 0, moves: 0, kept: 0, capRaisedTo: 0 };
 
     const clean = themes.map((w) => String(w).toUpperCase().replace(/[^A-Z]/g, "")).filter(Boolean);
     // Theme entries already inked in full stay where they are. One that reads across anchors a
@@ -757,8 +842,17 @@
     // --- breadth: many seeds, two fills each ---
     // Seeding costs milliseconds and probing costs seconds, so each probe goes to the best-shaped of
     // a batch of seeds rather than to the first one made.
+    // Theme entries stacked a row apart need more blocks than the cap allows as often as not, so
+    // when nothing has survived by a fifth of the budget the cap grows a step, and again at a third.
     const breadthUntil = started + (deadline - started) * 0.5;
+    const raiseAt = [0.2, 0.35];
     while (now() < breadthUntil) {
+      if (!survivors.length && raiseAt.length && cap < CAP_MOST && now() > started + (deadline - started) * raiseAt[0]) {
+        raiseAt.shift();
+        cap = Math.min(CAP_MOST, cap + CAP_STEP);
+        maxBlocks = Math.floor(cap * W * H);
+        stats.capRaisedTo = cap;
+      }
       let built = null;
       let letters = null;
       let placements = null;
@@ -780,6 +874,10 @@
         }
       }
       if (!built) continue;
+      if (!reviveSeed(built, letters, placements, words, probeOptions, W, H, minLength, maxBlocks, minOpening)) {
+        stats.dead++;
+        continue;
+      }
       const rows = gridRows(built.blocks, letters, W, H);
       const key = rows.join("");
       if (survivors.some((s) => s.key === key)) continue;
@@ -857,6 +955,7 @@
       hits: best.hits,
       blockCount: count,
       blockRatio: count / (W * H),
+      capRaisedTo: stats.capRaisedTo,
       threes: best.threes,
       lone: best.lone,
       candidates: survivors

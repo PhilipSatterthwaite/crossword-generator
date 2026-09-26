@@ -2319,7 +2319,8 @@
         if (result.fill) applyRows(result.fill, true);
         render();
         const count = result.blockCount;
-        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.`);
+        const raised = result.capRaisedTo ? ` The block cap was raised to ${Math.round(result.capRaisedTo * 100)}% to fit the theme entries.` : "";
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${raised}`);
         updateButtons();
       }
     );
