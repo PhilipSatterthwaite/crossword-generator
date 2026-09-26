@@ -151,11 +151,13 @@
 
   // --- per-word edits, which apply to any list in use ---
 
-  const emptyEdits = () => ({ scores: {}, removed: [], recent: [] });
+  // kept: words looked at on the Word lists page and confirmed, so they needn't come up again.
+  const emptyEdits = () => ({ scores: {}, removed: [], recent: [], kept: [] });
   const tidyEdits = (value) => ({
     scores: (value && value.scores) || {},
     removed: (value && value.removed) || [],
     recent: (value && value.recent) || [],
+    kept: (value && value.kept) || [],
   });
 
   /* Anything else worth keeping on this device: which lists the account has been seen to hold,
@@ -231,7 +233,7 @@
     inTurn(async () => {
       const { byList, stamps } = await readRecord();
       const tidy = tidyEdits(edits);
-      if (Object.keys(tidy.scores).length || tidy.removed.length) byList[listId] = tidy;
+      if (Object.keys(tidy.scores).length || tidy.removed.length || tidy.kept.length) byList[listId] = tidy;
       else delete byList[listId];
       stamps[listId] = stamp || later(stamps[listId]);
       await writeRecord(byList, stamps);
@@ -257,6 +259,16 @@
       delete edits.scores[word];
       edits.removed = edits.removed.filter((other) => other !== word);
       edits.recent = edits.recent.filter((other) => other !== word);
+    });
+
+  /* Confirm a word (it stays, and the review needn't show it again), or take that back. */
+  const keepWord = (listId, word) =>
+    change(listId, (edits) => {
+      if (!edits.kept.includes(word)) edits.kept.push(word);
+    });
+  const unkeepWord = (listId, word) =>
+    change(listId, (edits) => {
+      edits.kept = edits.kept.filter((other) => other !== word);
     });
 
   // --- merging ---
@@ -347,7 +359,7 @@
 
   root.FillmeinLists = {
     parse, all, add, create, put, remove, forgetList, rename,
-    overrides, editsFor, editStamps, setEditsFor, setScore, removeWord, restoreWord,
+    overrides, editsFor, editStamps, setEditsFor, setScore, removeWord, restoreWord, keepWord, unkeepWord,
     getSetting, setSetting, tombstones, clearTombstone,
     merge, state,
     onChange(listener) {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-1sQ3ZU777I8tVv9Ri+2X6/f9AZXG5Snzh5BzPMKJgLc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-k1HUq7eKf9galvfqREwE0JM0eE4C8mI4QTTxbH+tt/4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -128,7 +128,7 @@
 
   <div>
     <h1>Word lists</h1>
-    <p class="lead">Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow to remove it, the right arrow to keep it, or type a score and press Enter. The page remembers where you got to in each set. The Table view shows the same words as a list to filter, sort and change all at once.</p>
+    <p class="lead">Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow to remove it, the right arrow to keep it, or type a score and press Enter. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. The Table view shows the same words as a list to filter, sort and change all at once.</p>
   </div>
 
   <div class="which">
@@ -151,6 +151,7 @@
     <label class="check"><input type="checkbox" id="only-rescored"> Rescored</label>
     <label class="check"><input type="checkbox" id="only-removed"> Removed</label>
     <label class="check"><input type="checkbox" id="hide-removed" checked> Hide removed</label>
+    <label class="check"><input type="checkbox" id="hide-kept"> Hide confirmed</label>
     <label class="check"><input type="checkbox" id="only-nyt"> NYT answers</label>
     <label class="check"><input type="checkbox" id="only-popular"> Popular</label>
     <button type="button" id="clear-filters" class="btn quiet small">Clear</button>
@@ -204,7 +205,7 @@
 
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="wordstats.js?v=a095bb13b2"></script>
-<script src="lists.js?v=b151bdf539"></script>
+<script src="lists.js?v=03236482cc"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
 <script>
@@ -282,17 +283,19 @@
   function applyEdits() {
     const scores = state.edits.scores || {};
     const removed = new Set(state.edits.removed || []);
+    const kept = new Set(state.edits.kept || []);
     for (const row of rows) {
       const own = Object.prototype.hasOwnProperty.call(scores, row.word);
       row.own = own;
       row.score = own ? scores[row.word] : row.base;
       row.removed = removed.has(row.word);
+      row.kept = kept.has(row.word);
     }
     // A score set on a word the list didn't have adds it.
     const have = new Set(rows.map((row) => row.word));
     for (const [word, score] of Object.entries(scores)) {
       if (have.has(word) || !/^[A-Z]{2,}$/.test(word)) continue;
-      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true });
+      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true, kept: kept.has(word) });
     }
   }
 
@@ -380,7 +383,8 @@
     const vowMin = num("vow-min"), vowMax = num("vow-max");
     const onlyRescored = $("only-rescored").checked;
     const onlyRemoved = $("only-removed").checked;
-    const hideRemoved = $("hide-removed").checked && !onlyRemoved;
+    const hideRemoved = ($("hide-removed").checked && !onlyRemoved) || mode === "review";
+    const hideKept = mode === "review" || $("hide-kept").checked;
     const onlyNyt = $("only-nyt").checked;
     const onlyPopular = $("only-popular").checked;
     shown = rows.filter((row) =>
@@ -390,7 +394,7 @@
       (usesMin === null || row.uses >= usesMin) && (usesMax === null || row.uses <= usesMax) &&
       (evMin === null || row.everyday >= evMin) && (evMax === null || row.everyday <= evMax) &&
       (vowMin === null || row.vowels >= vowMin) && (vowMax === null || row.vowels <= vowMax) &&
-      (!onlyRescored || row.own) && (!onlyRemoved || row.removed) && (!hideRemoved || !row.removed) &&
+      (!onlyRescored || row.own) && (!onlyRemoved || row.removed) && (!hideRemoved || !row.removed) && (!hideKept || !row.kept) &&
       (!onlyNyt || row.nyt) && (!onlyPopular || row.popular));
     resort();
   }
@@ -438,8 +442,6 @@
 
   // --- one word at a time ---
 
-  const progressKey = () => `fillmein:review:${listId}:${setLength}:${sortKey}:${sortDown ? "down" : "up"}:${$("pattern").value}`;
-
   function setMode(next) {
     mode = next;
     for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
@@ -464,10 +466,15 @@
     focusReview();
   });
 
-  /* The lengths on offer, each with how many words it holds. */
+  /* The lengths on offer, each with how many words are still to decide in it. */
   function renderSets() {
     const counts = new Map();
-    for (const row of rows) counts.set(row.len, (counts.get(row.len) || 0) + 1);
+    let total = 0;
+    for (const row of rows) {
+      if (row.removed || row.kept) continue;
+      counts.set(row.len, (counts.get(row.len) || 0) + 1);
+      total++;
+    }
     const sets = $("sets");
     for (const old of sets.querySelectorAll("button")) old.remove();
     const button = (value, label, count) => {
@@ -478,7 +485,7 @@
       el.setAttribute("aria-pressed", String(value === setLength));
       sets.append(el);
     };
-    button(0, "All", rows.length);
+    button(0, "All", total);
     for (const len of [...counts.keys()].sort((a, b) => a - b)) button(len, String(len), counts.get(len));
   }
   $("sets").addEventListener("click", (event) => {
@@ -491,24 +498,16 @@
     $("review").focus({ preventScroll: true });
   });
 
-  /* Pick the review up where it left off in this set: just past the last word decided. */
+  /* A set holds only the words still to decide, so a review always resumes at its first word. */
   function resumeReview() {
     history = [];
-    let last = null;
-    try { last = localStorage.getItem(progressKey()); } catch (error) { /* no storage */ }
     at = 0;
-    if (last) {
-      const index = shown.findIndex((row) => row.word === last);
-      if (index >= 0) at = index + 1;
-    }
     renderCard();
   }
 
+  /* After a decision: the counts on the length buttons, and the card. */
   function remember() {
-    try {
-      if (at > 0 && at <= shown.length) localStorage.setItem(progressKey(), shown[at - 1].word);
-      else localStorage.removeItem(progressKey());
-    } catch (error) { /* no storage */ }
+    renderSets();
   }
 
   function renderCard() {
@@ -522,8 +521,8 @@
       return;
     }
     if (at >= n) {
-      box.innerHTML = `<p class="progress">${n.toLocaleString()} words in this set</p><p class="done">You've been through every word here.</p>${verdicts}` +
-        `<div class="decide"><button type="button" class="btn quiet" data-decide="undo"><kbd>⌫</kbd>Undo the last one</button><button type="button" class="btn quiet" data-decide="restart">Start this set over</button></div>`;
+      box.innerHTML = `<p class="done">Every word in this set has been decided.</p>${verdicts}` +
+        `<div class="decide"><button type="button" class="btn quiet" data-decide="undo"><kbd>⌫</kbd>Undo the last one</button></div>`;
       return;
     }
     const row = shown[at];
@@ -532,7 +531,7 @@
     if (row.nyt) tags.push('<span class="tag nyt">NYT answer</span>');
     if (row.unvetted) tags.push('<span class="tag">unvetted</span>');
     if (row.popular) tags.push('<span class="tag">popular</span>');
-    box.innerHTML = `<p class="progress">${(at + 1).toLocaleString()} of ${n.toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"}</p>` +
+    box.innerHTML = `<p class="progress">${(n - at).toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"} left to decide</p>` +
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
       `<div class="facts"><span>Score <b>${row.score}</b></span><span>NYT <b>${row.uses.toLocaleString()}</b></span><span>Everyday <b>${row.everyday}</b></span><span>Vowels <b>${row.vowels}%</b></span>${tags.join("")}</div>` +
       `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button></div>` +
@@ -544,14 +543,19 @@
     if (at >= shown.length) return;
     if (!(await guard())) return;
     const row = shown[at];
-    history.push({ index: at, wasRemoved: row.removed });
-    if (keep && row.removed) {
-      await LISTS.restoreWord(listId, row.word);
-      row.removed = false;
-      row.own = false;
-      row.score = row.base;
-      noteEdit(row.word, "restored");
-    } else if (!keep && !row.removed) {
+    history.push({ index: at, wasRemoved: row.removed, wasKept: row.kept });
+    if (keep) {
+      if (row.removed) {
+        await LISTS.restoreWord(listId, row.word);
+        row.removed = false;
+        row.own = false;
+        row.score = row.base;
+        noteEdit(row.word, "restored");
+      }
+      await LISTS.keepWord(listId, row.word);
+      row.kept = true;
+      noteKept(row.word, true);
+    } else if (!row.removed) {
       await LISTS.removeWord(listId, row.word);
       row.removed = true;
       row.own = false;
@@ -568,12 +572,15 @@
     if (!(await guard())) return;
     const row = shown[at];
     const score = Math.max(0, Math.min(100, Math.round(value)));
-    history.push({ index: at, wasRemoved: row.removed, wasOwn: row.own, wasScore: row.score });
+    history.push({ index: at, wasRemoved: row.removed, wasOwn: row.own, wasScore: row.score, wasKept: row.kept });
     await LISTS.setScore(listId, row.word, score);
+    await LISTS.keepWord(listId, row.word);
     row.score = score;
     row.own = true;
     row.removed = false;
+    row.kept = true;
     noteEdit(row.word, score);
+    noteKept(row.word, true);
     at++;
     remember();
     renderCard();
@@ -598,6 +605,11 @@
       row.removed = last.wasRemoved;
       noteEdit(row.word, last.wasRemoved ? "removed" : "restored");
     }
+    if (row.kept && !last.wasKept) {
+      await LISTS.unkeepWord(listId, row.word);
+      row.kept = false;
+      noteKept(row.word, false);
+    }
     at = last.index;
     remember();
     renderCard();
@@ -610,12 +622,6 @@
     if (what === "remove") decide(false);
     else if (what === "keep") decide(true);
     else if (what === "undo") undo();
-    else if (what === "restart") {
-      try { localStorage.removeItem(progressKey()); } catch (error) { /* no storage */ }
-      at = 0;
-      history = [];
-      renderCard();
-    }
   });
   $("review").addEventListener("keydown", (event) => {
     if (event.target.matches("input") && event.key === "Enter") {
@@ -641,6 +647,7 @@
     const tags = [];
     if (row.own) tags.push('<span class="tag own">rescored</span>');
     if (row.removed) tags.push('<span class="tag">removed</span>');
+    if (row.kept) tags.push('<span class="tag" title="Looked at and confirmed on the review">confirmed</span>');
     if (row.nyt) tags.push(`<span class="tag nyt" title="In ${row.uses} published puzzles">NYT</span>`);
     if (row.unvetted) tags.push('<span class="tag" title="Not in the scored list; its score is an estimate">unvetted</span>');
     if (row.popular) tags.push('<span class="tag" title="Everyday enough to be allowed under the minimum score">popular</span>');
@@ -755,6 +762,12 @@
     else edits.scores[word] = what;
   }
 
+  function noteKept(word, kept) {
+    const list = (state.edits.kept || []).filter((other) => other !== word);
+    if (kept) list.push(word);
+    state.edits.kept = list;
+  }
+
   /* Everything shown at once, as one saved change. */
   async function bulk(kind) {
     if (!shown.length) return;
@@ -768,7 +781,7 @@
       confirm: kind === "remove" ? "Remove them" : kind === "restore" ? "Put them back" : "Score them",
     });
     if (!sure) return;
-    const edits = { scores: { ...state.edits.scores }, removed: state.edits.removed.slice(), recent: (state.edits.recent || []).slice() };
+    const edits = { scores: { ...state.edits.scores }, removed: state.edits.removed.slice(), recent: (state.edits.recent || []).slice(), kept: (state.edits.kept || []).slice() };
     const removed = new Set(edits.removed);
     for (const row of shown) {
       if (kind === "remove") {
@@ -809,7 +822,7 @@
     try {
       const fresh = await LISTS.state(listId);
       // Only the scores and removals matter here; the recent-words list changes with every edit.
-      const gist = (edits) => JSON.stringify([Object.entries(edits.scores || {}).sort(), [...(edits.removed || [])].sort()]);
+      const gist = (edits) => JSON.stringify([Object.entries(edits.scores || {}).sort(), [...(edits.removed || [])].sort(), [...(edits.kept || [])].sort()]);
       const before = gist(state.edits);
       state = fresh;
       renderWhich();
