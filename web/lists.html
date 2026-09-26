@@ -99,6 +99,11 @@
   .review .decide .btn kbd { margin-right: 6px; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 11px / 1.5 var(--sans); opacity: 0.75; }
   .review .verdicts { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--muted); }
   .review .done { margin: 0; font: 600 20px / 1.3 var(--serif); }
+  .review .clues { display: grid; gap: 3px; max-width: 60ch; margin: 0; padding: 0; list-style: none; font: 400 15px / 1.35 var(--serif); color: var(--ink); }
+  .review .clues li { display: flex; justify-content: center; gap: 10px; align-items: baseline; }
+  .review .clues .when { flex: none; font: 500 11px / 1.4 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .review .clues-note { margin: 0; font-size: 13px; color: var(--muted); }
+  .review .clues-note a { color: var(--pencil); }
   .review .score-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   .review .score-line input { width: 3.6em; padding: 3px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px var(--sans); text-align: right; }
   .status { min-height: 1.4em; margin: 0; font-size: 13px; color: var(--muted); }
@@ -533,9 +538,56 @@
     box.innerHTML = `<p class="progress">${(n - at).toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"} left to decide</p>` +
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
       `<div class="facts"><span>Score <b>${row.score}</b></span><span>NYT <b>${row.uses.toLocaleString()}</b></span><span>Everyday <b>${row.everyday}</b></span><span>Vowels <b>${row.vowels}%</b></span>${tags.join("")}</div>` +
-      `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button></div>` +
+      `<div id="clues-box"></div>` +
+      `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button>` +
+      `<button type="button" class="btn quiet" data-decide="undo"${history.length ? "" : " disabled"}><kbd>⌫</kbd>Undo</button></div>` +
       `<div class="score-line">or score it <input type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}" data-decide="score"> and press Enter</div>` +
       (verdicts || `<p class="verdicts">${row.removed ? "This word is already removed; Keep puts it back." : ""}</p>`);
+    showClues(row);
+    if (at + 1 < n) pastFor(shown[at + 1].word); // the next word's file, fetched ahead
+  }
+
+  // --- what the word has meant: its past NYT clues, or a dictionary to look it up in ---
+
+  const PAST_VERSION = "PASTCLUES_VERSION";
+  const pastFiles = new Map(); // two letters -> Promise of {answer: [[clue, times used, last year], ...]}
+
+  function pastFor(word) {
+    const prefix = word.slice(0, 2);
+    if (!pastFiles.has(prefix)) {
+      const file = fetch(`pastclues/${prefix}.json?v=${PAST_VERSION}`)
+        .then((response) => (response.ok ? response.json() : {}))
+        .catch(() => {
+          pastFiles.delete(prefix);
+          return {};
+        });
+      pastFiles.set(prefix, file);
+    }
+    return pastFiles.get(prefix).then((file) => file[word] || []);
+  }
+
+  const lookups = (word) => {
+    const lower = word.toLowerCase();
+    return `<a href="https://www.onelook.com/?w=${encodeURIComponent(lower)}" target="_blank" rel="noopener">OneLook</a> · ` +
+      `<a href="https://en.wiktionary.org/wiki/${encodeURIComponent(lower)}" target="_blank" rel="noopener">Wiktionary</a>`;
+  };
+
+  async function showClues(row) {
+    const box = $("clues-box");
+    if (!box) return;
+    if (!row.nyt) {
+      box.innerHTML = `<p class="clues-note">Never a Times answer. Look it up: ${lookups(row.word)}</p>`;
+      return;
+    }
+    box.innerHTML = `<p class="clues-note">Looking up its clues…</p>`;
+    const clues = await pastFor(row.word);
+    if (!$("clues-box") || shown[at] !== row) return; // moved on meanwhile
+    if (!clues.length) {
+      box.innerHTML = `<p class="clues-note">No clues on file. Look it up: ${lookups(row.word)}</p>`;
+      return;
+    }
+    box.innerHTML = `<ul class="clues">${clues.slice(0, 4).map(([text, uses, year]) => `<li><span>${text.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[ch])}</span><span class="when">${year}${uses > 1 ? ` · ${uses}×` : ""}</span></li>`).join("")}</ul>` +
+      `<p class="clues-note">Times clues, most used first · ${lookups(row.word)}</p>`;
   }
 
   async function decide(keep) {
