@@ -18,7 +18,8 @@
    constructive seed that is already legal. Legality is checked before scoring, since it costs
    microseconds and scoring costs milliseconds: every entry at least minLength long, all white
    squares connected and no section hanging off the rest by fewer than minOpening squares, blocks
-   under the cap, no pockets (see pockets), and every theme entry still exactly its own length.
+   under the cap, no pockets or corners (see pockets and corners), and every theme entry still
+   exactly its own length.
    Requiring every run to
    reach minLength in both directions also rules out unchecked squares, so there is no separate
    test for them.
@@ -35,8 +36,9 @@
   const T_START = 4;           // annealing temperature, in units of the bottleneck's log score
   const T_END = 0.15;
   const SEED_RUN = 7;          // the seeder breaks non-theme runs down to about this length
-  const THEME_GAP = 2;         // rows left clear between theme entries
+  const THEME_GAP = 3;         // rows between theme entries: two clear, so the downs between them aren't pinned at both ends
   const LAYOUT_TRIES = 400;    // random theme layouts examined before settling on the candidates
+  const SEED_BATCH = 12;       // seeds made per probe, the best-shaped of which is the one probed
   const MIN_OPENING = 3;       // squares any section must be joined to the rest by, at the least
   const SECTION = 4;           // white squares that make a piece of grid a section, for that rule
 
@@ -85,7 +87,7 @@
         }
       }
     }
-    if (pockets(blocks, W, H)) return false;
+    if (pockets(blocks, W, H) || corners(blocks, W, H)) return false;
     return opening(blocks, W, H, blocks.length - count) >= minOpening;
   }
 
@@ -93,14 +95,17 @@
      section of the grid off from the rest, capped at 3. 0 means it's already in pieces; 1 means a
      section hangs off a single square; 2 that some section is reached only through two, the narrow
      passages solvers and editors dislike; 3 means every section is joined by three or more. A
-     section is any piece of at least SECTION squares, so a lone corner square (which never has more
-     than two neighbours) doesn't count, but a corner holding a few entries does. */
-  function opening(blocks, W, H, whites) {
+     section is a piece of at least SECTION squares but no more than a third of the grid: a lone
+     corner square (which never has more than two neighbours) doesn't count, and neither does half
+     the grid, since two halves meeting at the centre square is a common design. A corner holding a
+     few entries is what counts. */
+  function opening(blocks, W, H, whites, section = SECTION) {
     if (!connected(blocks, W, H, whites)) return 0;
-    for (const a of cutSquares(blocks, W, H, -1)) if (stranded(blocks, W, H, a, -1) >= SECTION) return 1;
+    const isSection = (size) => size >= section && size <= whites / 3;
+    for (const a of cutSquares(blocks, W, H, -1)) if (isSection(stranded(blocks, W, H, a, -1))) return 1;
     for (let v = 0; v < blocks.length; v++) {
       if (blocks[v]) continue;
-      for (const a of cutSquares(blocks, W, H, v)) if (stranded(blocks, W, H, v, a) >= SECTION) return 2;
+      for (const a of cutSquares(blocks, W, H, v)) if (isSection(stranded(blocks, W, H, v, a))) return 2;
     }
     return 3;
   }
@@ -203,6 +208,20 @@
     return count;
   }
   const POCKET_CORNERS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+  /* Corners in the black area: 2x2 windows holding three blocks (a block jutting off a run, or an
+     L) or all four. Published grids draw their blocks in lines and staircases, never in lumps with
+     inside corners, so a legal pattern has none. */
+  function corners(blocks, W, H) {
+    let count = 0;
+    for (let r = 0; r + 1 < H; r++) {
+      for (let c = 0; c + 1 < W; c++) {
+        const i = r * W + c;
+        if (blocks[i] + blocks[i + 1] + blocks[i + W] + blocks[i + W + 1] >= 3) count++;
+      }
+    }
+    return count;
+  }
 
   function connected(blocks, W, H, whites) {
     const start = blocks.indexOf(0);
@@ -420,22 +439,24 @@
       if (!longs.length) break;
       let placed = false;
       for (const run of longs) {
-        // Near the middle, and better still where the block would touch one already there (beside
-        // it, or at a corner), so blocks grow into runs and staircases rather than a scatter.
+        // Near the middle, and better still where the block would touch one already there: at a
+        // corner best of all, so blocks grow into staircases; beside it a little, so runs of two or
+        // three can form without every block piling into a wall.
         const touches = (k) => {
           const i = run.start + run.step * k;
           const r = (i / W) | 0;
           const c = i % W;
+          let best = 0;
           for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-            if ((dr || dc) && r + dr >= 0 && r + dr < H && c + dc >= 0 && c + dc < W && blocks[(r + dr) * W + c + dc]) return true;
+            if ((dr || dc) && r + dr >= 0 && r + dr < H && c + dc >= 0 && c + dc < W && blocks[(r + dr) * W + c + dc]) best = Math.max(best, dr && dc ? 1 : 0.4);
           }
-          return false;
+          return best;
         };
-        // Both pieces at least four long: a three-letter entry is only ever the fill nobody wanted,
-        // so the seeder makes none on purpose (theme caps and the edges make a few anyway).
-        const least = Math.max(minLength, 4);
+        // Both pieces at least four long if it can be: a three-letter entry is only ever the fill
+        // nobody wanted, so a split that makes one costs extra and comes last.
         const order = [];
-        for (let k = least; k <= run.len - least; k++) order.push(k);
+        for (let k = minLength; k <= run.len - minLength; k++) order.push(k);
+        const short = (k) => (k < 4 ? 1 : 0) + (run.len - k - 1 < 4 ? 1 : 0);
         // ...and counting the threes the block and its mirror would make in the other direction too.
         const before = threes(blocks, W, H) + 4 * walls(blocks, W, H);
         const made = (k) => {
@@ -450,8 +471,10 @@
           blocks[j] = wasJ;
           return after - before;
         };
-        const cost = (k) => Math.abs(k - run.len / 2) - (touches(k) ? run.len / 2 : 0) + 3 * made(k);
-        order.sort((a, b) => cost(a) - cost(b) + (rng() - 0.5));
+        const cost = (k) => Math.abs(k - run.len / 2) - touches(k) * (run.len / 2) + 3 * made(k) + 6 * short(k);
+        const noisy = order.map((k) => [k, cost(k) + (rng() - 0.5) * 4]); // enough noise that seeds differ
+        noisy.sort((a, b) => a[1] - b[1]);
+        order.splice(0, order.length, ...noisy.map((entry) => entry[0]));
         for (const k of order) {
           const i = run.start + run.step * k;
           if (frozen[i] || frozen[W * H - 1 - i] || blocks[i]) continue;
@@ -729,15 +752,31 @@
     };
 
     // --- breadth: many seeds, two fills each ---
+    // Seeding costs milliseconds and probing costs seconds, so each probe goes to the best-shaped of
+    // a batch of seeds rather than to the first one made.
     const breadthUntil = started + (deadline - started) * 0.5;
     while (now() < breadthUntil) {
-      const placements = layouts[Math.floor(rng() * layouts.length)];
-      const letters = fixed ? fixed.letters.map((text) => text.charAt(0)) : new Array(W * H).fill("");
-      for (const p of placements) for (let k = 0; k < p.length; k++) letters[p.start + k] = p.word[k];
-      const targetRun = 6 + Math.floor(rng() * 3);
-      const built = seedPattern(placements, letters, W, H, minLength, maxBlocks, rng, targetRun, minOpening, fixed);
-      if (!built) { stats.seedFailed++; continue; }
-      stats.seeded++;
+      let built = null;
+      let letters = null;
+      let placements = null;
+      for (let attempt = 0; attempt < SEED_BATCH; attempt++) {
+        const tryPlacements = layouts[Math.floor(rng() * layouts.length)];
+        const tryLetters = fixed ? fixed.letters.map((text) => text.charAt(0)) : new Array(W * H).fill("");
+        for (const p of tryPlacements) for (let k = 0; k < p.length; k++) tryLetters[p.start + k] = p.word[k];
+        const targetRun = 5 + Math.floor(rng() * 5);
+        const candidate = seedPattern(tryPlacements, tryLetters, W, H, minLength, maxBlocks, rng, targetRun, minOpening, fixed);
+        if (!candidate) { stats.seedFailed++; continue; }
+        stats.seeded++;
+        // Shape, plus a charge for every block short of the cap: a sparse seed looks tidy but won't fill.
+        const count = candidate.blocks.reduce((a, b) => a + b, 0);
+        candidate.ugliness = ugliness(candidate.blocks, W, H) + 2 * Math.max(0, maxBlocks - 2 - count);
+        if (!built || candidate.ugliness < built.ugliness) {
+          built = candidate;
+          letters = tryLetters;
+          placements = tryPlacements;
+        }
+      }
+      if (!built) continue;
       const rows = gridRows(built.blocks, letters, W, H);
       const key = rows.join("");
       if (survivors.some((s) => s.key === key)) continue;
@@ -827,7 +866,7 @@
     };
   }
 
-  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, pockets, themeLayouts, seedPattern, gridRows };
+  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, pockets, corners, themeLayouts, seedPattern, gridRows };
   root.Griddesign = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

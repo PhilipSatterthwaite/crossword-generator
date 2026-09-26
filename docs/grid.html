@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-UyCSbKnOjKvxRBGnSocU455lTkyJ2w3QwfETjif2cG0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-9X6BiNun9vjkvv0jRjdmFVOt2kygpkkqddGBvnue12M='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -568,7 +568,7 @@
 
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="filler.js?v=8904f4f420"></script>
-<script src="designer.js?v=54e86c01da"></script>
+<script src="designer.js?v=0b4eae6e90"></script>
 <script src="store.js?v=a87c2ef649"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=b151bdf539"></script>
@@ -1977,7 +1977,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=5f95c022cf");
+          worker = new Worker("worker.js?v=7b0c6544aa");
         } catch (error) {
           useInline();
           return;
@@ -2038,7 +2038,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=5f95c022cf");
+          worker = new Worker("worker.js?v=7b0c6544aa");
         } catch (error) {
           return;
         }
