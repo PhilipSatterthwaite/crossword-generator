@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Y0Go5WbQg8MoSzjECzessZZ4GdIdngw5rU4ndz++0aE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-LSozooXDqUzWCXBt5ThKQTYiBMvNDpR/pxAVQ+s9k7c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -87,6 +87,10 @@
   .sets button:hover { border-color: var(--ink); }
   .sets button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
   .sets button small { color: inherit; opacity: 0.7; }
+  .sweep { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; font-size: 13px; }
+  .sweep .label { margin-right: 4px; font-weight: 600; }
+  .sweep input[type="number"] { width: 4em; padding: 4px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
+  .sweep .hint { flex-basis: 100%; margin: 0; color: var(--muted); }
   .review { display: grid; gap: 14px; justify-items: center; padding: 28px 16px 22px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); text-align: center; }
   .review:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
   .review .progress { margin: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -177,6 +181,28 @@
         <option value="word-up">Alphabetical</option>
       </select>
     </div>
+    <div class="sweep" role="group" aria-label="Decide many at once">
+      <span class="label">In one go</span>
+      <select id="sweep-what" aria-label="Keep or remove">
+        <option value="keep" selected>Keep</option>
+        <option value="remove">Remove</option>
+      </select>
+      <span>every word in this set whose</span>
+      <select id="sweep-stat" aria-label="Which figure">
+        <option value="uses" selected>NYT appearances</option>
+        <option value="score">score</option>
+        <option value="everyday">everyday figure</option>
+        <option value="vowels">vowel %</option>
+      </select>
+      <span>is</span>
+      <select id="sweep-how" aria-label="At least or at most">
+        <option value="min" selected>at least</option>
+        <option value="max">at most</option>
+      </select>
+      <input id="sweep-value" type="number" value="20" aria-label="Threshold">
+      <button type="button" id="sweep-go" class="btn quiet small">Apply</button>
+      <p class="hint" id="sweep-hint"></p>
+    </div>
     <div class="review" id="review" tabindex="0" style="margin-top: 12px"></div>
   </div>
 
@@ -185,6 +211,7 @@
     <span class="spacer"></span>
     <label class="field">Score all shown to <input id="bulk-score" type="number" min="0" max="100" value="50" aria-label="Score to give every word shown"></label>
     <button type="button" id="bulk-rescore" class="btn quiet small">Apply</button>
+    <button type="button" id="bulk-keep" class="btn quiet small">Confirm all shown</button>
     <button type="button" id="bulk-remove" class="btn quiet small">Remove all shown</button>
     <button type="button" id="bulk-restore" class="btn quiet small">Put back all shown</button>
   </div>
@@ -418,7 +445,10 @@
     $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
     $("scroller").scrollTop = 0;
     draw();
-    if (mode === "review") resumeReview();
+    if (mode === "review") {
+      resumeReview();
+      sweepHint();
+    }
   }
 
   let filterTimer = 0;
@@ -820,28 +850,38 @@
     state.edits.kept = list;
   }
 
-  /* Everything shown at once, as one saved change. */
-  async function bulk(kind) {
-    if (!shown.length) return;
+  /* Many words at once, as one saved change: everything shown, or the rows given. */
+  async function bulk(kind, which = shown, why = "shown") {
+    if (!which.length) return;
     if (!(await guard())) return;
-    const n = shown.length;
+    const n = which.length;
     const value = Math.max(0, Math.min(100, Math.round(Number($("bulk-score").value)) || 0));
-    const what = kind === "remove" ? `Remove all ${n.toLocaleString()} words shown?` : kind === "restore" ? `Put back all ${n.toLocaleString()} words shown?` : `Score all ${n.toLocaleString()} words shown ${value}?`;
+    const count = `${n.toLocaleString()} ${n === 1 ? "word" : "words"} ${why}`;
+    const what = kind === "remove" ? `Remove ${count}?` : kind === "restore" ? `Put back ${count}?` : kind === "keep" ? `Keep ${count}?` : `Score ${count} ${value}?`;
     const sure = await window.fillmeinConfirm({
       title: what,
-      text: kind === "remove" ? "They leave the list you're editing. Undo by showing removed words and putting them back." : kind === "restore" ? "Their own scores and removals are dropped, back to what the list said." : "Each gets the score in the box, replacing any it had.",
-      confirm: kind === "remove" ? "Remove them" : kind === "restore" ? "Put them back" : "Score them",
+      text: kind === "remove" ? "They leave the list you're editing. Undo by showing removed words and putting them back."
+        : kind === "restore" ? "Their own scores and removals are dropped, back to what the list said."
+        : kind === "keep" ? "They stay as they are, marked confirmed, and don't come up in the review again."
+        : "Each gets the score in the box, replacing any it had.",
+      confirm: kind === "remove" ? "Remove them" : kind === "restore" ? "Put them back" : kind === "keep" ? "Keep them" : "Score them",
     });
     if (!sure) return;
     const edits = { scores: { ...state.edits.scores }, removed: state.edits.removed.slice(), recent: (state.edits.recent || []).slice(), kept: (state.edits.kept || []).slice() };
     const removed = new Set(edits.removed);
-    for (const row of shown) {
+    const kept = new Set(edits.kept);
+    for (const row of which) {
       if (kind === "remove") {
         removed.add(row.word);
         delete edits.scores[row.word];
         row.removed = true;
         row.own = false;
         row.score = row.base;
+      } else if (kind === "keep") {
+        removed.delete(row.word);
+        kept.add(row.word);
+        row.removed = false;
+        row.kept = true;
       } else if (kind === "restore") {
         removed.delete(row.word);
         delete edits.scores[row.word];
@@ -857,12 +897,41 @@
       }
     }
     edits.removed = [...removed];
+    edits.kept = [...kept];
     await LISTS.setEditsFor(listId, edits);
     state.edits = edits;
-    setStatus(kind === "remove" ? `Removed ${n.toLocaleString()} words.` : kind === "restore" ? `Put ${n.toLocaleString()} words back.` : `Scored ${n.toLocaleString()} words ${value}.`);
+    const said = kind === "remove" ? `Removed ${n.toLocaleString()} words.` : kind === "restore" ? `Put ${n.toLocaleString()} words back.` : kind === "keep" ? `Kept ${n.toLocaleString()} words.` : `Scored ${n.toLocaleString()} words ${value}.`;
+    setStatus(said);
+    $("sweep-hint").textContent = said;
+    renderSets();
     refilter();
   }
+  $("bulk-keep").addEventListener("click", () => bulk("keep"));
   $("bulk-remove").addEventListener("click", () => bulk("remove"));
+
+  /* Keep or remove every undecided word in the set whose figure clears a threshold. */
+  const STAT_NAMES = { uses: "NYT appearances", score: "score", everyday: "everyday figure", vowels: "vowel share" };
+  function sweepRows() {
+    const stat = $("sweep-stat").value;
+    const atLeast = $("sweep-how").value === "min";
+    const value = Number($("sweep-value").value);
+    if (!Number.isFinite(value)) return [];
+    return shown.filter((row) => (atLeast ? row[stat] >= value : row[stat] <= value));
+  }
+  function sweepHint() {
+    const rows = sweepRows();
+    $("sweep-hint").textContent = `${rows.length.toLocaleString()} of the ${shown.length.toLocaleString()} words in this set have ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}.`;
+  }
+  for (const id of ["sweep-what", "sweep-stat", "sweep-how", "sweep-value"]) $(id).addEventListener("input", sweepHint);
+  $("sweep-go").addEventListener("click", async () => {
+    const rows = sweepRows();
+    if (!rows.length) {
+      $("sweep-hint").textContent = "No word in this set clears that threshold.";
+      return;
+    }
+    await bulk($("sweep-what").value, rows, `in this set with ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}`);
+    focusReview();
+  });
   $("bulk-restore").addEventListener("click", () => bulk("restore"));
   $("bulk-rescore").addEventListener("click", () => bulk("rescore"));
 
