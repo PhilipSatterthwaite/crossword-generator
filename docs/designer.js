@@ -18,8 +18,7 @@
    constructive seed that is already legal. Legality is checked before scoring, since it costs
    microseconds and scoring costs milliseconds: every entry at least minLength long, all white
    squares connected and no section hanging off the rest by fewer than minOpening squares, blocks
-   under the cap, no pockets or corners (see pockets and corners), and every theme entry still
-   exactly its own length.
+   under the cap, no pockets (see pockets), and every theme entry still exactly its own length.
    Requiring every run to
    reach minLength in both directions also rules out unchecked squares, so there is no separate
    test for them.
@@ -87,7 +86,7 @@
         }
       }
     }
-    if (pockets(blocks, W, H) || corners(blocks, W, H)) return false;
+    if (pockets(blocks, W, H)) return false;
     return opening(blocks, W, H, blocks.length - count) >= minOpening;
   }
 
@@ -210,17 +209,20 @@
   const POCKET_CORNERS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
   /* Corners in the black area: 2x2 windows holding three blocks (a block jutting off a run, or an
-     L) or all four. Published grids draw their blocks in lines and staircases, never in lumps with
-     inside corners, so a legal pattern has none. */
+     L) or all four, weighted by how far into the grid they sit. Against the edge they're ordinary:
+     the "Utah" of five blocks on a grid's side is in the Times most weeks. One square in they cost
+     a little, and in the middle of the grid, where they make the geometry look funky, a lot. */
   function corners(blocks, W, H) {
-    let count = 0;
+    let cost = 0;
     for (let r = 0; r + 1 < H; r++) {
       for (let c = 0; c + 1 < W; c++) {
         const i = r * W + c;
-        if (blocks[i] + blocks[i + 1] + blocks[i + W] + blocks[i + W + 1] >= 3) count++;
+        if (blocks[i] + blocks[i + 1] + blocks[i + W] + blocks[i + W + 1] < 3) continue;
+        const inset = Math.min(r, c, H - 2 - r, W - 2 - c); // 0 when the window touches the edge
+        cost += inset === 0 ? 0 : inset === 1 ? 1 : 3;
       }
     }
-    return count;
+    return cost;
   }
 
   function connected(blocks, W, H, whites) {
@@ -458,7 +460,8 @@
         for (let k = minLength; k <= run.len - minLength; k++) order.push(k);
         const short = (k) => (k < 4 ? 1 : 0) + (run.len - k - 1 < 4 ? 1 : 0);
         // ...and counting the threes the block and its mirror would make in the other direction too.
-        const before = threes(blocks, W, H) + 4 * walls(blocks, W, H);
+        const shape = () => threes(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H);
+        const before = shape();
         const made = (k) => {
           const i = run.start + run.step * k;
           const j = W * H - 1 - i;
@@ -466,7 +469,7 @@
           const wasJ = blocks[j];
           blocks[i] = 1;
           blocks[j] = 1;
-          const after = threes(blocks, W, H) + 4 * walls(blocks, W, H);
+          const after = shape();
           blocks[i] = wasI;
           blocks[j] = wasJ;
           return after - before;
@@ -609,7 +612,7 @@
 
   /* What's wrong with a pattern's shape, to be kept small: its three-letter entries, its lone
      blocks counted three times over (each usually brings a few threes with it), and its walls. */
-  const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H);
+  const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H);
 
   /* Better means more different fills, then a better shape (see ugliness), then more fills, then
      found sooner. */
