@@ -320,6 +320,7 @@
     renderSets();
     refilter();
     setStatus("");
+    focusReview();
   }
 
   // --- the list menu ---
@@ -337,9 +338,12 @@
       : `${BUILT_INS[listId]} comes with the site and can't be edited. Make a copy, and edit that.`;
   }
 
+  // After a choice in a menu, the arrow keys should be back on the words, not on the menu.
+  const focusReview = () => { if (mode === "review") $("review").focus({ preventScroll: true }); };
   $("list").addEventListener("change", async () => {
     listId = $("list").value;
     await loadList();
+    focusReview();
   });
 
   $("copy").addEventListener("click", async () => {
@@ -454,7 +458,10 @@
     const button = event.target.closest("[data-mode]");
     if (button) setMode(button.dataset.mode);
   });
-  $("order").addEventListener("change", () => setMode("review"));
+  $("order").addEventListener("change", () => {
+    setMode("review");
+    focusReview();
+  });
 
   /* The lengths on offer, each with how many words it holds. */
   function renderSets() {
@@ -617,7 +624,9 @@
   });
   document.addEventListener("keydown", (event) => {
     if (mode !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
-    const typing = event.target instanceof Element && event.target.matches("input, select, textarea");
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.matches("select") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) target.blur(); // a menu left focused: the arrows mean the words
+    const typing = target && target.matches("input, textarea");
     if (event.key === "ArrowLeft" && !typing) { event.preventDefault(); decide(false); }
     else if (event.key === "ArrowRight" && !typing) { event.preventDefault(); decide(true); }
     else if (event.key === "Backspace" && !typing) { event.preventDefault(); undo(); }

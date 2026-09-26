@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-cuKPrWFpkPlngIPfafxC3IxcbV7j52BFOvRzey4H+wM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-1sQ3ZU777I8tVv9Ri+2X6/f9AZXG5Snzh5BzPMKJgLc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -321,6 +321,7 @@
     renderSets();
     refilter();
     setStatus("");
+    focusReview();
   }
 
   // --- the list menu ---
@@ -338,9 +339,12 @@
       : `${BUILT_INS[listId]} comes with the site and can't be edited. Make a copy, and edit that.`;
   }
 
+  // After a choice in a menu, the arrow keys should be back on the words, not on the menu.
+  const focusReview = () => { if (mode === "review") $("review").focus({ preventScroll: true }); };
   $("list").addEventListener("change", async () => {
     listId = $("list").value;
     await loadList();
+    focusReview();
   });
 
   $("copy").addEventListener("click", async () => {
@@ -455,7 +459,10 @@
     const button = event.target.closest("[data-mode]");
     if (button) setMode(button.dataset.mode);
   });
-  $("order").addEventListener("change", () => setMode("review"));
+  $("order").addEventListener("change", () => {
+    setMode("review");
+    focusReview();
+  });
 
   /* The lengths on offer, each with how many words it holds. */
   function renderSets() {
@@ -618,7 +625,9 @@
   });
   document.addEventListener("keydown", (event) => {
     if (mode !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
-    const typing = event.target instanceof Element && event.target.matches("input, select, textarea");
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.matches("select") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) target.blur(); // a menu left focused: the arrows mean the words
+    const typing = target && target.matches("input, textarea");
     if (event.key === "ArrowLeft" && !typing) { event.preventDefault(); decide(false); }
     else if (event.key === "ArrowRight" && !typing) { event.preventDefault(); decide(true); }
     else if (event.key === "Backspace" && !typing) { event.preventDefault(); undo(); }
