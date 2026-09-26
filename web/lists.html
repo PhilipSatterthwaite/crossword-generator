@@ -75,6 +75,32 @@
   .row .act:hover { border-color: var(--ink); background: var(--hover); color: var(--ink); }
   .row .act.drop:hover { border-color: var(--score-lo); background: var(--score-lo-bg); color: var(--score-lo); }
   .empty { padding: 24px 12px; font-size: 13px; color: var(--muted); }
+
+  /* One word at a time. */
+  .modes { display: inline-flex; gap: 4px; }
+  .modes button { padding: 5px 12px; border: 1.5px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--muted); font: 600 13px / 1.4 var(--sans); cursor: pointer; }
+  .modes button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); }
+  .sets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+  .sets .label { margin-right: 4px; font-weight: 600; }
+  .sets button { padding: 3px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font: 500 13px / 1.4 var(--sans); font-variant-numeric: tabular-nums; cursor: pointer; }
+  .sets button:hover { border-color: var(--ink); }
+  .sets button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+  .sets button small { color: inherit; opacity: 0.7; }
+  .review { display: grid; gap: 14px; justify-items: center; padding: 28px 16px 22px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); text-align: center; }
+  .review:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .review .progress { margin: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .review .big { margin: 0; font: 800 clamp(30px, 6vw, 56px) / 1.1 var(--sans); letter-spacing: 0.12em; overflow-wrap: anywhere; }
+  .review .big.gone { color: var(--muted); text-decoration: line-through; }
+  .review .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .review .facts b { color: var(--ink); }
+  .review .facts .tag { font-size: 12px; }
+  .review .decide { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+  .review .decide .btn { min-width: 9em; }
+  .review .decide .btn kbd { margin-right: 6px; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 11px / 1.5 var(--sans); opacity: 0.75; }
+  .review .verdicts { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--muted); }
+  .review .done { margin: 0; font: 600 20px / 1.3 var(--serif); }
+  .review .score-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .review .score-line input { width: 3.6em; padding: 3px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px var(--sans); text-align: right; }
   .status { min-height: 1.4em; margin: 0; font-size: 13px; color: var(--muted); }
   .key { margin: 0; font-size: 12px; color: var(--muted); }
 
@@ -108,6 +134,10 @@
     <label class="field">List <select id="list" aria-label="Word list to edit"></select></label>
     <button type="button" id="copy" class="btn small" hidden>Make a copy to edit</button>
     <p id="which-note" class="note"></p>
+    <span class="modes" role="group" aria-label="View">
+      <button type="button" data-mode="review" aria-pressed="true">One at a time</button>
+      <button type="button" data-mode="table" aria-pressed="false">Table</button>
+    </span>
   </div>
 
   <div class="filters" role="group" aria-label="Filters">
@@ -123,6 +153,24 @@
     <label class="check"><input type="checkbox" id="only-nyt"> NYT answers</label>
     <label class="check"><input type="checkbox" id="only-popular"> Popular</label>
     <button type="button" id="clear-filters" class="btn quiet small">Clear</button>
+  </div>
+
+  <div id="review-view">
+    <div class="sets" id="sets" role="group" aria-label="Which words">
+      <span class="label">Length</span>
+    </div>
+    <div class="sets" style="margin-top: 8px">
+      <span class="label">Order</span>
+      <select id="order" aria-label="Order">
+        <option value="uses-down" selected>Most NYT appearances first</option>
+        <option value="uses-up">Fewest NYT appearances first</option>
+        <option value="score-up">Lowest score first</option>
+        <option value="score-down">Highest score first</option>
+        <option value="everyday-up">Least everyday first</option>
+        <option value="word-up">Alphabetical</option>
+      </select>
+    </div>
+    <div class="review" id="review" tabindex="0" style="margin-top: 12px"></div>
   </div>
 
   <div class="bulk">
@@ -171,8 +219,12 @@
   let state = { lists: [], edits: { scores: {}, removed: [] }, byList: {} };
   let rows = [];     // every word of the list: {word, len, base, score, uses, everyday, vowels, popular, nyt, unvetted, removed, own}
   let shown = [];    // the rows the filters and sort leave, in order
-  let sortKey = "score";
+  let sortKey = "uses";
   let sortDown = true;
+  let mode = "review";
+  let setLength = 0;   // the word length being reviewed, 0 for every length
+  let at = 0;          // where the review is in `shown`
+  let history = [];    // decisions made, newest last: {index, wasRemoved, wasOwn?, wasScore?}
   let byWord = null; // word -> row, built when needed
 
   // --- the words ---
@@ -247,10 +299,17 @@
   const isBuiltIn = (id) => Object.prototype.hasOwnProperty.call(BUILT_INS, id);
   const editable = () => !isBuiltIn(listId);
 
+  // The list and length last looked at, so the page opens where it was left.
+  const LAST = "fillmein:lists:last";
+  const rememberWhere = () => {
+    try { localStorage.setItem(LAST, JSON.stringify({ listId, setLength })); } catch (error) { /* no storage */ }
+  };
+
   async function loadList() {
     state = await LISTS.state(listId);
     const list = chosen();
     if (!list && !isBuiltIn(listId)) listId = "built-in";
+    rememberWhere();
     setStatus("Loading the words…");
     await new Promise((resolve) => setTimeout(resolve, 20)); // let the status paint
     if (isBuiltIn(listId)) rows = builtInRows(listId);
@@ -258,6 +317,7 @@
     else rows = ownRows(list);
     applyEdits();
     renderWhich();
+    renderSets();
     refilter();
     setStatus("");
   }
@@ -307,7 +367,8 @@
 
   function refilter() {
     const test = patternTest();
-    const lenMin = num("len-min"), lenMax = num("len-max");
+    let lenMin = num("len-min"), lenMax = num("len-max");
+    if (mode === "review" && setLength) lenMin = lenMax = setLength;
     const scoreMin = num("score-min"), scoreMax = num("score-max");
     const usesMin = num("uses-min"), usesMax = num("uses-max");
     const evMin = num("ev-min"), evMax = num("ev-max");
@@ -343,6 +404,7 @@
     $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
     $("scroller").scrollTop = 0;
     draw();
+    if (mode === "review") resumeReview();
   }
 
   let filterTimer = 0;
@@ -367,6 +429,198 @@
       sortDown = sortKey !== "word" && sortKey !== "len";
     }
     resort();
+  });
+
+  // --- one word at a time ---
+
+  const progressKey = () => `fillmein:review:${listId}:${setLength}:${sortKey}:${sortDown ? "down" : "up"}:${$("pattern").value}`;
+
+  function setMode(next) {
+    mode = next;
+    for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+    const review = mode === "review";
+    $("review-view").hidden = !review;
+    document.querySelector(".bulk").hidden = review;
+    document.querySelector(".grid-head").hidden = review;
+    $("scroller").hidden = review;
+    if (review) {
+      const [key, direction] = $("order").value.split("-");
+      sortKey = key;
+      sortDown = direction === "down";
+    }
+    refilter();
+  }
+  document.querySelector(".modes").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mode]");
+    if (button) setMode(button.dataset.mode);
+  });
+  $("order").addEventListener("change", () => setMode("review"));
+
+  /* The lengths on offer, each with how many words it holds. */
+  function renderSets() {
+    const counts = new Map();
+    for (const row of rows) counts.set(row.len, (counts.get(row.len) || 0) + 1);
+    const sets = $("sets");
+    for (const old of sets.querySelectorAll("button")) old.remove();
+    const button = (value, label, count) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.dataset.len = value;
+      el.innerHTML = `${label} <small>${count.toLocaleString()}</small>`;
+      el.setAttribute("aria-pressed", String(value === setLength));
+      sets.append(el);
+    };
+    button(0, "All", rows.length);
+    for (const len of [...counts.keys()].sort((a, b) => a - b)) button(len, String(len), counts.get(len));
+  }
+  $("sets").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-len]");
+    if (!button) return;
+    setLength = Number(button.dataset.len);
+    for (const other of $("sets").querySelectorAll("button")) other.setAttribute("aria-pressed", String(Number(other.dataset.len) === setLength));
+    rememberWhere();
+    refilter();
+    $("review").focus({ preventScroll: true });
+  });
+
+  /* Pick the review up where it left off in this set: just past the last word decided. */
+  function resumeReview() {
+    history = [];
+    let last = null;
+    try { last = localStorage.getItem(progressKey()); } catch (error) { /* no storage */ }
+    at = 0;
+    if (last) {
+      const index = shown.findIndex((row) => row.word === last);
+      if (index >= 0) at = index + 1;
+    }
+    renderCard();
+  }
+
+  function remember() {
+    try {
+      if (at > 0 && at <= shown.length) localStorage.setItem(progressKey(), shown[at - 1].word);
+      else localStorage.removeItem(progressKey());
+    } catch (error) { /* no storage */ }
+  }
+
+  function renderCard() {
+    const box = $("review");
+    const n = shown.length;
+    const removedNow = history.filter((h) => !h.wasRemoved && shown[h.index].removed).length;
+    const keptNow = history.length - removedNow;
+    const verdicts = history.length ? `<p class="verdicts">This sitting: ${removedNow.toLocaleString()} removed, ${keptNow.toLocaleString()} kept or scored. Backspace undoes the last one.</p>` : "";
+    if (!n) {
+      box.innerHTML = `<p class="done">${rows.length ? "No words match." : "This list has no words."}</p>`;
+      return;
+    }
+    if (at >= n) {
+      box.innerHTML = `<p class="progress">${n.toLocaleString()} words in this set</p><p class="done">You've been through every word here.</p>${verdicts}` +
+        `<div class="decide"><button type="button" class="btn quiet" data-decide="undo"><kbd>⌫</kbd>Undo the last one</button><button type="button" class="btn quiet" data-decide="restart">Start this set over</button></div>`;
+      return;
+    }
+    const row = shown[at];
+    const tags = [];
+    if (row.own) tags.push('<span class="tag own">rescored</span>');
+    if (row.nyt) tags.push('<span class="tag nyt">NYT answer</span>');
+    if (row.unvetted) tags.push('<span class="tag">unvetted</span>');
+    if (row.popular) tags.push('<span class="tag">popular</span>');
+    box.innerHTML = `<p class="progress">${(at + 1).toLocaleString()} of ${n.toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"}</p>` +
+      `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
+      `<div class="facts"><span>Score <b>${row.score}</b></span><span>NYT <b>${row.uses.toLocaleString()}</b></span><span>Everyday <b>${row.everyday}</b></span><span>Vowels <b>${row.vowels}%</b></span>${tags.join("")}</div>` +
+      `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button></div>` +
+      `<div class="score-line">or score it <input type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}" data-decide="score"> and press Enter</div>` +
+      (verdicts || `<p class="verdicts">${row.removed ? "This word is already removed; Keep puts it back." : ""}</p>`);
+  }
+
+  async function decide(keep) {
+    if (at >= shown.length) return;
+    if (!(await guard())) return;
+    const row = shown[at];
+    history.push({ index: at, wasRemoved: row.removed });
+    if (keep && row.removed) {
+      await LISTS.restoreWord(listId, row.word);
+      row.removed = false;
+      row.own = false;
+      row.score = row.base;
+      noteEdit(row.word, "restored");
+    } else if (!keep && !row.removed) {
+      await LISTS.removeWord(listId, row.word);
+      row.removed = true;
+      row.own = false;
+      row.score = row.base;
+      noteEdit(row.word, "removed");
+    }
+    at++;
+    remember();
+    renderCard();
+  }
+
+  async function scoreCurrent(value) {
+    if (at >= shown.length || !Number.isFinite(value)) return;
+    if (!(await guard())) return;
+    const row = shown[at];
+    const score = Math.max(0, Math.min(100, Math.round(value)));
+    history.push({ index: at, wasRemoved: row.removed, wasOwn: row.own, wasScore: row.score });
+    await LISTS.setScore(listId, row.word, score);
+    row.score = score;
+    row.own = true;
+    row.removed = false;
+    noteEdit(row.word, score);
+    at++;
+    remember();
+    renderCard();
+  }
+
+  async function undo() {
+    const last = history.pop();
+    if (!last) return;
+    const row = shown[last.index];
+    if (last.wasScore !== undefined) {
+      // A score set here: back to what it was, the row's own or the list's, removed again if it was.
+      if (last.wasRemoved) await LISTS.removeWord(listId, row.word);
+      else if (last.wasOwn) await LISTS.setScore(listId, row.word, last.wasScore);
+      else await LISTS.restoreWord(listId, row.word);
+      row.own = last.wasOwn;
+      row.score = last.wasScore;
+      row.removed = last.wasRemoved;
+      noteEdit(row.word, last.wasRemoved ? "removed" : last.wasOwn ? last.wasScore : "restored");
+    } else if (row.removed !== last.wasRemoved) {
+      if (last.wasRemoved) await LISTS.removeWord(listId, row.word);
+      else await LISTS.restoreWord(listId, row.word);
+      row.removed = last.wasRemoved;
+      noteEdit(row.word, last.wasRemoved ? "removed" : "restored");
+    }
+    at = last.index;
+    remember();
+    renderCard();
+  }
+
+  $("review").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-decide]");
+    if (!button) return;
+    const what = button.dataset.decide;
+    if (what === "remove") decide(false);
+    else if (what === "keep") decide(true);
+    else if (what === "undo") undo();
+    else if (what === "restart") {
+      try { localStorage.removeItem(progressKey()); } catch (error) { /* no storage */ }
+      at = 0;
+      history = [];
+      renderCard();
+    }
+  });
+  $("review").addEventListener("keydown", (event) => {
+    if (event.target.matches("input") && event.key === "Enter") {
+      event.preventDefault();
+      scoreCurrent(Number(event.target.value));
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (mode !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
+    const typing = event.target instanceof Element && event.target.matches("input, select, textarea");
+    if (event.key === "ArrowLeft" && !typing) { event.preventDefault(); decide(false); }
+    else if (event.key === "ArrowRight" && !typing) { event.preventDefault(); decide(true); }
+    else if (event.key === "Backspace" && !typing) { event.preventDefault(); undo(); }
   });
 
   // --- drawing the rows that are on screen ---
@@ -558,6 +812,12 @@
     }
   });
 
+  try {
+    const last = JSON.parse(localStorage.getItem(LAST) || "null");
+    if (last && typeof last.listId === "string") listId = last.listId;
+    if (last && Number.isInteger(last.setLength)) setLength = last.setLength;
+  } catch (error) { /* start fresh */ }
+  setMode("review");
   loadList();
 })();
 </script>
