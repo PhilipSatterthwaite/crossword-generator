@@ -71,6 +71,10 @@ Put a word into one of your word lists, with a score from 0 to 100. Every puzzle
 [home.quick.first]
 You don't have a word list of your own yet, so the first word you add starts one: the built-in list plus the words you add. Pick it for a puzzle from the List menu on the Grid page.
 
+// The link under the Quick add card to the full list editor.
+[home.quick.editor]
+Sort, filter and edit whole lists
+
 [home.guide.heading]
 How to make a crossword
 
@@ -389,6 +393,29 @@ Lay out the black squares: the designer tries hundreds of symmetric patterns, fi
 [grid.scores]
 Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 50.
 
+
+// ============================================================ the word lists page
+
+[lists.title]
+Word lists · fillmein
+
+[lists.description]
+Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.
+
+[lists.social.title]
+Word lists · fillmein
+
+[lists.social.description]
+Sort, filter, remove and rescore the words your puzzles fill from.
+
+[lists.heading]
+Word lists
+
+[lists.lead]
+Every word your puzzles can fill from, with its score, how often it has been a New York Times answer and how everyday it is. Filter down to the words you want to look at, then remove or rescore them one at a time or all together.
+
+[lists.key]
+Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
 
 // ============================================================ the clues page
 

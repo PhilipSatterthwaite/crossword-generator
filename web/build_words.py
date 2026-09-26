@@ -21,6 +21,10 @@ can't gain any just because their words are common: that's how "green paint" get
 Words on a block list (compileWords/blocklist*.txt: slurs and obscenities, one per line) are
 left out entirely, whatever their score.
 
+web/wordstats.js is written beside it for the list editor: per length, [uses, everyday], comma
+lists in the same word order, of how many published puzzles each word has appeared in and how
+familiar it is in everyday English (0-100, see popularity).
+
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
 bitsets: which of them are popular (see popularity), which have appeared in published
@@ -295,15 +299,19 @@ def main():
     zipf = load_zipf()
     scores = {}
     popular = set()
+    everyday = {}
     for word, score in broda.items():
         how_popular, is_popular = popularity(word, counts.get(word, 0), zipf)
+        everyday[word] = how_popular
         scores[word] = adjust(score, how_popular)
         if is_popular and scores[word] >= POPULAR_FLOOR:
             popular.add(word)
     for word, count in counts.items():
         if word not in scores:
             scores[word] = round(UNVETTED_MAX * estimate_score(word, count, zipf) / 100)
-            if popularity(word, count, zipf)[1] and scores[word] >= POPULAR_FLOOR:
+            how_popular, is_popular = popularity(word, count, zipf)
+            everyday[word] = how_popular
+            if is_popular and scores[word] >= POPULAR_FLOOR:
                 popular.add(word)
     # Blocked words leave the list entirely: no autofill or word option offers them at any
     # minimum score, though you can still ink one yourself.
@@ -317,17 +325,22 @@ def main():
     for word in scores:
         by_length.setdefault(len(word), []).append(word)
     data = {}
+    stats = {}
     for length, words in sorted(by_length.items()):
         # Among equal scores, words seen in published puzzles come first.
         words.sort(key=lambda w: (-scores[w], -counts.get(w, 0), w))
         data[length] = ["".join(words), ",".join(str(scores[w]) for w in words), bitset_base64([w in popular for w in words]),
                         bitset_base64([w in counts for w in words]), bitset_base64([w in counts and w not in broda for w in words])]
+        stats[length] = [",".join(str(counts.get(w, 0)) for w in words), ",".join(str(round(100 * everyday.get(w, 0.5))) for w in words)]
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))
     out.write_text(f"(typeof self !== 'undefined' ? self : globalThis).GRIDFILL_WORDS = {payload};\n", encoding="utf-8")
     print(f"wrote {out}: {len(scores)} words ({len(broda)} from {source}, {len(scores) - len(broda)} unvetted), "
           f"{out.stat().st_size // 1024} KB")
+    stats_out = HERE / "wordstats.js"
+    stats_out.write_text(f"(typeof self !== 'undefined' ? self : globalThis).GRIDFILL_STATS = {json.dumps(stats, separators=(',', ':'))};\n", encoding="utf-8")
+    print(f"wrote {stats_out}: {stats_out.stat().st_size // 1024} KB")
     if args.samples:
         print_samples(scores, broda)
         for minimum in (50, 70):

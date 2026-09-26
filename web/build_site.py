@@ -23,12 +23,12 @@ PAGE_START = '<div class="page">'
 # explore.html is written but not shipped: puzzles will be chosen for it later, rather than every
 # shared puzzle appearing there.
 PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html",
-         "contact.html", "guide.html", "404.html")
+         "contact.html", "guide.html", "lists.html", "404.html")
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
           "designer.js",
-          "exporters.js", "importers.js", "words.js", "social.png",
+          "exporters.js", "importers.js", "words.js", "wordstats.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
