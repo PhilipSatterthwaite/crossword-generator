@@ -165,11 +165,12 @@
     <button type="button" id="clear-filters" class="btn quiet small">Clear</button>
   </div>
 
+  <div class="sets" id="sets" role="group" aria-label="Which words">
+    <span class="label">Length</span>
+  </div>
+
   <div id="review-view">
-    <div class="sets" id="sets" role="group" aria-label="Which words">
-      <span class="label">Length</span>
-    </div>
-    <div class="sets" style="margin-top: 8px">
+    <div class="sets">
       <span class="label">Order</span>
       <select id="order" aria-label="Order">
         <option value="uses-down" selected>Most NYT appearances first</option>
@@ -407,7 +408,7 @@
   function refilter() {
     const test = patternTest();
     let lenMin = num("len-min"), lenMax = num("len-max");
-    if (mode === "review" && setLength) lenMin = lenMax = setLength;
+    if (setLength) lenMin = lenMax = setLength; // a length button overrides the length boxes
     const scoreMin = num("score-min"), scoreMax = num("score-max");
     const usesMin = num("uses-min"), usesMax = num("uses-max");
     const evMin = num("ev-min"), evMax = num("ev-max");

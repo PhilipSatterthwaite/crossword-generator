@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-glAPsQinJ4kN1egjZ1jj/nFpLL57veVq/F6cnCUBbgk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-iBKtJ5CpJ/sCg/pJIH1EEL/IWJeon9KiuwoHI58uunQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -166,11 +166,12 @@
     <button type="button" id="clear-filters" class="btn quiet small">Clear</button>
   </div>
 
+  <div class="sets" id="sets" role="group" aria-label="Which words">
+    <span class="label">Length</span>
+  </div>
+
   <div id="review-view">
-    <div class="sets" id="sets" role="group" aria-label="Which words">
-      <span class="label">Length</span>
-    </div>
-    <div class="sets" style="margin-top: 8px">
+    <div class="sets">
       <span class="label">Order</span>
       <select id="order" aria-label="Order">
         <option value="uses-down" selected>Most NYT appearances first</option>
@@ -408,7 +409,7 @@
   function refilter() {
     const test = patternTest();
     let lenMin = num("len-min"), lenMax = num("len-max");
-    if (mode === "review" && setLength) lenMin = lenMax = setLength;
+    if (setLength) lenMin = lenMax = setLength; // a length button overrides the length boxes
     const scoreMin = num("score-min"), scoreMax = num("score-max");
     const usesMin = num("uses-min"), usesMax = num("uses-max");
     const evMin = num("ev-min"), evMax = num("ev-max");
