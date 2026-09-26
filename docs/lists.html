@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-LSozooXDqUzWCXBt5ThKQTYiBMvNDpR/pxAVQ+s9k7c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-glAPsQinJ4kN1egjZ1jj/nFpLL57veVq/F6cnCUBbgk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -87,7 +87,7 @@
   .sets button:hover { border-color: var(--ink); }
   .sets button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
   .sets button small { color: inherit; opacity: 0.7; }
-  .sweep { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; font-size: 13px; }
+  .sweep { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
   .sweep .label { margin-right: 4px; font-weight: 600; }
   .sweep input[type="number"] { width: 4em; padding: 4px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
   .sweep .hint { flex-basis: 100%; margin: 0; color: var(--muted); }
@@ -181,13 +181,16 @@
         <option value="word-up">Alphabetical</option>
       </select>
     </div>
+    <div class="review" id="review" tabindex="0" style="margin-top: 12px"></div>
+  </div>
+
     <div class="sweep" role="group" aria-label="Decide many at once">
       <span class="label">In one go</span>
       <select id="sweep-what" aria-label="Keep or remove">
         <option value="keep" selected>Keep</option>
         <option value="remove">Remove</option>
       </select>
-      <span>every word in this set whose</span>
+      <span>every word <span id="sweep-scope">in this set</span> whose</span>
       <select id="sweep-stat" aria-label="Which figure">
         <option value="uses" selected>NYT appearances</option>
         <option value="score">score</option>
@@ -203,9 +206,6 @@
       <button type="button" id="sweep-go" class="btn quiet small">Apply</button>
       <p class="hint" id="sweep-hint"></p>
     </div>
-    <div class="review" id="review" tabindex="0" style="margin-top: 12px"></div>
-  </div>
-
   <div class="bulk">
     <span id="count" class="count"></span>
     <span class="spacer"></span>
@@ -445,10 +445,8 @@
     $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
     $("scroller").scrollTop = 0;
     draw();
-    if (mode === "review") {
-      resumeReview();
-      sweepHint();
-    }
+    if (mode === "review") resumeReview();
+    sweepHint();
   }
 
   let filterTimer = 0;
@@ -920,7 +918,8 @@
   }
   function sweepHint() {
     const rows = sweepRows();
-    $("sweep-hint").textContent = `${rows.length.toLocaleString()} of the ${shown.length.toLocaleString()} words in this set have ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}.`;
+    $("sweep-scope").textContent = mode === "review" ? "in this set" : "shown";
+    $("sweep-hint").textContent = `${rows.length.toLocaleString()} of the ${shown.length.toLocaleString()} words ${mode === "review" ? "in this set" : "shown"} have ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}.`;
   }
   for (const id of ["sweep-what", "sweep-stat", "sweep-how", "sweep-value"]) $(id).addEventListener("input", sweepHint);
   $("sweep-go").addEventListener("click", async () => {
@@ -929,7 +928,7 @@
       $("sweep-hint").textContent = "No word in this set clears that threshold.";
       return;
     }
-    await bulk($("sweep-what").value, rows, `in this set with ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}`);
+    await bulk($("sweep-what").value, rows, `${mode === "review" ? "in this set" : "shown"} with ${STAT_NAMES[$("sweep-stat").value]} ${$("sweep-how").value === "min" ? "at least" : "at most"} ${$("sweep-value").value}`);
     focusReview();
   });
   $("bulk-restore").addEventListener("click", () => bulk("restore"));
