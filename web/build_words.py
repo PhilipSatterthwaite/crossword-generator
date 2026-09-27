@@ -21,9 +21,12 @@ can't gain any just because their words are common: that's how "green paint" get
 Words on a block list (compileWords/blocklist*.txt: slurs and obscenities, one per line) are
 left out entirely, whatever their score.
 
-web/wordstats.js is written beside it for the list editor: per length, [uses, everyday], comma
-lists in the same word order, of how many published puzzles each word has appeared in and how
-familiar it is in everyday English (0-100, see popularity).
+web/wordstats.js is written beside it for the list editor: per length, [uses, everyday, google],
+comma lists in the same word order, of how many published puzzles each word has appeared in, how
+familiar it is in everyday English (0-100, see popularity), and how many times Google's web corpus
+has it (compileWords/google-1w.txt and google-2w.txt: the unigram and bigram counts from the Google
+Web Trillion Word Corpus as Peter Norvig publishes them at norvig.com/ngrams; a phrase counts as
+the rarest of its word pairs, and a word or phrase not on the lists counts 0).
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
@@ -226,6 +229,35 @@ def load_broda():
     return paths[-1].name, scores
 
 
+def load_google():
+    """Google's web counts: {WORD: count} and {"WORD WORD": count}, uppercased."""
+    def read(name):
+        counts = {}
+        path = COMPILE / name
+        if not path.exists():
+            print(f"no {path}: Google counts left out")
+            return counts
+        for line in path.read_text(encoding="utf-8").splitlines():
+            parts = line.split("\t")
+            if len(parts) == 2 and parts[1].isdigit():
+                counts[parts[0].upper()] = int(parts[1])
+        return counts
+    return read("google-1w.txt"), read("google-2w.txt")
+
+
+def google_count(word, parts, unigrams, bigrams):
+    """How often Google's web corpus saw the word, or, for a phrase, its rarest word pair."""
+    if len(parts) <= 1:
+        return unigrams.get(word, 0)
+    least = None
+    for a, b in zip(parts, parts[1:]):
+        count = bigrams.get(f"{a} {b}", 0)
+        if not count:
+            return 0
+        least = count if least is None else min(least, count)
+    return least or 0
+
+
 def load_published():
     counts = {}
     for path in PUBLISHED.glob("len*.txt"):
@@ -297,12 +329,15 @@ def main():
     source, broda = load_broda()
     counts = load_published()
     zipf = load_zipf()
+    unigrams, bigrams = load_google()
     scores = {}
     popular = set()
     everyday = {}
+    google = {}
     for word, score in broda.items():
         how_popular, is_popular = popularity(word, counts.get(word, 0), zipf)
         everyday[word] = how_popular
+        google[word] = google_count(word, reading(word, zipf)[1], unigrams, bigrams)
         scores[word] = adjust(score, how_popular)
         if is_popular and scores[word] >= POPULAR_FLOOR:
             popular.add(word)
@@ -311,6 +346,7 @@ def main():
             scores[word] = round(UNVETTED_MAX * estimate_score(word, count, zipf) / 100)
             how_popular, is_popular = popularity(word, count, zipf)
             everyday[word] = how_popular
+            google[word] = google_count(word, reading(word, zipf)[1], unigrams, bigrams)
             if is_popular and scores[word] >= POPULAR_FLOOR:
                 popular.add(word)
     # Blocked words leave the list entirely: no autofill or word option offers them at any
@@ -331,7 +367,8 @@ def main():
         words.sort(key=lambda w: (-scores[w], -counts.get(w, 0), w))
         data[length] = ["".join(words), ",".join(str(scores[w]) for w in words), bitset_base64([w in popular for w in words]),
                         bitset_base64([w in counts for w in words]), bitset_base64([w in counts and w not in broda for w in words])]
-        stats[length] = [",".join(str(counts.get(w, 0)) for w in words), ",".join(str(round(100 * everyday.get(w, 0.5))) for w in words)]
+        stats[length] = [",".join(str(counts.get(w, 0)) for w in words), ",".join(str(round(100 * everyday.get(w, 0.5))) for w in words),
+                         ",".join(str(google.get(w, 0)) for w in words)]
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))
