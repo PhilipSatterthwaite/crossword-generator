@@ -140,11 +140,15 @@
   .meter { display: grid; gap: 8px; }
   .meter-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; color: var(--ink); }
   .meter-head b { font: 800 28px / 1 var(--sans); font-variant-numeric: tabular-nums; }
-  .meter-track { position: relative; height: 12px; border-radius: 6px; background: var(--chip); }
+  .meter-track { position: relative; height: 12px; border-radius: 6px; background: var(--chip); overflow: hidden; }
   .meter-track i { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--danger); transition: width 0.4s ease-out, background-color 0.4s; }
-  .meter.ready .meter-track i { background: var(--ok); }
-  .meter-goal { position: absolute; top: -4px; bottom: -4px; left: 90%; width: 2px; background: var(--ink); }
+  .meter[data-stage="yellow"] .meter-track i { background: var(--busy); }
+  .meter[data-stage="green"] .meter-track i { background: var(--ok); }
+  .meter[data-stage="red"] .meter-head b { color: var(--danger); }
+  .meter[data-stage="yellow"] .meter-head b { color: var(--busy); }
+  .meter[data-stage="green"] .meter-head b { color: var(--ok); }
   .meter-note { color: var(--ink) !important; }
+  .meter-accuracy { font-size: 13px; }
   .model-field { display: grid; gap: 6px; font-weight: 600; color: var(--ink); }
   .model-inline { display: flex; align-items: center; gap: 8px; font-weight: 400; color: var(--muted); }
   .model input[type="number"] { width: 4.5em; min-height: 40px; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); color: var(--ink); font: 700 16px var(--sans); text-align: center; }
@@ -204,7 +208,7 @@
 
   <div>
     <h1>Train a list</h1>
-    <p class="lead">Words come up at random from across the whole list. Swipe left (or press ←) to remove one; swipe right (or press →) to keep it and give it a score. Then train the model below. When its confidence reaches 90, it can finish the rest of the list into a new one. Expect a few thousand words to get there.</p>
+    <p class="lead">Words come up at random from across the whole list. Swipe left (or press ←) to remove one; swipe right (or press →) to keep it and give it a score. Then train the model below. When its confidence is green, it can finish the rest of the list into a new one. Expect a few thousand words to get there.</p>
     <p class="lead"><a class="other-page" href="lists.html">← Edit lists word by word</a></p>
   </div>
 
@@ -271,8 +275,9 @@
       <div id="model-result" class="model-result" hidden>
         <div class="meter" id="meter">
           <div class="meter-head"><span>Confidence</span><b id="meter-value">0</b></div>
-          <div class="meter-track"><i id="meter-fill"></i><span class="meter-goal" title="90"></span></div>
+          <div class="meter-track"><i id="meter-fill"></i></div>
           <p id="meter-note" class="meter-note"></p>
+          <p id="meter-accuracy" class="meter-accuracy"></p>
         </div>
         <p id="model-preview" class="model-preview"></p>
         <label class="model-field">Name
@@ -346,6 +351,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6";</script>
-<script src="listtool.js?v=56769925d5"></script>
+<script src="listtool.js?v=ac87da9736"></script>
 </body>
 </html>

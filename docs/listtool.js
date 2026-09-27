@@ -418,7 +418,6 @@
       `<div id="clues-box"></div>` +
       `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button>` +
       `<button type="button" class="btn quiet" data-decide="undo"${history.length ? "" : " disabled"}><kbd>⌫</kbd>Undo</button></div>` +
-      `<div class="score-line">or score it <input type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}" data-decide="score"> and press Enter</div>` +
       (verdicts || `<p class="verdicts">${row.removed ? "This word is already removed; Keep puts it back." : ""}</p>`);
     showClues(row);
     if (at + 1 < n) pastFor(shown[at + 1].word); // the next word's file, fetched ahead
@@ -1023,6 +1022,9 @@
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
+    let trainRight = 0;
+    for (const i of trainIdx) if ((sigmoid(forward(trial, X[i])[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
+    const trainAcc = trainIdx.length ? Math.round((100 * trainRight) / trainIdx.length) : 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
     for (const i of held) {
       const out = forward(trial, X[i]);
@@ -1036,10 +1038,15 @@
     model = { net, decided: decided.length };
     const acc = n ? Math.round((100 * right) / n) : 0, base = n ? Math.round((100 * baseRight) / n) : 0;
     // Confidence: how often it got right the decisions it wasn't trained on.
-    $("meter-value").textContent = acc;
-    $("meter-fill").style.width = `${acc}%`;
-    $("meter").classList.toggle("ready", acc >= 90);
-    $("meter-note").textContent = acc >= 90 ? "Ready to finish the list." : "Keep swiping, then train again. Aim for 90.";
+    // Confidence runs from a coin toss (50% right on the held-back words: 0) to 95% right or better
+    // (100), in three stages.
+    const confidence = Math.max(0, Math.min(100, Math.round(((acc - 50) / 45) * 100)));
+    const stage = confidence >= 85 ? "green" : confidence >= 60 ? "yellow" : "red";
+    $("meter-value").textContent = confidence;
+    $("meter-fill").style.width = `${Math.max(2, confidence)}%`;
+    $("meter").dataset.stage = stage;
+    $("meter-note").textContent = stage === "green" ? "Ready to finish the list." : stage === "yellow" ? "Getting there. Keep swiping, then train again." : "Keep swiping, then train again.";
+    $("meter-accuracy").textContent = `Right on ${trainAcc}% of the ${trainIdx.length.toLocaleString()} words it trained on, and ${acc}% of the ${n.toLocaleString()} held back to test it.`;
     await predictAll((share) => progress(0.7 + 0.3 * share, "Training…"));
     $("train-progress").hidden = true;
     $("model-result").hidden = false;
