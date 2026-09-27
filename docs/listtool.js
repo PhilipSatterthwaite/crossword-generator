@@ -481,11 +481,10 @@
       `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">` +
       `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
       `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter</div>` +
-      `<div class="decide"><button type="button" class="btn primary" data-decide="score-done"><kbd>⏎</kbd>Keep at <span id="score-at">${Math.max(1, row.score)}</span></button>` +
-      `<button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button></div></div>`;
+      `<div class="decide"><button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button>` +
+      `<button type="button" class="btn primary" data-decide="score-done"><kbd>⏎</kbd>Keep</button></div></div>`;
     const show = (n) => {
       $("score-big").textContent = n;
-      $("score-at").textContent = n;
       $("score-range").value = n;
       if (document.activeElement !== $("score-box")) $("score-box").value = n;
     };
