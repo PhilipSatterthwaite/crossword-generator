@@ -1022,11 +1022,16 @@
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
-    let trainRight = 0, trainScoreErr = 0, trainScoreN = 0;
+    let trainRight = 0, trainScoreErr = 0, trainScoreN = 0, trainScoreMax = 0, testScoreMax = 0;
     for (const i of trainIdx) {
       const out = forward(trial, X[i]);
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
-      if (Y[i][1] >= 0) { trainScoreErr += Math.abs(out[1] * 100 - Y[i][1] * 100); trainScoreN++; }
+      if (Y[i][1] >= 0) {
+        const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
+        trainScoreErr += off;
+        trainScoreMax = Math.max(trainScoreMax, off);
+        trainScoreN++;
+      }
     }
     const trainAcc = trainIdx.length ? Math.round((100 * trainRight) / trainIdx.length) : 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
@@ -1035,7 +1040,12 @@
       n++;
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) right++;
       if ((keptShare >= 0.5 ? 1 : 0) === Y[i][0]) baseRight++;
-      if (Y[i][1] >= 0) { scoreErr += Math.abs(out[1] * 100 - Y[i][1] * 100); scoreN++; }
+      if (Y[i][1] >= 0) {
+        const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
+        scoreErr += off;
+        testScoreMax = Math.max(testScoreMax, off);
+        scoreN++;
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(net, X, Y, epochs, (e) => tick(null, e + epochs, epochs * 2));
@@ -1055,12 +1065,12 @@
     $("acc-train").style.width = `${trainAcc}%`;
     $("acc-test-value").textContent = `${acc}%`;
     $("acc-test").style.width = `${acc}%`;
-    // Score accuracy: 100 less the points its scores are off by, on average, for words kept with a score.
-    const scoreAcc = (err, count) => (count ? Math.max(0, Math.round(100 - err / count)) : null);
-    for (const [key, value] of [["acc-score-train", scoreAcc(trainScoreErr, trainScoreN)], ["acc-score-test", scoreAcc(scoreErr, scoreN)]]) {
-      $(`${key}-value`).textContent = value === null ? "–" : `${value}%`;
-      $(key).style.width = `${value || 0}%`;
-    }
+    // Scores: how many points the model's score is from yours, on average and at worst, for kept words.
+    const points = (n) => `${Math.round(n)} ${Math.round(n) === 1 ? "point" : "points"}`;
+    $("dev-train-avg").textContent = trainScoreN ? points(trainScoreErr / trainScoreN) : "–";
+    $("dev-train-max").textContent = trainScoreN ? points(trainScoreMax) : "–";
+    $("dev-test-avg").textContent = scoreN ? points(scoreErr / scoreN) : "–";
+    $("dev-test-max").textContent = scoreN ? points(testScoreMax) : "–";
     await predictAll((share) => progress(0.7 + 0.3 * share, "Training…"));
     $("train-progress").hidden = true;
     $("model-result").hidden = false;

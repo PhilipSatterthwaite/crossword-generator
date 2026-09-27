@@ -151,6 +151,11 @@
   .meter-accuracy { font-size: 13px; }
   .acc { display: grid; gap: 4px; }
   .acc-title { margin: 6px 0 2px !important; font-weight: 600; color: var(--ink) !important; }
+  .dev { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .dev th, .dev td { padding: 5px 0; text-align: right; border-bottom: 1px solid var(--line-soft); }
+  .dev th:first-child { text-align: left; font-weight: 400; color: var(--muted); }
+  .dev thead th { font-weight: 600; color: var(--muted); }
+  .dev td { font-weight: 700; color: var(--ink); }
   .acc-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted); }
   .acc-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .acc-track { height: 8px; margin-bottom: 6px; border-radius: 4px; background: var(--chip); overflow: hidden; }
@@ -290,11 +295,14 @@
             <div class="acc-track"><i id="acc-train"></i></div>
             <div class="acc-head"><span>Testing</span><b id="acc-test-value">0%</b></div>
             <div class="acc-track"><i id="acc-test"></i></div>
-            <p class="acc-title">Scores</p>
-            <div class="acc-head"><span>Training</span><b id="acc-score-train-value">–</b></div>
-            <div class="acc-track"><i id="acc-score-train"></i></div>
-            <div class="acc-head"><span>Testing</span><b id="acc-score-test-value">–</b></div>
-            <div class="acc-track"><i id="acc-score-test"></i></div>
+            <p class="acc-title">Scores: how many points off</p>
+            <table class="dev">
+              <thead><tr><th></th><th>Average</th><th>Worst</th></tr></thead>
+              <tbody>
+                <tr><th>Training</th><td id="dev-train-avg">–</td><td id="dev-train-max">–</td></tr>
+                <tr><th>Testing</th><td id="dev-test-avg">–</td><td id="dev-test-max">–</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
         <p id="model-preview" class="model-preview"></p>
@@ -369,6 +377,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6";</script>
-<script src="listtool.js?v=7a2367503b"></script>
+<script src="listtool.js?v=167dc3dedf"></script>
 </body>
 </html>
