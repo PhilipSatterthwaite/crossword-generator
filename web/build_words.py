@@ -21,12 +21,18 @@ can't gain any just because their words are common: that's how "green paint" get
 Words on a block list (compileWords/blocklist*.txt: slurs and obscenities, one per line) are
 left out entirely, whatever their score.
 
-web/wordstats.js is written beside it for the list editor: per length, [uses, everyday, google],
-comma lists in the same word order, of how many published puzzles each word has appeared in, how
-familiar it is in everyday English (0-100, see popularity), and how many times Google's web corpus
-has it (compileWords/google-1w.txt and google-2w.txt: the unigram and bigram counts from the Google
-Web Trillion Word Corpus as Peter Norvig publishes them at norvig.com/ngrams; a phrase counts as
-the rarest of its word pairs, and a word or phrase not on the lists counts 0).
+web/wordstats.js is written beside it for the list editor, with figures per word beyond the score:
+per length, comma lists in the same word order of
+- uses: how many published puzzles the word has appeared in;
+- everyday: how familiar it is in everyday English (0-100, see popularity);
+- google: how many times Google's web corpus has it (compileWords/google-1w.txt and google-2w.txt:
+  the unigram and bigram counts from the Google Web Trillion Word Corpus as Peter Norvig publishes
+  them at norvig.com/ngrams; a phrase counts as the rarest of its word pairs, unseen counts 0);
+- year: the last year it was a published answer (0 if never);
+- broda: Broda's own score before the popularity nudge ("" for words his list lacks);
+- zipf: the Zipf frequency of its most familiar reading, times ten (see reading);
+- cuts: where that reading splits it into words, as letter counts ("5.8" for ASKED|FOR|THEMOON's
+  first two cuts; "" for a single word).
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
@@ -258,13 +264,16 @@ def google_count(word, parts, unigrams, bigrams):
     return least or 0
 
 
-def load_published():
+def load_published(years=None):
+    """{WORD: puzzles it appeared in}; with a dict given as years, also {WORD: last year, as 2000 + n}."""
     counts = {}
     for path in PUBLISHED.glob("len*.txt"):
         for line in path.read_text(encoding="utf-8").splitlines():
             parts = line.split()
             if len(parts) >= 2 and re.fullmatch(r"[A-Z]+", parts[0]) and int(parts[1]) >= 1:
                 counts[parts[0]] = max(counts.get(parts[0], 0), int(parts[1]))
+                if years is not None and len(parts) >= 3 and parts[2].isdigit():
+                    years[parts[0]] = max(years.get(parts[0], 0), 2000 + int(parts[2]))
     return counts
 
 
@@ -327,17 +336,20 @@ def main():
     args = parser.parse_args()
 
     source, broda = load_broda()
-    counts = load_published()
+    years = {}
+    counts = load_published(years)
     zipf = load_zipf()
     unigrams, bigrams = load_google()
     scores = {}
     popular = set()
     everyday = {}
     google = {}
+    readings = {}  # word -> (familiar zipf, its words)
     for word, score in broda.items():
         how_popular, is_popular = popularity(word, counts.get(word, 0), zipf)
         everyday[word] = how_popular
-        google[word] = google_count(word, reading(word, zipf)[1], unigrams, bigrams)
+        readings[word] = reading(word, zipf)
+        google[word] = google_count(word, readings[word][1], unigrams, bigrams)
         scores[word] = adjust(score, how_popular)
         if is_popular and scores[word] >= POPULAR_FLOOR:
             popular.add(word)
@@ -346,7 +358,8 @@ def main():
             scores[word] = round(UNVETTED_MAX * estimate_score(word, count, zipf) / 100)
             how_popular, is_popular = popularity(word, count, zipf)
             everyday[word] = how_popular
-            google[word] = google_count(word, reading(word, zipf)[1], unigrams, bigrams)
+            readings[word] = reading(word, zipf)
+            google[word] = google_count(word, readings[word][1], unigrams, bigrams)
             if is_popular and scores[word] >= POPULAR_FLOOR:
                 popular.add(word)
     # Blocked words leave the list entirely: no autofill or word option offers them at any
@@ -367,8 +380,19 @@ def main():
         words.sort(key=lambda w: (-scores[w], -counts.get(w, 0), w))
         data[length] = ["".join(words), ",".join(str(scores[w]) for w in words), bitset_base64([w in popular for w in words]),
                         bitset_base64([w in counts for w in words]), bitset_base64([w in counts and w not in broda for w in words])]
+        cuts = []
+        for w in words:
+            parts = readings[w][1] if w in readings else [w]
+            edges = []
+            at = 0
+            for part in parts[:-1]:
+                at += len(part)
+                edges.append(str(at))
+            cuts.append(".".join(edges))
         stats[length] = [",".join(str(counts.get(w, 0)) for w in words), ",".join(str(round(100 * everyday.get(w, 0.5))) for w in words),
-                         ",".join(str(google.get(w, 0)) for w in words)]
+                         ",".join(str(google.get(w, 0)) for w in words), ",".join(str(years.get(w, 0)) for w in words),
+                         ",".join(str(broda[w]) if w in broda else "" for w in words),
+                         ",".join(str(round(10 * readings[w][0])) if w in readings else "0" for w in words), ",".join(cuts)]
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))

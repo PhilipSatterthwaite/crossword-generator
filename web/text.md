@@ -415,7 +415,7 @@ Word lists
 Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow to remove it, the right arrow to keep it, or type a score and press Enter. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. The Table view shows the same words as a list to filter, sort and change all at once.
 
 [lists.key]
-Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
+Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Broda: Peter Broda's own score, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
 
 // ============================================================ the clues page
 

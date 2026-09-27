@@ -97,6 +97,7 @@
   .review .big.gone { color: var(--muted); text-decoration: line-through; }
   .review .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .review .facts b { color: var(--ink); }
+  .review .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); letter-spacing: 0.06em; }
   .review .facts .tag { font-size: 12px; }
   .review .decide { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
   .review .decide .btn { min-width: 9em; }
@@ -142,6 +143,7 @@
   <div class="which">
     <label class="field">List <select id="list" aria-label="Word list to edit"></select></label>
     <button type="button" id="copy" class="btn small" hidden>Make a copy to edit</button>
+    <button type="button" id="download" class="btn quiet small" title="Every word of this list with all its figures and your decisions, as a spreadsheet">Download data (CSV)</button>
     <p id="which-note" class="note"></p>
     <span class="modes" role="group" aria-label="View">
       <button type="button" data-mode="review" aria-pressed="true">One at a time</button>
@@ -156,7 +158,6 @@
     <span class="field" title="Published crossword answers, 2000 to 2023"><b>NYT uses</b> <input id="uses-min" type="number" min="0" aria-label="Fewest uses"> <span class="dash">–</span> <input id="uses-max" type="number" min="0" aria-label="Most uses"></span>
     <span class="field" title="How familiar the word is in everyday English, 0 to 100"><b>Everyday</b> <input id="ev-min" type="number" min="0" max="100" aria-label="Least everyday"> <span class="dash">–</span> <input id="ev-max" type="number" min="0" max="100" aria-label="Most everyday"></span>
     <span class="field" title="Times Google's web corpus has the word (a phrase: its rarest word pair)"><b>Google</b> <input id="g-min" type="number" min="0" aria-label="Fewest Google hits"> <span class="dash">–</span> <input id="g-max" type="number" min="0" aria-label="Most Google hits"></span>
-    <span class="field" title="Vowels as a share of the letters"><b>Vowels %</b> <input id="vow-min" type="number" min="0" max="100" aria-label="Fewest vowels"> <span class="dash">–</span> <input id="vow-max" type="number" min="0" max="100" aria-label="Most vowels"></span>
     <label class="check"><input type="checkbox" id="only-rescored"> Rescored</label>
     <label class="check"><input type="checkbox" id="only-removed"> Removed</label>
     <label class="check"><input type="checkbox" id="hide-removed" checked> Hide removed</label>
@@ -181,6 +182,8 @@
         <option value="everyday-up">Least everyday first</option>
         <option value="google-up">Fewest Google hits first</option>
         <option value="google-down">Most Google hits first</option>
+        <option value="broda-up">Lowest Broda score first</option>
+        <option value="year-up">Longest since a Times answer first</option>
         <option value="word-up">Alphabetical</option>
       </select>
     </div>
@@ -199,7 +202,8 @@
         <option value="score">score</option>
         <option value="everyday">everyday figure</option>
         <option value="google">Google hits</option>
-        <option value="vowels">vowel %</option>
+        <option value="broda">Broda score</option>
+        <option value="year">last Times year</option>
       </select>
       <span>is</span>
       <select id="sweep-how" aria-label="At least or at most">
@@ -227,7 +231,7 @@
     <button type="button" class="num uses" data-sort="uses" aria-sort="ascending">NYT</button>
     <button type="button" class="num" data-sort="everyday" aria-sort="none">Everyday</button>
     <button type="button" class="num goog" data-sort="google" aria-sort="none">Google</button>
-    <button type="button" class="num vow" data-sort="vowels" aria-sort="none">Vowels</button>
+    <button type="button" class="num vow" data-sort="year" aria-sort="none" title="The last year it was a Times answer">Last</button>
     <span class="flags">Notes</span>
     <span></span>
   </div>
@@ -268,6 +272,19 @@
 
   // --- the words ---
 
+  /* The word as its reading splits it: GREEN PAINT. */
+  const readingOf = (row) => {
+    if (!row.cuts) return row.word;
+    const out = [];
+    let at = 0;
+    for (const edge of row.cuts.split(".").map(Number)) {
+      out.push(row.word.slice(at, edge));
+      at = edge;
+    }
+    out.push(row.word.slice(at));
+    return out.join(" ");
+  };
+
   /* A count as people read it: 12.3M, 45k, 980, or – for none. */
   const compact = (n) => (!n ? "–" : n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}k` : String(n));
   const bit = (bytes, i) => (bytes ? (bytes.charCodeAt(i >>> 3) >> (i & 7)) & 1 : 0);
@@ -284,6 +301,10 @@
       const uses = stats ? stats[0].split(",") : null;
       const everyday = stats ? stats[1].split(",") : null;
       const google = stats && stats[2] ? stats[2].split(",") : null;
+      const years = stats && stats[3] ? stats[3].split(",") : null;
+      const brodas = stats && stats[4] ? stats[4].split(",") : null;
+      const zipfs = stats && stats[5] ? stats[5].split(",") : null;
+      const cuts = stats && stats[6] ? stats[6].split(",") : null;
       const popular = popularText ? atob(popularText) : "";
       const published = publishedText ? atob(publishedText) : "";
       const unvetted = unvettedText ? atob(unvettedText) : "";
@@ -296,6 +317,8 @@
           word, len,
           base: which === "nyt" && unv ? NYT_UNVETTED : Number(scores[i]),
           score: 0, uses: uses ? Number(uses[i]) : 0, everyday: everyday ? Number(everyday[i]) : 50, google: google ? Number(google[i]) : 0,
+          year: years ? Number(years[i]) : 0, broda: brodas && brodas[i] !== "" ? Number(brodas[i]) : -1, zipf: zipfs ? Number(zipfs[i]) / 10 : 0,
+          cuts: cuts ? cuts[i] : "",
           vowels: vowelShare(word), popular: bit(popular, i), nyt, unvetted: unv, removed: false, own: false,
         });
       }
@@ -313,7 +336,8 @@
       const known = byWord.get(word);
       return {
         word, len: word.length, base: score, score: 0,
-        uses: known ? known.uses : 0, everyday: known ? known.everyday : 50, google: known ? known.google : 0, vowels: vowelShare(word),
+        uses: known ? known.uses : 0, everyday: known ? known.everyday : 50, google: known ? known.google : 0,
+        year: known ? known.year : 0, broda: known ? known.broda : -1, zipf: known ? known.zipf : 0, cuts: known ? known.cuts : "", vowels: vowelShare(word),
         popular: known ? known.popular : 0, nyt: known ? known.nyt : 0, unvetted: known ? known.unvetted : 0, removed: false, own: false,
       };
     });
@@ -335,7 +359,7 @@
     const have = new Set(rows.map((row) => row.word));
     for (const [word, score] of Object.entries(scores)) {
       if (have.has(word) || !/^[A-Z]{2,}$/.test(word)) continue;
-      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, google: 0, vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true, kept: kept.has(word) });
+      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, google: 0, year: 0, broda: -1, zipf: 0, cuts: "", vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true, kept: kept.has(word) });
     }
   }
 
@@ -420,7 +444,6 @@
     const scoreMin = num("score-min"), scoreMax = num("score-max");
     const usesMin = num("uses-min"), usesMax = num("uses-max");
     const evMin = num("ev-min"), evMax = num("ev-max");
-    const vowMin = num("vow-min"), vowMax = num("vow-max");
     const gMin = num("g-min"), gMax = num("g-max");
     const onlyRescored = $("only-rescored").checked;
     const onlyRemoved = $("only-removed").checked;
@@ -434,7 +457,6 @@
       (scoreMin === null || row.score >= scoreMin) && (scoreMax === null || row.score <= scoreMax) &&
       (usesMin === null || row.uses >= usesMin) && (usesMax === null || row.uses <= usesMax) &&
       (evMin === null || row.everyday >= evMin) && (evMax === null || row.everyday <= evMax) &&
-      (vowMin === null || row.vowels >= vowMin) && (vowMax === null || row.vowels <= vowMax) &&
       (gMin === null || row.google >= gMin) && (gMax === null || row.google <= gMax) &&
       (!onlyRescored || row.own) && (!onlyRemoved || row.removed) && (!hideRemoved || !row.removed) && (!hideKept || !row.kept) &&
       (!onlyNyt || row.nyt) && (!onlyPopular || row.popular));
@@ -444,7 +466,7 @@
   function resort() {
     // Ties on the chosen figure break on the others, in this order and the same direction, so
     // "fewest NYT appearances first" runs on to the lowest score and then the least everyday.
-    const keys = [sortKey, ...["uses", "score", "everyday", "google", "vowels"].filter((key) => key !== sortKey)];
+    const keys = [sortKey, ...["uses", "score", "everyday", "google", "broda", "year"].filter((key) => key !== sortKey)];
     const sign = sortDown ? -1 : 1;
     shown.sort((a, b) => {
       for (const key of keys) {
@@ -580,7 +602,11 @@
     if (row.popular) tags.push('<span class="tag">popular</span>');
     box.innerHTML = `<p class="progress">${(n - at).toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"} left to decide</p>` +
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
-      `<div class="facts"><span>Score <b>${row.score}</b></span><span>NYT <b>${row.uses.toLocaleString()}</b></span><span>Everyday <b>${row.everyday}</b></span><span title="${row.google.toLocaleString()} in Google's web corpus">Google <b>${compact(row.google)}</b></span><span>Vowels <b>${row.vowels}%</b></span>${tags.join("")}</div>` +
+      (row.cuts ? `<p class="reading">read as <b>${readingOf(row)}</b></p>` : "") +
+      `<div class="facts"><span>Score <b>${row.score}</b></span><span title="Peter Broda's own score, before the site's popularity nudge">Broda <b>${row.broda < 0 ? "–" : row.broda}</b></span>` +
+      `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span>Everyday <b>${row.everyday}</b></span>` +
+      `<span title="Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand">Zipf <b>${row.zipf ? row.zipf.toFixed(1) : "–"}</b></span>` +
+      `<span title="${row.google.toLocaleString()} in Google's web corpus">Google <b>${compact(row.google)}</b></span>${tags.join("")}</div>` +
       `<div id="clues-box"></div>` +
       `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button>` +
       `<button type="button" class="btn quiet" data-decide="undo"${history.length ? "" : " disabled"}><kbd>⌫</kbd>Undo</button></div>` +
@@ -748,7 +774,7 @@
     const can = editable();
     return `<span class="word">${row.word}</span><span class="num">${row.len}</span>` +
       `<input class="score num${row.own ? " own" : ""}" type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}"${can ? "" : " disabled"}>` +
-      `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num vow">${row.vowels}</span>` +
+      `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num vow">${row.year || "–"}</span>` +
       `<span class="flags">${tags.join("")}</span>` +
       (can ? `<button type="button" class="act${row.removed ? "" : " drop"}" data-act="${row.removed ? "restore" : "remove"}">${row.removed ? "Put back" : "Remove"}</button>` : "<span></span>");
   }
@@ -922,7 +948,7 @@
   $("bulk-remove").addEventListener("click", () => bulk("remove"));
 
   /* Keep or remove every undecided word in the set whose figure clears a threshold. */
-  const STAT_NAMES = { uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", vowels: "vowel share" };
+  const STAT_NAMES = { uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", broda: "Broda score", year: "last Times year" };
   function sweepRows() {
     const stat = $("sweep-stat").value;
     const atLeast = $("sweep-how").value === "min";
@@ -947,6 +973,47 @@
   });
   $("bulk-restore").addEventListener("click", () => bulk("restore"));
   $("bulk-rescore").addEventListener("click", () => bulk("rescore"));
+
+  // --- the data, for anything that wants to learn from it ---
+
+  const SCRABBLE = { A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3, N: 1, O: 1, P: 3, Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10 };
+  const CSV_HEAD = ["word", "reading", "length", "words", "score", "own_score", "base_score", "broda_score", "nyt_uses", "nyt_last_year", "everyday", "zipf", "google",
+    "vowel_pct", "scrabble", "rare_letters", "double_letters", "ends_s", "ends_ed", "ends_ing", "ends_er", "starts_a_the", "popular", "nyt_answer", "unvetted",
+    "confirmed", "removed", "label"];
+
+  /* One row of the spreadsheet: the word's figures, then what was decided about it. label is 1 for a
+     word kept or scored, 0 for one removed, blank for one not looked at yet. */
+  function csvRow(row) {
+    const w = row.word;
+    const reading = readingOf(row);
+    const parts = reading.split(" ");
+    const first = parts[0];
+    return [
+      w, reading, row.len, parts.length, row.score, row.own ? row.score : "", row.base, row.broda < 0 ? "" : row.broda, row.uses, row.year || "", row.everyday, row.zipf.toFixed(1), row.google,
+      row.vowels, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0), (w.match(/[JQXZ]/g) || []).length, (w.match(/([A-Z])\1/g) || []).length,
+      Number(/S$/.test(w)), Number(/ED$/.test(w)), Number(/ING$/.test(w)), Number(/ER$/.test(w)), Number(first === "A" || first === "AN" || first === "THE"),
+      row.popular, row.nyt, row.unvetted,
+      Number(row.kept), Number(row.removed), row.removed ? 0 : row.kept || row.own ? 1 : "",
+    ].join(",");
+  }
+
+  $("download").addEventListener("click", () => {
+    setStatus("Making the spreadsheet…");
+    setTimeout(() => {
+      const lines = [CSV_HEAD.join(",")];
+      for (const row of rows) lines.push(csvRow(row));
+      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const list = chosen();
+      link.download = `${(list ? list.name : BUILT_INS[listId]).replace(/[^A-Za-z0-9]+/g, "-").toLowerCase()}-words.csv`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      setStatus(`${rows.length.toLocaleString()} words written to ${link.download}.`);
+    }, 30);
+  });
 
   // Lists arriving from the account, or edits made on another page: pick them up.
   let busy = false;
