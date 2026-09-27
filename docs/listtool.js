@@ -989,8 +989,8 @@
     const decided = decidedRows();
     const removed = decided.filter((row) => row.removed).length;
     const scored = decided.filter((row) => !row.removed && row.own).length;
-    $("model-count").innerHTML = `<b>${decided.length.toLocaleString()}</b> decisions so far: ${removed.toLocaleString()} removed, ${(decided.length - removed).toLocaleString()} kept (${scored.toLocaleString()} with a score). ` +
-      (decided.length < 200 ? "A model needs a couple of hundred of each kind to be worth anything, and a mixed sample (see Order) teaches it most." : "Enough to try. More decisions, from a mixed sample, make it better.");
+    $("model-count").innerHTML = `<b>${decided.length.toLocaleString()}</b> words decided: ${removed.toLocaleString()} removed, ${(decided.length - removed).toLocaleString()} kept.` +
+      (decided.length < 40 || !removed ? " Decide at least 40, some of each, to train." : "");
     $("train").disabled = decided.length < 40 || decided.some((r) => r.removed) === false;
   }
 
@@ -1016,8 +1016,8 @@
       $("train-bar").style.width = `${Math.round(100 * share)}%`;
       $("train-note").textContent = what;
     };
-    const tick = (_bar, epoch, total) => progress(((epoch + 1) / total) * 0.7, epoch + 1 <= total / 2 ? "Testing how well it learns…" : "Learning from every decision…");
-    progress(0, "Getting ready…");
+    const tick = (_bar, epoch, total) => progress(((epoch + 1) / total) * 0.7, epoch + 1 <= total / 2 ? "Training…" : "Training…");
+    progress(0, "Training…");
     const trial = makeNet(FEATURES.length);
     trial.mean = net.mean; trial.std = net.std;
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -1035,9 +1035,12 @@
     await trainNet(net, X, Y, epochs, (e) => tick(null, e + epochs, epochs * 2));
     model = { net, decided: decided.length };
     const acc = n ? Math.round((100 * right) / n) : 0, base = n ? Math.round((100 * baseRight) / n) : 0;
-    $("model-report").innerHTML = `On decisions it hadn't seen, it told removed from kept <b>${acc}%</b> of the time (always guessing "${keptShare >= 0.5 ? "keep" : "remove"}" would get ${base}%)` +
-      (scoreN ? `, and its scores for kept words were off by <b>${Math.round(scoreErr / scoreN)}</b> points on average.` : ".");
-    await predictAll((share) => progress(0.7 + 0.3 * share, "Scoring the words you haven't decided…"));
+    // Confidence: how often it got right the decisions it wasn't trained on.
+    $("meter-value").textContent = acc;
+    $("meter-fill").style.width = `${acc}%`;
+    $("meter").classList.toggle("ready", acc >= 90);
+    $("meter-note").textContent = acc >= 90 ? "Ready to finish the list." : "Keep swiping, then train again. Aim for 90.";
+    await predictAll((share) => progress(0.7 + 0.3 * share, "Training…"));
     $("train-progress").hidden = true;
     $("model-result").hidden = false;
     $("model-made").textContent = "";
@@ -1085,7 +1088,7 @@
   /* What the model would do with the words not yet decided, at the certainty chosen: just a count
      over the verdicts already made, so the box can be changed freely. */
   function modelVerdicts() {
-    const sure = Math.max(0.5, Math.min(0.99, Number($("model-sure").value) / 100 || 0.8));
+    const sure = 0.5; // its best guess: remove what it thinks more likely removed than kept
     const out = [];
     const { undecided, pKeep, score } = model;
     for (let i = 0; i < undecided.length; i++) {
@@ -1099,9 +1102,8 @@
     const verdicts = modelVerdicts();
     const dropped = verdicts.filter((v) => !v.keep).length;
     const decidedKept = rows.filter((row) => !row.removed && (row.kept || row.own)).length;
-    $("model-preview").innerHTML = `The list would hold <b>${(decidedKept + verdicts.length - dropped).toLocaleString()}</b> words: the ${decidedKept.toLocaleString()} you kept, and ${(verdicts.length - dropped).toLocaleString()} more scored by the model. It would drop ${dropped.toLocaleString()} of the ${verdicts.length.toLocaleString()} you haven't decided.`;
+    $("model-preview").innerHTML = `New list: <b>${(decidedKept + verdicts.length - dropped).toLocaleString()}</b> words.`;
   }
-  $("model-sure").addEventListener("input", previewModel);
 
   $("model-make").addEventListener("click", async () => {
     if (!model) return;
@@ -1114,7 +1116,7 @@
     $("model-make").disabled = true;
     const list = await LISTS.create(name, words);
     $("model-make").disabled = false;
-    $("model-made").innerHTML = `Made <b>${name.replace(/[&<>]/g, "")}</b> with ${words.length.toLocaleString()} words. It's in the List menu here and on the Grid page.`;
+    $("model-made").innerHTML = `Made <b>${name.replace(/[&<>]/g, "")}</b> (${words.length.toLocaleString()} words).`;
     state = await LISTS.state(listId);
     renderWhich();
   });

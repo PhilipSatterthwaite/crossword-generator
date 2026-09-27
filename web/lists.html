@@ -136,7 +136,14 @@
   .model .bar { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
   .model .bar i { display: block; height: 100%; width: 0; background: var(--ink); border-radius: 4px; transition: width 0.25s ease-out; }
   .model-result { display: grid; gap: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
-  .model-report { padding: 12px 14px; border-radius: 4px; background: var(--word); color: var(--ink) !important; }
+  .meter { display: grid; gap: 8px; }
+  .meter-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; color: var(--ink); }
+  .meter-head b { font: 800 28px / 1 var(--sans); font-variant-numeric: tabular-nums; }
+  .meter-track { position: relative; height: 12px; border-radius: 6px; background: var(--chip); }
+  .meter-track i { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--danger); transition: width 0.4s ease-out, background-color 0.4s; }
+  .meter.ready .meter-track i { background: var(--ok); }
+  .meter-goal { position: absolute; top: -4px; bottom: -4px; left: 90%; width: 2px; background: var(--ink); }
+  .meter-note { color: var(--ink) !important; }
   .model-field { display: grid; gap: 6px; font-weight: 600; color: var(--ink); }
   .model-inline { display: flex; align-items: center; gap: 8px; font-weight: 400; color: var(--muted); }
   .model input[type="number"] { width: 4.5em; min-height: 40px; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); color: var(--ink); font: 700 16px var(--sans); text-align: center; }
@@ -253,20 +260,21 @@
     </div>
     <div class="review" id="review" tabindex="0" style="margin-top: 12px"></div>
     <section class="model" id="model" aria-labelledby="model-title">
-      <h2 id="model-title">Let a model finish the list</h2>
+      <h2 id="model-title">Model</h2>
       <p id="model-count"></p>
-      <button type="button" id="train" class="btn model-go">Train on my decisions</button>
+      <button type="button" id="train" class="btn model-go">Train</button>
       <div class="model-progress" id="train-progress" hidden>
         <p id="train-note" class="model-note"></p>
         <div class="bar"><i id="train-bar" style="width: 0"></i></div>
       </div>
       <div id="model-result" class="model-result" hidden>
-        <p id="model-report" class="model-report"></p>
-        <label class="model-field">Remove words it's at least
-          <span class="model-inline"><input id="model-sure" type="number" min="50" max="99" value="80" inputmode="numeric"> % sure should go</span>
-        </label>
+        <div class="meter" id="meter">
+          <div class="meter-head"><span>Confidence</span><b id="meter-value">0</b></div>
+          <div class="meter-track"><i id="meter-fill"></i><span class="meter-goal" title="90"></span></div>
+          <p id="meter-note" class="meter-note"></p>
+        </div>
         <p id="model-preview" class="model-preview"></p>
-        <label class="model-field">Name the new list
+        <label class="model-field">Name
           <input id="model-name" type="text" value="Model list" maxlength="60">
         </label>
         <button type="button" id="model-make" class="btn primary model-go">Make the list</button>
