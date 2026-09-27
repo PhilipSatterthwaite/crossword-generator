@@ -1022,8 +1022,12 @@
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
-    let trainRight = 0;
-    for (const i of trainIdx) if ((sigmoid(forward(trial, X[i])[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
+    let trainRight = 0, trainScoreErr = 0, trainScoreN = 0;
+    for (const i of trainIdx) {
+      const out = forward(trial, X[i]);
+      if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
+      if (Y[i][1] >= 0) { trainScoreErr += Math.abs(out[1] * 100 - Y[i][1] * 100); trainScoreN++; }
+    }
     const trainAcc = trainIdx.length ? Math.round((100 * trainRight) / trainIdx.length) : 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
     for (const i of held) {
@@ -1046,7 +1050,17 @@
     $("meter-fill").style.width = `${Math.max(2, confidence)}%`;
     $("meter").dataset.stage = stage;
     $("meter-note").textContent = stage === "green" ? "Ready to finish the list." : stage === "yellow" ? "Getting there. Keep swiping, then train again." : "Keep swiping, then train again.";
-    $("meter-accuracy").textContent = `Right on ${trainAcc}% of the ${trainIdx.length.toLocaleString()} words it trained on, and ${acc}% of the ${n.toLocaleString()} held back to test it.`;
+    $("meter-split").textContent = `${trainIdx.length.toLocaleString()} words were used for training and ${n.toLocaleString()} for testing.`;
+    $("acc-train-value").textContent = `${trainAcc}%`;
+    $("acc-train").style.width = `${trainAcc}%`;
+    $("acc-test-value").textContent = `${acc}%`;
+    $("acc-test").style.width = `${acc}%`;
+    // Score accuracy: 100 less the points its scores are off by, on average, for words kept with a score.
+    const scoreAcc = (err, count) => (count ? Math.max(0, Math.round(100 - err / count)) : null);
+    for (const [key, value] of [["acc-score-train", scoreAcc(trainScoreErr, trainScoreN)], ["acc-score-test", scoreAcc(scoreErr, scoreN)]]) {
+      $(`${key}-value`).textContent = value === null ? "–" : `${value}%`;
+      $(key).style.width = `${value || 0}%`;
+    }
     await predictAll((share) => progress(0.7 + 0.3 * share, "Training…"));
     $("train-progress").hidden = true;
     $("model-result").hidden = false;
