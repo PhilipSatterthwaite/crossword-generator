@@ -414,6 +414,34 @@ Word lists
 [lists.lead]
 Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow (or swipe left) to remove it; press the right arrow (or swipe right) to keep it and say what it's worth. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. Once you've made a few hundred decisions on a mixed sample, a model can learn from them and finish the list. The Table view shows the same words as a list to filter, sort and change all at once.
 
+// The link from the editor to the Train page.
+[lists.other]
+Train a model on your decisions →
+
+// ------------------------------------------------ the Train page (the build makes it from lists.html)
+
+[train.title]
+Train a list · fillmein
+
+[train.description]
+Swipe through a random sample of a word list, keep or remove each word, and let a model learn from your decisions to finish the rest.
+
+[train.social.title]
+Train a list · fillmein
+
+[train.social.description]
+Swipe through words, then let a model pare the list down the way you would.
+
+[train.heading]
+Train a list
+
+[train.lead]
+Words come up at random from across the whole list. Swipe left (or press ←) to remove one; swipe right (or press →) to keep it and give it a score. After a few hundred decisions, train the model below and it will pare down the rest of the list the way you would, into a new list.
+
+// The link from the Train page back to the editor.
+[train.other]
+← Edit lists word by word
+
 [lists.key]
 Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
 

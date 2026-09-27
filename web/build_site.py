@@ -28,7 +28,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
           "designer.js",
-          "exporters.js", "importers.js", "words.js", "wordstats.js", "social.png",
+          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
@@ -233,13 +233,18 @@ def main():
     # The other pages are complete documents already; only grid.html needs the wrapper.
     for name in PAGES + ASSETS:
         shutil.copyfile(HERE / name, SITE / name)
+    # The Train page is the Word lists page with its own words, telling listtool.js which it is.
+    lists = (HERE / "lists.html").read_text(encoding="utf-8")
+    train = lists.replace('<body data-page="edit">', '<body data-page="train">').replace('href="train.html"', 'href="lists.html"')
+    train = re.sub(r"\{\{lists\.(title|description|social\.title|social\.description|heading|lead|other)(\|\w+)?\}\}", r"{{train.\1\2}}", train)
+    (SITE / "train.html").write_text(train, encoding="utf-8")
 
     # Stamp every script and stylesheet reference with its content's hash (store.js?v=3f9a...). The CDN
     # tells browsers to keep scripts for hours but pages for minutes, so without this a browser can pair a
     # new page with an old script; a changed file now gets a new address.
     # The words live in text.md; each page carries {{key}} marks saying where its blocks go.
     words, used = read_words(), set()
-    for name in PAGES + ("grid.html",):
+    for name in PAGES + ("grid.html", "train.html"):
         path = SITE / name
         path.write_text(say(path.read_text(encoding="utf-8"), words, used, name), encoding="utf-8")
     spare = sorted(set(words) - used)
@@ -256,7 +261,7 @@ def main():
     worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
     (SITE / "worker.js").write_text(worker, encoding="utf-8")
     versions["worker.js"] = version(SITE / "worker.js")
-    for name in PAGES + ("grid.html",):
+    for name in PAGES + ("grid.html", "train.html"):
         path = SITE / name
         text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"')
         path.write_text(text, encoding="utf-8")
