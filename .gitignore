@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 # macOS folder metadata
 .DS_Store
+books-progress.json

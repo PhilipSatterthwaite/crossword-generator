@@ -32,7 +32,10 @@ per length, comma lists in the same word order of
 - broda: Broda's own score before the popularity nudge ("" for words his list lacks);
 - zipf: the Zipf frequency of its most familiar reading, times ten (see reading);
 - cuts: where that reading splits it into words, as letter counts ("5.8" for ASKED|FOR|THEMOON's
-  first two cuts; "" for a single word).
+  first two cuts; "" for a single word);
+- books: how many times Google Books used the word in 2015-2019, the last years of its English
+  corpus (compileWords/books-1w.txt, made from the Google Books Ngram v3 1-grams by
+  web/books_ngrams.py; single words only, 0 for phrases and unseen words).
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
@@ -264,6 +267,20 @@ def google_count(word, parts, unigrams, bigrams):
     return least or 0
 
 
+def load_books():
+    """{WORD: Google Books uses in 2015-2019}, from compileWords/books-1w.txt (WORD, recent, all)."""
+    path = COMPILE / "books-1w.txt"
+    counts = {}
+    if not path.exists():
+        print(f"no {path}: Google Books counts left out")
+        return counts
+    for line in path.read_text(encoding="utf-8").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[1].isdigit():
+            counts[parts[0]] = int(parts[1])
+    return counts
+
+
 def load_published(years=None):
     """{WORD: puzzles it appeared in}; with a dict given as years, also {WORD: last year, as 2000 + n}."""
     counts = {}
@@ -340,6 +357,7 @@ def main():
     counts = load_published(years)
     zipf = load_zipf()
     unigrams, bigrams = load_google()
+    books = load_books()
     scores = {}
     popular = set()
     everyday = {}
@@ -392,7 +410,8 @@ def main():
         stats[length] = [",".join(str(counts.get(w, 0)) for w in words), ",".join(str(round(100 * everyday.get(w, 0.5))) for w in words),
                          ",".join(str(google.get(w, 0)) for w in words), ",".join(str(years.get(w, 0)) for w in words),
                          ",".join(str(broda[w]) if w in broda else "" for w in words),
-                         ",".join(str(round(10 * readings[w][0])) if w in readings else "0" for w in words), ",".join(cuts)]
+                         ",".join(str(round(10 * readings[w][0])) if w in readings else "0" for w in words), ",".join(cuts),
+                         ",".join(str(books.get(w, 0)) for w in words)]
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))
