@@ -127,15 +127,26 @@
   .scorer .number-line input { width: 4.2em; padding: 6px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); color: var(--ink); font: 700 16px var(--sans); text-align: center; }
   .scorer .decide .btn { min-height: 44px; }
   /* The model. */
-  .model { display: grid; gap: 10px; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); font-size: 13px; }
-  .model h2 { margin: 0; font: 600 18px / 1.2 var(--serif); }
+  /* The model panel: one column, each step under the last, nothing jumping about while it works. */
+  .model { display: grid; gap: 14px; margin-top: 16px; padding: 18px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); font-size: 14px; line-height: 1.45; }
+  .model h2 { margin: 0; font: 600 20px / 1.2 var(--serif); }
   .model p { margin: 0; color: var(--muted); }
   .model p b { color: var(--ink); }
-  .model .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-  .model input[type="number"] { width: 4em; padding: 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
-  .model input[type="text"] { width: 14em; padding: 5px 8px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
-  .model .bar { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
-  .model .bar i { display: block; height: 100%; background: var(--ink); transition: width 0.2s; }
+  .model .model-go { justify-self: start; min-height: 44px; padding: 10px 18px; font-size: 15px; }
+  .model-progress { display: grid; gap: 8px; }
+  .model .bar { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+  .model .bar i { display: block; height: 100%; width: 0; background: var(--ink); border-radius: 4px; transition: width 0.25s ease-out; }
+  .model-result { display: grid; gap: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .model-report { padding: 12px 14px; border-radius: 4px; background: var(--word); color: var(--ink) !important; }
+  .model-field { display: grid; gap: 6px; font-weight: 600; color: var(--ink); }
+  .model-inline { display: flex; align-items: center; gap: 8px; font-weight: 400; color: var(--muted); }
+  .model input[type="number"] { width: 4.5em; min-height: 40px; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); color: var(--ink); font: 700 16px var(--sans); text-align: center; }
+  .model input[type="text"] { box-sizing: border-box; width: 100%; max-width: 22em; min-height: 40px; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); color: var(--ink); font: 16px var(--sans); }
+  .model-preview { font-variant-numeric: tabular-nums; }
+  @media (max-width: 640px) {
+    .model { padding: 16px 14px; }
+    .model .model-go { justify-self: stretch; }
+  }
 
   /* Phones: the filters fold away, the length buttons scroll sideways, the buttons are thumb-sized. */
   @media (max-width: 640px) {
@@ -245,22 +256,22 @@
     <section class="model" id="model" aria-labelledby="model-title">
       <h2 id="model-title">Let a model finish the list</h2>
       <p id="model-count"></p>
-      <div class="row">
-        <button type="button" id="train" class="btn small">Train on my decisions</button>
-        <span id="train-note"></span>
+      <button type="button" id="train" class="btn model-go">Train on my decisions</button>
+      <div class="model-progress" id="train-progress" hidden>
+        <p id="train-note" class="model-note"></p>
+        <div class="bar"><i id="train-bar" style="width: 0"></i></div>
       </div>
-      <div class="bar" id="train-bar" hidden><i style="width: 0"></i></div>
-      <div id="model-result" hidden>
-        <p id="model-report"></p>
-        <div class="row" style="margin-top: 8px">
-          <label>Remove words it's at least <input id="model-sure" type="number" min="50" max="99" value="80"> % sure should go</label>
-        </div>
-        <p id="model-preview"></p>
-        <div class="row">
-          <label>New list named <input id="model-name" type="text" value="Model list" maxlength="60"></label>
-          <button type="button" id="model-make" class="btn primary small">Make the list</button>
-          <span id="model-made"></span>
-        </div>
+      <div id="model-result" class="model-result" hidden>
+        <p id="model-report" class="model-report"></p>
+        <label class="model-field">Remove words it's at least
+          <span class="model-inline"><input id="model-sure" type="number" min="50" max="99" value="80" inputmode="numeric"> % sure should go</span>
+        </label>
+        <p id="model-preview" class="model-preview"></p>
+        <label class="model-field">Name the new list
+          <input id="model-name" type="text" value="Model list" maxlength="60">
+        </label>
+        <button type="button" id="model-make" class="btn primary model-go">Make the list</button>
+        <p id="model-made" class="model-note" aria-live="polite"></p>
       </div>
     </section>
   </div>
@@ -327,6 +338,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6";</script>
-<script src="listtool.js?v=2a0b7f1a66"></script>
+<script src="listtool.js?v=e57c9a644c"></script>
 </body>
 </html>

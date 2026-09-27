@@ -908,7 +908,19 @@
   }
   const sigmoid = (z) => 1 / (1 + Math.exp(-z));
 
-  function trainNet(net, X, Y, epochs, onEpoch) {
+  /* Hand the page back to the browser for a frame now and then, so taps and the progress bar keep up. */
+  let lastYield = 0;
+  const yieldChannel = new MessageChannel();
+  const yieldWaiting = [];
+  yieldChannel.port1.onmessage = () => { const resolve = yieldWaiting.shift(); if (resolve) resolve(); };
+  const breathe = async () => {
+    const now = performance.now();
+    if (now - lastYield < 40) return;
+    await new Promise((resolve) => { yieldWaiting.push(resolve); yieldChannel.port2.postMessage(0); });
+    lastYield = performance.now();
+  };
+
+  async function trainNet(net, X, Y, epochs, onEpoch) {
     // Y rows: [kept 0/1, score 0-1 or -1 when unknown]
     const L = net.layers;
     const m = [], v = [];
@@ -921,6 +933,7 @@
       for (let start = 0; start < order.length; start += batch) {
         const gW = L.map((layer) => new Float64Array(layer.w.length));
         const gB = L.map((layer) => new Float64Array(layer.b.length));
+        await breathe();
         const idx = order.slice(start, start + batch);
         for (const i of idx) {
           const keep = {};
@@ -996,13 +1009,20 @@
     const trainIdx = order.filter((i) => !held.has(i));
     const epochs = Math.max(20, Math.min(120, Math.round(6000 / Math.max(1, trainIdx.length))));
     $("train").disabled = true;
-    $("train-bar").hidden = false;
-    $("train-note").textContent = "Training…";
-    const tick = (bar, epoch, total) => { bar.querySelector("i").style.width = `${Math.round((100 * (epoch + 1)) / total)}%`; };
+    $("train").textContent = "Training…";
+    $("model-result").hidden = true;
+    $("train-progress").hidden = false;
+    // The work in three parts: a test run, the real run, then the model's verdict on every word left.
+    const progress = (share, what) => {
+      $("train-bar").style.width = `${Math.round(100 * share)}%`;
+      $("train-note").textContent = what;
+    };
+    const tick = (_bar, epoch, total) => progress(((epoch + 1) / total) * 0.7, epoch + 1 <= total / 2 ? "Testing how well it learns…" : "Learning from every decision…");
+    progress(0, "Getting ready…");
     const trial = makeNet(FEATURES.length);
     trial.mean = net.mean; trial.std = net.std;
     await new Promise((resolve) => setTimeout(resolve, 20));
-    trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick($("train-bar"), e, epochs * 2));
+    await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
     for (const i of held) {
@@ -1013,28 +1033,65 @@
       if (Y[i][1] >= 0) { scoreErr += Math.abs(out[1] * 100 - Y[i][1] * 100); scoreN++; }
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
-    trainNet(net, X, Y, epochs, (e) => tick($("train-bar"), e + epochs, epochs * 2));
+    await trainNet(net, X, Y, epochs, (e) => tick(null, e + epochs, epochs * 2));
     model = { net, decided: decided.length };
     const acc = n ? Math.round((100 * right) / n) : 0, base = n ? Math.round((100 * baseRight) / n) : 0;
     $("model-report").innerHTML = `On decisions it hadn't seen, it told removed from kept <b>${acc}%</b> of the time (always guessing "${keptShare >= 0.5 ? "keep" : "remove"}" would get ${base}%)` +
       (scoreN ? `, and its scores for kept words were off by <b>${Math.round(scoreErr / scoreN)}</b> points on average.` : ".");
+    await predictAll((share) => progress(0.7 + 0.3 * share, "Scoring the words you haven't decided…"));
+    $("train-progress").hidden = true;
     $("model-result").hidden = false;
-    $("train-bar").hidden = true;
-    $("train-note").textContent = `Trained on ${decided.length.toLocaleString()} decisions.`;
+    $("model-made").textContent = "";
     $("train").disabled = false;
+    $("train").textContent = "Train again";
     previewModel();
+    $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
   $("train").addEventListener("click", train);
 
-  /* What the model would do with the words not yet decided. */
+  /* The model's verdict on every word not yet decided, made once after training, a slice at a time:
+     how likely it is to be kept, and its score. */
+  async function predictAll(onProgress) {
+    const undecided = rows.filter((row) => !(row.removed || row.kept || row.own));
+    const pKeep = new Float32Array(undecided.length);
+    const score = new Uint8Array(undecided.length);
+    const net = model.net;
+    const [A, B, C] = net.layers;
+    const x = new Float64Array(A.n), h1 = new Float64Array(A.m), h2 = new Float64Array(B.m), out = new Float64Array(C.m);
+    const dense = (layer, input, output, relu) => {
+      for (let j = 0; j < layer.m; j++) {
+        let sum = layer.b[j];
+        for (let i = 0; i < layer.n; i++) sum += input[i] * layer.w[i * layer.m + j];
+        output[j] = relu && sum < 0 ? 0 : sum;
+      }
+    };
+    for (let i = 0; i < undecided.length; i++) {
+      if ((i & 4095) === 0) {
+        await breathe();
+        onProgress(i / undecided.length);
+      }
+      const f = featuresOf(undecided[i]);
+      for (let k = 0; k < f.length; k++) x[k] = (f[k] - net.mean[k]) / net.std[k];
+      dense(A, x, h1, true);
+      dense(B, h1, h2, true);
+      dense(C, h2, out, false);
+      pKeep[i] = sigmoid(out[0]);
+      score[i] = Math.max(1, Math.min(100, Math.round(out[1] * 100)));
+    }
+    model.undecided = undecided;
+    model.pKeep = pKeep;
+    model.score = score;
+  }
+
+  /* What the model would do with the words not yet decided, at the certainty chosen: just a count
+     over the verdicts already made, so the box can be changed freely. */
   function modelVerdicts() {
     const sure = Math.max(0.5, Math.min(0.99, Number($("model-sure").value) / 100 || 0.8));
     const out = [];
-    for (const row of rows) {
-      if (row.removed || row.kept || row.own) continue;
-      const y = forward(model.net, standardize(model.net, [featuresOf(row)])[0]);
-      const pKeep = sigmoid(y[0]);
-      out.push({ row, keep: 1 - pKeep < sure, score: Math.max(1, Math.min(100, Math.round(y[1] * 100))) });
+    const { undecided, pKeep, score } = model;
+    for (let i = 0; i < undecided.length; i++) {
+      if (undecided[i].removed || undecided[i].kept || undecided[i].own) continue; // decided since training
+      out.push({ row: undecided[i], keep: 1 - pKeep[i] < sure, score: score[i] });
     }
     return out;
   }
@@ -1055,8 +1112,10 @@
     const words = [];
     for (const row of rows) if (!row.removed && (row.kept || row.own)) words.push([row.word, row.score]);
     for (const v of modelVerdicts()) if (v.keep) words.push([v.row.word, v.score]);
+    $("model-make").disabled = true;
     const list = await LISTS.create(name, words);
-    $("model-made").innerHTML = `Made <b>${name}</b> with ${words.length.toLocaleString()} words. It's in the List menu here and on the Grid page.`;
+    $("model-make").disabled = false;
+    $("model-made").innerHTML = `Made <b>${name.replace(/[&<>]/g, "")}</b> with ${words.length.toLocaleString()} words. It's in the List menu here and on the Grid page.`;
     state = await LISTS.state(listId);
     renderWhich();
   });
