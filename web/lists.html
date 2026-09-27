@@ -173,8 +173,8 @@
     <div class="sets">
       <span class="label">Order</span>
       <select id="order" aria-label="Order">
-        <option value="uses-down" selected>Most NYT appearances first</option>
-        <option value="uses-up">Fewest NYT appearances first</option>
+        <option value="uses-up" selected>Fewest NYT appearances first</option>
+        <option value="uses-down">Most NYT appearances first</option>
         <option value="score-up">Lowest score first</option>
         <option value="score-down">Highest score first</option>
         <option value="everyday-up">Least everyday first</option>
@@ -219,8 +219,8 @@
   <div class="grid-head" role="row">
     <button type="button" data-sort="word" aria-sort="none">Word</button>
     <button type="button" class="num" data-sort="len" aria-sort="none">Len</button>
-    <button type="button" class="num" data-sort="score" aria-sort="descending">Score</button>
-    <button type="button" class="num uses" data-sort="uses" aria-sort="none">NYT</button>
+    <button type="button" class="num" data-sort="score" aria-sort="none">Score</button>
+    <button type="button" class="num uses" data-sort="uses" aria-sort="ascending">NYT</button>
     <button type="button" class="num" data-sort="everyday" aria-sort="none">Everyday</button>
     <button type="button" class="num vow" data-sort="vowels" aria-sort="none">Vowels</button>
     <span class="flags">Notes</span>
@@ -254,7 +254,7 @@
   let rows = [];     // every word of the list: {word, len, base, score, uses, everyday, vowels, popular, nyt, unvetted, removed, own}
   let shown = [];    // the rows the filters and sort leave, in order
   let sortKey = "uses";
-  let sortDown = true;
+  let sortDown = false;
   let mode = "review";
   let setLength = 0;   // the word length being reviewed, 0 for every length
   let at = 0;          // where the review is in `shown`
@@ -432,15 +432,19 @@
   }
 
   function resort() {
-    const key = sortKey;
+    // Ties on the chosen figure break on the others, in this order and the same direction, so
+    // "fewest NYT appearances first" runs on to the lowest score and then the least everyday.
+    const keys = [sortKey, ...["uses", "score", "everyday", "vowels"].filter((key) => key !== sortKey)];
     const sign = sortDown ? -1 : 1;
     shown.sort((a, b) => {
-      const x = a[key], y = b[key];
-      if (x !== y) return typeof x === "string" ? (x < y ? sign : -sign) : (x - y) * sign;
+      for (const key of keys) {
+        const x = a[key], y = b[key];
+        if (x !== y) return typeof x === "string" ? (x < y ? sign : -sign) : (x - y) * sign;
+      }
       return a.word < b.word ? -1 : a.word > b.word ? 1 : 0;
     });
     for (const button of document.querySelectorAll(".grid-head [data-sort]")) {
-      button.setAttribute("aria-sort", button.dataset.sort === key ? (sortDown ? "descending" : "ascending") : "none");
+      button.setAttribute("aria-sort", button.dataset.sort === sortKey ? (sortDown ? "descending" : "ascending") : "none");
     }
     $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
     $("scroller").scrollTop = 0;
