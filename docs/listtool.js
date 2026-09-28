@@ -252,6 +252,33 @@
   function resort() {
     if (sortKey === "mixed") {
       mixedOrder();
+      if (TRAIN && model && model.pOf) {
+        const random = shown.slice();
+        const unsure = shown.slice().sort((a, b) => {
+          const pa = model.pOf.get(a), pb = model.pOf.get(b);
+          return (pa === undefined ? 1 : Math.abs(pa - 0.5)) - (pb === undefined ? 1 : Math.abs(pb - 0.5));
+        });
+        const used = new Set();
+        const next = [];
+        let u = 0, r = 0;
+        while (next.length < shown.length) {
+          const source = next.length % 4 === 3 ? random : unsure;
+          let k = source === random ? r : u;
+          while (k < source.length && used.has(source[k])) k++;
+          if (k >= source.length) { // that list is spent: take from the other
+            const other = source === random ? unsure : random;
+            const row = other.find((x) => !used.has(x));
+            used.add(row);
+            next.push(row);
+            continue;
+          }
+          used.add(source[k]);
+          next.push(source[k]);
+          if (source === random) r = k + 1;
+          else u = k + 1;
+        }
+        shown = next;
+      }
       for (const button of document.querySelectorAll(".grid-head [data-sort]")) button.setAttribute("aria-sort", "none");
       $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
       $("scroller").scrollTop = 0;
@@ -407,6 +434,7 @@
     if (row.nyt) tags.push('<span class="tag nyt">NYT answer</span>');
     if (row.unvetted) tags.push('<span class="tag">unvetted</span>');
     if (row.popular) tags.push('<span class="tag">popular</span>');
+    if (TRAIN && model && model.pOf && Math.abs((model.pOf.get(row) ?? 0) - 0.5) < 0.2) tags.push('<span class="tag" title="The model can\'t tell whether you\'d keep this one">model unsure</span>');
     box.innerHTML = `<p class="progress">${(n - at).toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"} left to decide</p>` +
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
       (row.cuts ? `<p class="reading">read as <b>${readingOf(row)}</b></p>` : "") +
@@ -883,8 +911,27 @@
 
   /* A small network: the features, two hidden layers, and two outputs: the log-odds that the word is
      kept, and its score as a fraction. Trained with Adam on the decisions made so far. */
-  function makeNet(inputs, hidden = 24) {
-    const rand = () => (Math.random() * 2 - 1) * 0.3;
+  /* The same numbers every time for the same seed, so training the same decisions gives the same model. */
+  function seededRandom(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const wordHash = (word) => {
+    let h = 2166136261;
+    for (let i = 0; i < word.length; i++) h = Math.imul(h ^ word.charCodeAt(i), 16777619);
+    h ^= h >>> 13;
+    h = Math.imul(h, 0x5bd1e995);
+    return (h ^ (h >>> 15)) >>> 0;
+  };
+
+  function makeNet(inputs, hidden = 24, random = seededRandom(1)) {
+    const rand = () => (random() * 2 - 1) * 0.3;
     const layer = (n, m) => ({ w: Float64Array.from({ length: n * m }, rand), b: new Float64Array(m), n, m });
     return { layers: [layer(inputs, hidden), layer(hidden, hidden), layer(hidden, 2)], mean: null, std: null };
   }
@@ -918,7 +965,7 @@
     lastYield = performance.now();
   };
 
-  async function trainNet(net, X, Y, epochs, onEpoch) {
+  async function trainNet(net, X, Y, epochs, onEpoch, random = seededRandom(2)) {
     // Y rows: [kept 0/1, score 0-1 or -1 when unknown]
     const L = net.layers;
     const m = [], v = [];
@@ -927,7 +974,7 @@
     const lr = 0.003, b1 = 0.9, b2 = 0.999, eps = 1e-8, batch = 32;
     const order = X.map((_, i) => i);
     for (let epoch = 0; epoch < epochs; epoch++) {
-      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
       for (let start = 0; start < order.length; start += batch) {
         const gW = L.map((layer) => new Float64Array(layer.w.length));
         const gB = L.map((layer) => new Float64Array(layer.b.length));
@@ -1001,9 +1048,10 @@
     net.mean = FEATURES.map((_, i) => X0.reduce((sum, x) => sum + x[i], 0) / X0.length);
     net.std = FEATURES.map((_, i) => Math.sqrt(X0.reduce((sum, x) => sum + (x[i] - net.mean[i]) ** 2, 0) / X0.length) || 1);
     const X = standardize(net, X0);
-    // A fifth held out to say how good it is, then everything for the model that's used.
-    const order = X.map((_, i) => i).sort(() => Math.random() - 0.5);
-    const held = new Set(order.slice(0, Math.floor(order.length / 5)));
+    // About a fifth held out to say how good it is, then everything for the model that's used. Which
+    // fifth depends on each word alone, so a word stays on its side as more decisions come in.
+    const order = X.map((_, i) => i);
+    const held = new Set(order.filter((i) => wordHash(decided[i].word) % 5 === 0));
     const trainIdx = order.filter((i) => !held.has(i));
     const epochs = Math.max(20, Math.min(120, Math.round(6000 / Math.max(1, trainIdx.length))));
     $("train").disabled = true;
@@ -1035,10 +1083,12 @@
     }
     const trainAcc = trainIdx.length ? Math.round((100 * trainRight) / trainIdx.length) : 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
+    const missed = new Set();
     for (const i of held) {
       const out = forward(trial, X[i]);
       n++;
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) right++;
+      else missed.add(i);
       if ((keptShare >= 0.5 ? 1 : 0) === Y[i][0]) baseRight++;
       if (Y[i][1] >= 0) {
         const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
@@ -1060,6 +1110,26 @@
     $("meter-fill").style.width = `${Math.max(2, confidence)}%`;
     $("meter").dataset.stage = stage;
     $("meter-note").textContent = stage === "green" ? "Ready to finish the list." : stage === "yellow" ? "Getting there. Keep swiping, then train again." : "Keep swiping, then train again.";
+    // Where it goes wrong most: the kind of word whose held-back decisions it misses most often.
+    const KINDS = [
+      ["long words (10+ letters)", (row) => row.len >= 10],
+      ["short words (3 or 4 letters)", (row) => row.len <= 4],
+      ["phrases", (row) => readingOf(row).includes(" ")],
+      ["words never used in the Times", (row) => !row.uses],
+      ["uncommon words", (row) => row.everyday < 30],
+      ["words Google hasn't seen", (row) => !row.google],
+    ];
+    const overall = n ? missed.size / n : 0;
+    let weakest = null;
+    for (const [name, test] of KINDS) {
+      const members = [...held].filter((i) => test(decided[i]));
+      if (members.length < 5) continue;
+      const rate = members.filter((i) => missed.has(i)).length / members.length;
+      if (rate >= overall + 0.1 && (!weakest || rate > weakest.rate)) weakest = { name, rate };
+    }
+    $("meter-weak").textContent = weakest
+      ? `It's weakest on ${weakest.name}: wrong on ${Math.round(100 * weakest.rate)}% of them, ${Math.round(100 * overall)}% overall. The words it's least sure about come up next.`
+      : n ? "The words it's least sure about come up next." : "";
     $("meter-split").textContent = `${trainIdx.length.toLocaleString()} words were used for training and ${n.toLocaleString()} for testing.`;
     $("acc-train-value").textContent = `${trainAcc}%`;
     $("acc-train").style.width = `${trainAcc}%`;
@@ -1079,6 +1149,7 @@
     $("train").textContent = "Train again";
     previewModel();
     $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    refilter(); // the feed now leads with what it's unsure about
   }
   $("train").addEventListener("click", train);
 
@@ -1112,6 +1183,8 @@
       score[i] = Math.max(1, Math.min(100, Math.round(out[1] * 100)));
     }
     model.undecided = undecided;
+    model.pOf = new Map();
+    for (let i = 0; i < undecided.length; i++) model.pOf.set(undecided[i], pKeep[i]);
     model.pKeep = pKeep;
     model.score = score;
   }
