@@ -52,6 +52,16 @@
     return out.join(" ");
   };
 
+  /* The figures after Books in wordstats.js, in order, and what each means. */
+  const EXTRA = ["lat", "wsj", "usa", "tny", "up", "nw", "otherPapers", "outlets", "clueCount", "wiki", "subtlex", "opensubs", "wikt"];
+  const PAPERS = { lat: "LA Times", wsj: "Wall Street Journal", usa: "USA Today", tny: "New Yorker", up: "Universal", nw: "Newsday", otherPapers: "other outlets" };
+  const papersOf = (row) => row.lat + row.wsj + row.usa + row.tny + row.up + row.nw + row.otherPapers;
+  const spokenOf = (row) => row.subtlex + row.opensubs;
+  // Wiktionary's flags (web/fetch_extras.py FLAGS): bit 0 listed, 1 noun, 2 verb, 3 adjective, 4 adverb,
+  // 5 proper noun, 6 phrase, 7 abbreviation, 8 dated, 9 informal, 10 offensive, 11 rare, 12 only a form of another word.
+  const WIKT = ["listed", "noun", "verb", "adjective", "adverb", "proper", "phrase", "abbreviation", "dated", "informal", "offensive", "rare", "inflection"];
+  const wikt = (row, name) => (row.wikt >> WIKT.indexOf(name)) & 1;
+
   /* A count as people read it: 12.3M, 45k, 980, or – for none. */
   const compact = (n) => (!n ? "–" : n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}k` : String(n));
   const bit = (bytes, i) => (bytes ? (bytes.charCodeAt(i >>> 3) >> (i & 7)) & 1 : 0);
@@ -73,6 +83,8 @@
       const zipfs = stats && stats[5] ? stats[5].split(",") : null;
       const cuts = stats && stats[6] ? stats[6].split(",") : null;
       const books = stats && stats[7] ? stats[7].split(",") : null;
+      // Columns 8 on: uses in other papers (see EXTRA), then Wikipedia titles, spoken counts, Wiktionary flags.
+      const extra = EXTRA.map((_, k) => (stats && stats[8 + k] ? stats[8 + k].split(",") : null));
       const popular = popularText ? atob(popularText) : "";
       const published = publishedText ? atob(publishedText) : "";
       const unvetted = unvettedText ? atob(unvettedText) : "";
@@ -87,6 +99,7 @@
           score: 0, uses: uses ? Number(uses[i]) : 0, everyday: everyday ? Number(everyday[i]) : 50, google: google ? Number(google[i]) : 0,
           year: years ? Number(years[i]) : 0, broda: brodas && brodas[i] !== "" ? Number(brodas[i]) : -1, zipf: zipfs ? Number(zipfs[i]) / 10 : 0,
           cuts: cuts ? cuts[i] : "", books: books ? Number(books[i]) : 0,
+          ...Object.fromEntries(EXTRA.map((name, k) => [name, extra[k] ? Number(extra[k][i]) || 0 : 0])),
           vowels: vowelShare(word), popular: bit(popular, i), nyt, unvetted: unv, removed: false, own: false,
         });
       }
@@ -106,6 +119,7 @@
         word, len: word.length, base: score, score: 0,
         uses: known ? known.uses : 0, everyday: known ? known.everyday : 50, google: known ? known.google : 0,
         year: known ? known.year : 0, broda: known ? known.broda : -1, zipf: known ? known.zipf : 0, cuts: known ? known.cuts : "", books: known ? known.books : 0, vowels: vowelShare(word),
+        ...Object.fromEntries(EXTRA.map((name) => [name, known ? known[name] : 0])),
         popular: known ? known.popular : 0, nyt: known ? known.nyt : 0, unvetted: known ? known.unvetted : 0, removed: false, own: false,
       };
     });
@@ -127,7 +141,7 @@
     const have = new Set(rows.map((row) => row.word));
     for (const [word, score] of Object.entries(scores)) {
       if (have.has(word) || !/^[A-Z]{2,}$/.test(word)) continue;
-      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, google: 0, year: 0, broda: -1, zipf: 0, cuts: "", books: 0, vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true, kept: kept.has(word) });
+      rows.push({ word, len: word.length, base: score, score, uses: 0, everyday: 50, google: 0, year: 0, broda: -1, zipf: 0, cuts: "", books: 0, ...Object.fromEntries(EXTRA.map((name) => [name, 0])), vowels: vowelShare(word), popular: 0, nyt: 0, unvetted: 0, removed: removed.has(word), own: true, kept: kept.has(word) });
     }
   }
 
@@ -151,6 +165,10 @@
     if (isBuiltIn(listId)) rows = builtInRows(listId);
     else if (isBuiltIn(list.basedOn)) rows = builtInRows(list.basedOn);
     else rows = ownRows(list);
+    for (const row of rows) {
+      row.papers = papersOf(row);
+      row.spoken = spokenOf(row);
+    }
     applyEdits();
     renderWhich();
     renderSets();
@@ -289,7 +307,7 @@
     }
     // Ties on the chosen figure break on the others, in this order and the same direction, so
     // "fewest NYT appearances first" runs on to the lowest score and then the least everyday.
-    const keys = [sortKey, ...["uses", "score", "everyday", "google", "books", "broda", "year"].filter((key) => key !== sortKey)];
+    const keys = [sortKey, ...["uses", "score", "everyday", "google", "books", "papers", "spoken", "broda", "year"].filter((key) => key !== sortKey)];
     const sign = sortDown ? -1 : 1;
     shown.sort((a, b) => {
       for (const key of keys) {
@@ -442,7 +460,13 @@
       `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span>Everyday <b>${row.everyday}</b></span>` +
       `<span title="Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand">Zipf <b>${row.zipf ? row.zipf.toFixed(1) : "–"}</b></span>` +
       `<span title="${row.google.toLocaleString()} in Google's web corpus">Google <b>${compact(row.google)}</b></span>` +
-      `<span title="${row.books.toLocaleString()} uses in Google Books, 2015-2019">Books <b>${compact(row.books)}</b></span>${tags.join("")}</div>` +
+      `<span title="${row.books.toLocaleString()} uses in Google Books, 2015-2019">Books <b>${compact(row.books)}</b></span>` +
+      `<span title="${Object.entries(PAPERS).map(([key, name]) => `${name} ${row[key].toLocaleString()}`).join(", ")}">Other papers <b>${compact(papersOf(row))}</b></span>` +
+      `<span title="Different crossword outlets that have used it">Outlets <b>${row.outlets || "–"}</b></span>` +
+      `<span title="Film and TV subtitles: SUBTLEX-US ${row.subtlex.toLocaleString()}, OpenSubtitles ${row.opensubs.toLocaleString()}">Spoken <b>${compact(spokenOf(row))}</b></span>` +
+      `<span title="${row.wiki ? `${row.wiki} Wikipedia article title${row.wiki === 1 ? "" : "s"}` : "No Wikipedia article by that name"}">Wikipedia <b>${row.wiki ? "yes" : "no"}</b></span>` +
+      `${wiktTags(row)}${tags.join("")}</div>` +
+      `<p class="definition" id="definition-box"></p>` +
       `<div id="clues-box"></div>` +
       `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button>` +
       `<button type="button" class="btn quiet" data-decide="undo"${history.length ? "" : " disabled"}><kbd>⌫</kbd>Undo</button></div>` +
@@ -476,7 +500,36 @@
       `<a href="https://en.wiktionary.org/wiki/${encodeURIComponent(lower)}" target="_blank" rel="noopener">Wiktionary</a>`;
   };
 
+  /* What Wiktionary says the word is, as tags. */
+  function wiktTags(row) {
+    if (!row.wikt) return '<span class="tag" title="No Wiktionary entry">not in Wiktionary</span>';
+    const out = [];
+    for (const [name, label] of [["abbreviation", "abbreviation"], ["proper", "proper noun"], ["phrase", "phrase"], ["dated", "dated"], ["informal", "informal"], ["offensive", "offensive"], ["rare", "rare"], ["inflection", "a form of another word"]]) {
+      if (wikt(row, name)) out.push(`<span class="tag" title="Wiktionary">${label}</span>`);
+    }
+    return out.join("");
+  }
+
+  // Wiktionary's first definition, one file per first two letters, fetched as needed.
+  const DEFS_VERSION = window.FILLMEIN_DEFS_VERSION || "";
+  const defFiles = new Map();
+  function definitionOf(word) {
+    const prefix = word.slice(0, 2);
+    if (!defFiles.has(prefix)) {
+      defFiles.set(prefix, fetch(`defs/${prefix}.json?v=${DEFS_VERSION}`).then((r) => (r.ok ? r.json() : {})).catch(() => { defFiles.delete(prefix); return {}; }));
+    }
+    return defFiles.get(prefix).then((file) => file[word] || "");
+  }
+  async function showDefinition(row) {
+    const box = $("definition-box");
+    if (!box || !row.wikt) return;
+    const text = await definitionOf(row.word);
+    if (!$("definition-box") || shown[at] !== row || !text) return;
+    box.textContent = text;
+  }
+
   async function showClues(row) {
+    showDefinition(row);
     const box = $("clues-box");
     if (!box) return;
     if (!row.nyt) {
@@ -691,7 +744,7 @@
     const can = editable();
     return `<span class="word">${row.word}</span><span class="num">${row.len}</span>` +
       `<input class="score num${row.own ? " own" : ""}" type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}"${can ? "" : " disabled"}>` +
-      `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num goog" title="${row.books.toLocaleString()}">${compact(row.books)}</span><span class="num vow">${row.year || "–"}</span>` +
+      `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num goog" title="${row.books.toLocaleString()}">${compact(row.books)}</span><span class="num goog" title="${row.papers.toLocaleString()}">${compact(row.papers)}</span><span class="num vow">${row.year || "–"}</span>` +
       `<span class="flags">${tags.join("")}</span>` +
       (can ? `<button type="button" class="act${row.removed ? "" : " drop"}" data-act="${row.removed ? "restore" : "remove"}">${row.removed ? "Put back" : "Remove"}</button>` : "<span></span>");
   }
@@ -865,7 +918,7 @@
   $("bulk-remove").addEventListener("click", () => bulk("remove"));
 
   /* Keep or remove every undecided word in the set whose figure clears a threshold. */
-  const STAT_NAMES = { uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
+  const STAT_NAMES = { papers: "uses in other papers", outlets: "outlets", spoken: "spoken uses", wiki: "Wikipedia titles", uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
   function sweepRows() {
     const stat = $("sweep-stat").value;
     const atLeast = $("sweep-how").value === "min";
@@ -894,7 +947,9 @@
   // --- a model of what's kept and what it's worth ---
 
   /* The word as numbers for the model: each 0-1-ish, with a flag where a figure is missing. */
-  const FEATURES = ["len", "words", "base", "broda", "brodaMissing", "uses", "never", "age", "everyday", "zipf", "google", "googleMissing", "books", "booksMissing",
+  const FEATURES = ["papers", "outlets", "clueCount", "lat", "usa", "tny", "wiki", "wikiCount", "subtlex", "opensubs", "unspoken",
+    "wiktListed", "wiktNoun", "wiktVerb", "wiktAdjective", "wiktAdverb", "wiktProper", "wiktPhrase", "wiktAbbreviation", "wiktDated", "wiktInformal", "wiktOffensive", "wiktRare", "wiktInflection",
+    "len", "words", "base", "broda", "brodaMissing", "uses", "never", "age", "everyday", "zipf", "google", "googleMissing", "books", "booksMissing",
     "vowels", "scrabble", "rare", "doubles", "endsS", "endsED", "endsING", "endsER", "partial", "popular", "nyt", "unvetted"];
   function featuresOf(row) {
     const w = row.word;
@@ -906,6 +961,9 @@
       row.vowels / 100, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0) / row.len / 10, (w.match(/[JQXZ]/g) || []).length / 3, (w.match(/([A-Z])\1/g) || []).length / 2,
       Number(/S$/.test(w)), Number(/ED$/.test(w)), Number(/ING$/.test(w)), Number(/ER$/.test(w)), Number(parts[0] === "A" || parts[0] === "AN" || parts[0] === "THE"),
       row.popular, row.nyt, row.unvetted,
+      Math.log10(papersOf(row) + 1) / 4, row.outlets / 40, Math.log10(row.clueCount + 1) / 3, Math.log10(row.lat + 1) / 3, Math.log10(row.usa + 1) / 3, Math.log10(row.tny + 1) / 2,
+      row.wiki ? 1 : 0, Math.log10(row.wiki + 1), Math.log10(row.subtlex + 1) / 6, Math.log10(row.opensubs + 1) / 7, spokenOf(row) ? 0 : 1,
+      ...WIKT.map((name) => wikt(row, name)),
     ];
   }
 
@@ -1118,6 +1176,10 @@
       ["words never used in the Times", (row) => !row.uses],
       ["uncommon words", (row) => row.everyday < 30],
       ["words Google hasn't seen", (row) => !row.google],
+      ["abbreviations", (row) => wikt(row, "abbreviation")],
+      ["proper nouns", (row) => wikt(row, "proper")],
+      ["words not in Wiktionary", (row) => !row.wikt],
+      ["words no crossword has used", (row) => !row.uses && !row.papers],
     ];
     const overall = n ? missed.size / n : 0;
     let weakest = null;
@@ -1230,6 +1292,9 @@
   const SCRABBLE = { A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3, N: 1, O: 1, P: 3, Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10 };
   const CSV_HEAD = ["word", "reading", "length", "words", "score", "own_score", "base_score", "broda_score", "nyt_uses", "nyt_last_year", "everyday", "zipf", "google", "books_2015_2019",
     "vowel_pct", "scrabble", "rare_letters", "double_letters", "ends_s", "ends_ed", "ends_ing", "ends_er", "starts_a_the", "popular", "nyt_answer", "unvetted",
+    "lat_uses", "wsj_uses", "usa_today_uses", "new_yorker_uses", "universal_uses", "newsday_uses", "other_outlet_uses", "outlets", "distinct_clues",
+    "wikipedia_titles", "subtlex_us", "opensubtitles",
+    ...WIKT.map((name) => `wiktionary_${name}`),
     "confirmed", "removed", "label"];
 
   /* One row of the spreadsheet: the word's figures, then what was decided about it. label is 1 for a
@@ -1244,6 +1309,9 @@
       row.vowels, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0), (w.match(/[JQXZ]/g) || []).length, (w.match(/([A-Z])\1/g) || []).length,
       Number(/S$/.test(w)), Number(/ED$/.test(w)), Number(/ING$/.test(w)), Number(/ER$/.test(w)), Number(first === "A" || first === "AN" || first === "THE"),
       row.popular, row.nyt, row.unvetted,
+      row.lat, row.wsj, row.usa, row.tny, row.up, row.nw, row.otherPapers, row.outlets, row.clueCount,
+      row.wiki, row.subtlex, row.opensubs,
+      ...WIKT.map((name) => wikt(row, name)),
       Number(row.kept), Number(row.removed), row.removed ? 0 : row.kept || row.own ? 1 : "",
     ].join(",");
   }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bYCGPue6GW2aOdvnuHSXixzWmjEiz/quqDD0g6EWBG4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Train a list · fillmein</title>
 <meta name="description" content="Swipe through a random sample of a word list, keep or remove each word, and let a model learn from your decisions to finish the rest.">
@@ -51,7 +51,7 @@
   .bulk input[type="number"] { width: 3.4em; padding: 4px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
 
   /* The table: a header of sort buttons, then rows drawn only where the scroll is. */
-  .grid-head, .row { display: grid; grid-template-columns: minmax(0, 2.2fr) 3.2em 4.6em 4.6em 6em 5.4em 5.4em 5.4em minmax(0, 1.6fr) 5.4em; align-items: center; column-gap: 10px; }
+  .grid-head, .row { display: grid; grid-template-columns: minmax(0, 2.2fr) 3.2em 4.6em 4.6em 6em 5.4em 5.4em 5.4em 5.4em minmax(0, 1.6fr) 5.4em; align-items: center; column-gap: 10px; }
   .grid-head { padding: 6px 8px; border-bottom: 1.5px solid var(--ink); font: 600 11px / 1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .grid-head button { padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; }
   .grid-head button:hover, .grid-head button[aria-sort]:not([aria-sort="none"]) { color: var(--ink); }
@@ -99,6 +99,8 @@
   .review .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .review .facts b { color: var(--ink); }
   .review .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); letter-spacing: 0.06em; }
+  .review .definition { margin: 0; max-width: 56ch; font: italic 400 15px / 1.4 var(--serif); color: var(--ink); }
+  .review .definition:empty { display: none; }
   .review .facts .tag { font-size: 12px; }
   .review .decide { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
   .review .decide .btn { min-width: 9em; }
@@ -268,6 +270,9 @@
         <option value="google-down">Most Google hits first</option>
         <option value="books-up">Fewest Google Books uses first</option>
         <option value="books-down">Most Google Books uses first</option>
+        <option value="papers-up">Fewest uses in other papers first</option>
+        <option value="papers-down">Most uses in other papers first</option>
+        <option value="spoken-up">Least spoken first</option>
         <option value="broda-up">Lowest Broda score first</option>
         <option value="year-up">Longest since a Times answer first</option>
         <option value="mixed">Mixed sample, for training a model</option>
@@ -329,6 +334,10 @@
         <option value="everyday">everyday figure</option>
         <option value="google">Google hits</option>
         <option value="books">Google Books uses</option>
+        <option value="papers">uses in other papers</option>
+        <option value="outlets">outlets</option>
+        <option value="spoken">spoken uses</option>
+        <option value="wiki">Wikipedia titles</option>
         <option value="broda">Broda score</option>
         <option value="year">last Times year</option>
       </select>
@@ -359,6 +368,7 @@
     <button type="button" class="num" data-sort="everyday" aria-sort="none">Everyday</button>
     <button type="button" class="num goog" data-sort="google" aria-sort="none">Google</button>
     <button type="button" class="num goog" data-sort="books" aria-sort="none" title="Google Books uses, 2015-2019">Books</button>
+    <button type="button" class="num goog" data-sort="papers" aria-sort="none" title="Uses as an answer in crosswords other than the Times">Papers</button>
     <button type="button" class="num vow" data-sort="year" aria-sort="none" title="The last year it was a Times answer">Last</button>
     <span class="flags">Notes</span>
     <span></span>
@@ -373,11 +383,11 @@
 </div>
 
 <script src="words.js?v=ed9a1ba31e"></script>
-<script src="wordstats.js?v=2c84980f8c"></script>
+<script src="wordstats.js?v=dab9b3e5eb"></script>
 <script src="lists.js?v=03236482cc"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
-<script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6";</script>
-<script src="listtool.js?v=a2a661e3c9"></script>
+<script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
+<script src="listtool.js?v=b03bede68f"></script>
 </body>
 </html>

@@ -256,6 +256,12 @@ def main():
     shutil.rmtree(SITE / "pastclues", ignore_errors=True)
     shutil.copytree(HERE / "pastclues", SITE / "pastclues")
     past_clues = folder_version(HERE / "pastclues")
+    # Wiktionary definitions for the review card, likewise one file per first two letters.
+    shutil.rmtree(SITE / "defs", ignore_errors=True)
+    defs = "none"
+    if (HERE / "defs").exists():
+        shutil.copytree(HERE / "defs", SITE / "defs")
+        defs = folder_version(HERE / "defs")
 
     versions = {name: version(SITE / name) for name in ASSETS}
     worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
@@ -263,7 +269,7 @@ def main():
     versions["worker.js"] = version(SITE / "worker.js")
     for name in PAGES + ("grid.html", "train.html"):
         path = SITE / name
-        text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"')
+        text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"').replace('"DEFS_VERSION"', f'"{defs}"')
         path.write_text(text, encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included

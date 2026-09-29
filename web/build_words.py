@@ -35,7 +35,16 @@ per length, comma lists in the same word order of
   first two cuts; "" for a single word);
 - books: how many times Google Books used the word in 2015-2019, the last years of its English
   corpus (compileWords/books-1w.txt, made from the Google Books Ngram v3 1-grams by
-  web/books_ngrams.py; single words only, 0 for phrases and unseen words).
+  web/books_ngrams.py; single words only, 0 for phrases and unseen words);
+- lat, wsj, usa, tny, up, nw, other: its uses as an answer in the LA Times, Wall Street Journal, USA
+  Today, New Yorker, Universal and Newsday puzzles and in every other xd outlet; outlets: how many
+  outlets have used it; clues: how many different clues it has had (all from
+  compileWords/xd-uses.tsv, made by web/fetch_extras.py);
+- wiki: how many English Wikipedia article titles run together to it (wiki-titles.tsv);
+- subtlex, opensubs: its count in SUBTLEX-US and in the OpenSubtitles 2018 list (spoken.tsv);
+- wikt: its Wiktionary flags, a bitset (wiktionary.tsv; the bits are listed in fetch_extras.FLAGS).
+And web/defs/XX.json holds each word's first Wiktionary definition, by its first two letters, for
+the review card to fetch as it needs them.
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
@@ -267,6 +276,20 @@ def google_count(word, parts, unigrams, bigrams):
     return least or 0
 
 
+def load_tsv(name):
+    """{WORD: [columns after the word]} from a compileWords/*.tsv with a header line, or {} without one."""
+    path = COMPILE / name
+    if not path.exists():
+        print(f"no {path}: left out (python web/fetch_extras.py makes it)")
+        return {}
+    rows = {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for line in lines[1:]:
+        parts = line.split("\t")
+        rows[parts[0]] = parts[1:]
+    return rows
+
+
 def load_books():
     """{WORD: Google Books uses in 2015-2019}, from compileWords/books-1w.txt (WORD, recent, all)."""
     path = COMPILE / "books-1w.txt"
@@ -358,6 +381,10 @@ def main():
     zipf = load_zipf()
     unigrams, bigrams = load_google()
     books = load_books()
+    xd = load_tsv("xd-uses.tsv")          # lat wsj usa tny up nw other outlets clues
+    wiki = load_tsv("wiki-titles.tsv")    # titles
+    spoken = load_tsv("spoken.tsv")       # subtlex opensubtitles
+    wikt = load_tsv("wiktionary.tsv")     # flags gloss
     scores = {}
     popular = set()
     everyday = {}
@@ -412,12 +439,32 @@ def main():
                          ",".join(str(broda[w]) if w in broda else "" for w in words),
                          ",".join(str(round(10 * readings[w][0])) if w in readings else "0" for w in words), ",".join(cuts),
                          ",".join(str(books.get(w, 0)) for w in words)]
+        for k in range(9):
+            stats[length].append(",".join(xd[w][k] if w in xd else "0" for w in words))
+        stats[length].append(",".join(wiki[w][0] if w in wiki else "0" for w in words))
+        stats[length].append(",".join(spoken[w][0] if w in spoken else "0" for w in words))
+        stats[length].append(",".join(spoken[w][1] if w in spoken else "0" for w in words))
+        stats[length].append(",".join(wikt[w][0] if w in wikt else "0" for w in words))
 
     out = HERE / "words.js"
     payload = json.dumps(data, separators=(",", ":"))
     out.write_text(f"(typeof self !== 'undefined' ? self : globalThis).GRIDFILL_WORDS = {payload};\n", encoding="utf-8")
     print(f"wrote {out}: {len(scores)} words ({len(broda)} from {source}, {len(scores) - len(broda)} unvetted), "
           f"{out.stat().st_size // 1024} KB")
+    # Definitions, filed by first two letters, fetched a file at a time by the review card.
+    defs_dir = HERE / "defs"
+    if wikt:
+        import shutil
+        shutil.rmtree(defs_dir, ignore_errors=True)
+        defs_dir.mkdir()
+        shelves = {}
+        for word, (flags, *rest) in wikt.items():
+            gloss = rest[0] if rest else ""
+            if gloss and word in scores:
+                shelves.setdefault(word[:2], {})[word] = gloss
+        for prefix, shelf in sorted(shelves.items()):
+            (defs_dir / f"{prefix}.json").write_text(json.dumps(dict(sorted(shelf.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        print(f"wrote {defs_dir}: {sum(len(s) for s in shelves.values())} definitions in {len(shelves)} files")
     stats_out = HERE / "wordstats.js"
     stats_out.write_text(f"(typeof self !== 'undefined' ? self : globalThis).GRIDFILL_STATS = {json.dumps(stats, separators=(',', ':'))};\n", encoding="utf-8")
     print(f"wrote {stats_out}: {stats_out.stat().st_size // 1024} KB")
