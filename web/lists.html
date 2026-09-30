@@ -114,7 +114,7 @@
   /* A card dragged or flown past the edge must not widen the page: phones zoom out to fit it. */
   html:has(body[data-page="train"]), body[data-page="train"] { overflow-x: clip; }
   .scorer input[type="range"] { touch-action: none; } /* dragging the slider never scrolls the page */
-  .review.flying { transition: transform 0.24s ease-in, opacity 0.24s ease-in !important; }
+  .review.flying { transition: transform 0.13s ease-in, opacity 0.13s ease-in !important; }
   .review .facts .tag { font-size: 12px; }
   .review .decide { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
   .review .decide .btn { min-width: 9em; }
@@ -176,6 +176,21 @@
   .acc-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .acc-track { height: 8px; margin-bottom: 6px; border-radius: 4px; background: var(--chip); overflow: hidden; }
   .acc-track i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--ink); transition: width 0.4s ease-out; }
+  .by-length { display: flex; align-items: stretch; gap: 3px; height: 150px; margin-bottom: 2px; }
+  .bl-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .bl-col.thin .bl-bars, .bl-col.thin .bl-value { opacity: 0.35; }
+  .bl-value { font-weight: 700; color: var(--ink); }
+  .bl-bars { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 1px;
+    border-bottom: 1px solid var(--rule); }
+  .bl-bars i { display: block; width: min(45%, 12px); border-radius: 2px 2px 0 0; transition: height 0.4s ease-out; }
+  .bl-train { background: var(--chip); box-shadow: inset 0 0 0 1px var(--rule); }
+  .bl-test { background: var(--ink); }
+  .bl-len { font-weight: 600; color: var(--ink); }
+  .bl-n { font-size: 10px; }
+  .bl-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; margin: 0 0 4px !important; }
+  .bl-key span { display: inline-flex; align-items: center; gap: 5px; }
+  .bl-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
   .model-field { display: grid; gap: 6px; font-weight: 600; color: var(--ink); }
   .model-inline { display: flex; align-items: center; gap: 8px; font-weight: 400; color: var(--muted); }
   .model input[type="number"] { width: 4.5em; min-height: 40px; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; background: var(--cell); color: var(--ink); font: 700 16px var(--sans); text-align: center; }
@@ -316,6 +331,9 @@
             <div class="acc-track"><i id="acc-train"></i></div>
             <div class="acc-head"><span>Testing</span><b id="acc-test-value">0%</b></div>
             <div class="acc-track"><i id="acc-test"></i></div>
+            <p class="acc-title">Keep or remove, by length</p>
+            <div class="by-length" id="by-length"></div>
+            <p class="bl-key"><span><i class="bl-train"></i>Training</span><span><i class="bl-test"></i>Testing: % right on top, words tested below</span></p>
             <p class="acc-title">Scores: how many points off</p>
             <table class="dev">
               <thead><tr><th></th><th>Average</th><th>Worst</th></tr></thead>

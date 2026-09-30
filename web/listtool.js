@@ -704,7 +704,7 @@
     box.classList.add("flying", direction < 0 ? "leaning-left" : "leaning-right");
     box.style.transform = `translateX(${direction * 120}vw) rotate(${direction * 14}deg)`;
     box.style.opacity = "0";
-    await new Promise((resolve) => setTimeout(resolve, 240));
+    await new Promise((resolve) => setTimeout(resolve, 130));
     box.classList.remove("flying", "leaning-left", "leaning-right");
     box.style.transform = "";
     box.style.opacity = "";
@@ -713,7 +713,7 @@
     } finally {
       flying = false;
     }
-    if (box.animate) box.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }], { duration: 160, easing: "ease-out" });
+    if (box.animate) box.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }], { duration: 90, easing: "ease-out" });
   }
   const removeWithFlourish = async () => { if (at < shown.length && (await guard())) await flyOff(-1, () => decide(false)); };
   const keepScored = async (value) => { if (scoring && (await guard())) await flyOff(1, () => { scoring = null; return scoreCurrent(value); }); };
@@ -1177,9 +1177,18 @@
     await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
     let trainRight = 0, trainScoreErr = 0, trainScoreN = 0, trainScoreMax = 0, testScoreMax = 0;
+    // Keep-or-remove accuracy for each length, 16 letters and up together.
+    const byLength = new Map();
+    const tally = (i, side, ok) => {
+      const len = Math.min(16, decided[i].len);
+      if (!byLength.has(len)) byLength.set(len, { train: [0, 0], test: [0, 0] });
+      byLength.get(len)[side][0] += ok ? 1 : 0;
+      byLength.get(len)[side][1]++;
+    };
     for (const i of trainIdx) {
       const out = forward(trial, X[i]);
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
+      tally(i, "train", (sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]);
       if (Y[i][1] >= 0) {
         const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
         trainScoreErr += off;
@@ -1195,6 +1204,7 @@
       n++;
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) right++;
       else missed.add(i);
+      tally(i, "test", !missed.has(i));
       if ((keptShare >= 0.5 ? 1 : 0) === Y[i][0]) baseRight++;
       if (Y[i][1] >= 0) {
         const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
@@ -1245,6 +1255,7 @@
     $("acc-train").style.width = `${trainAcc}%`;
     $("acc-test-value").textContent = `${acc}%`;
     $("acc-test").style.width = `${acc}%`;
+    drawByLength(byLength);
     // Scores: how many points the model's score is from yours, on average and at worst, for kept words.
     const points = (n) => `${Math.round(n)} ${Math.round(n) === 1 ? "point" : "points"}`;
     $("dev-train-avg").textContent = trainScoreN ? points(trainScoreErr / trainScoreN) : "–";
@@ -1262,6 +1273,25 @@
     refilter(); // the feed now leads with what it's unsure about
   }
   $("train").addEventListener("click", train);
+
+  /* One column per length: training accuracy as the pale bar, testing as the dark one. A length with
+     only a few test words is drawn faint, since its number means little yet. */
+  function drawByLength(byLength) {
+    const pct = ([ok, all]) => (all ? Math.round((100 * ok) / all) : null);
+    const lengths = [...byLength.keys()].sort((a, b) => a - b);
+    $("by-length").innerHTML = lengths.map((len) => {
+      const { train, test } = byLength.get(len);
+      const tr = pct(train), te = pct(test);
+      const label = len >= 16 ? "16+" : String(len);
+      const words = (count) => `${count} ${count === 1 ? "word" : "words"}`;
+      const tip = `${label} letters: ${tr === null ? "–" : tr + "%"} right in training (${words(train[1])}), ` +
+        `${te === null ? "–" : te + "%"} in testing (${words(test[1])})`;
+      return `<div class="bl-col${test[1] < 5 ? " thin" : ""}" title="${tip}">` +
+        `<span class="bl-value">${te === null ? "–" : te}</span>` +
+        `<div class="bl-bars"><i class="bl-train" style="height:${tr || 0}%"></i><i class="bl-test" style="height:${te || 0}%"></i></div>` +
+        `<span class="bl-len">${label}</span><span class="bl-n">${test[1]}</span></div>`;
+    }).join("");
+  }
 
   /* The model's verdict on every word not yet decided, made once after training, a slice at a time:
      how likely it is to be kept, and its score. */
