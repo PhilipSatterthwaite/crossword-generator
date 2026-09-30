@@ -168,6 +168,7 @@
     for (const row of rows) {
       row.papers = papersOf(row);
       row.spoken = spokenOf(row);
+      row.scrabble = Math.round((10 * [...row.word].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0)) / row.len) / 10;
     }
     applyEdits();
     renderWhich();
@@ -463,6 +464,7 @@
       `<span title="${row.books.toLocaleString()} uses in Google Books, 2015-2019">Books <b>${compact(row.books)}</b></span>` +
       `<span title="${Object.entries(PAPERS).map(([key, name]) => `${name} ${row[key].toLocaleString()}`).join(", ")}">Other papers <b>${compact(papersOf(row))}</b></span>` +
       `<span title="Different crossword outlets that have used it">Outlets <b>${row.outlets || "–"}</b></span>` +
+      `<span title="Average Scrabble value of its letters (E is 1, Q and Z are 10)">Scrabble <b>${row.scrabble.toFixed(1)}</b></span>` +
       `<span title="Film and TV subtitles: SUBTLEX-US ${row.subtlex.toLocaleString()}, OpenSubtitles ${row.opensubs.toLocaleString()}">Spoken <b>${compact(spokenOf(row))}</b></span>` +
       `<span title="${row.wiki ? `${row.wiki} Wikipedia article title${row.wiki === 1 ? "" : "s"}` : "No Wikipedia article by that name"}">Wikipedia <b>${row.wiki ? "yes" : "no"}</b></span>` +
       `${wiktTags(row)}${tags.join("")}</div>` +
@@ -554,6 +556,7 @@
     const row = shown[at];
     scoring = row;
     const box = $("review");
+    const keepX = scrollX, keepY = scrollY;
     box.className = "review";
     box.style.transform = "";
     box.innerHTML = `<p class="progress">Keeping <b>${row.word}</b> — how good is it?</p>` +
@@ -568,11 +571,15 @@
       $("score-range").value = n;
       if (document.activeElement !== $("score-box")) $("score-box").value = n;
     };
+    scrollTo(keepX, keepY); // swapping the card's contents never moves the page
     $("score-range").addEventListener("input", () => show(Number($("score-range").value)));
     $("score-box").addEventListener("input", () => { const n = Number($("score-box").value); if (n >= 1 && n <= 100) show(n); });
     if (!matchMedia("(pointer: coarse)").matches) {
-      $("score-box").focus();
+      // Selecting the box lets a typed score replace it; browsers scroll to a selection, so put the page back.
+      const x = scrollX, y = scrollY;
+      $("score-box").focus({ preventScroll: true });
       $("score-box").select();
+      scrollTo(x, y);
     }
   }
   const scoreChosen = () => Math.max(1, Math.min(100, Math.round(Number($("score-box").value) || Number($("score-range").value) || 50)));
@@ -662,17 +669,17 @@
     const button = event.target.closest("button[data-decide], button[data-preset]");
     if (!button) return;
     const what = button.dataset.decide;
-    if (what === "remove") decide(false);
+    if (what === "remove") removeWithFlourish();
     else if (what === "keep") decide(true);
-    else if (what === "score-done") scoreCurrent(scoreChosen());
+    else if (what === "score-done") keepScored(scoreChosen());
     else if (what === "score-cancel") { scoring = null; renderCard(); focusReview(); }
-    else if (button.dataset.preset) { scoring = null; scoreCurrent(Number(button.dataset.preset)); }
+    else if (button.dataset.preset) keepScored(Number(button.dataset.preset));
     else if (what === "undo") undo();
   });
   $("review").addEventListener("keydown", (event) => {
     if (event.target.matches("input") && event.key === "Enter") {
       event.preventDefault();
-      if (scoring) { scoring = null; scoreCurrent(scoreChosen()); }
+      if (scoring) keepScored(scoreChosen());
       else scoreCurrent(Number(event.target.value));
     } else if (scoring && event.key === "Escape") {
       event.preventDefault();
@@ -687,12 +694,37 @@
     }
   });
 
-  // A finger: slide the card, and past a hand's width it's decided.
+  /* The card leaves the screen the way it was sent, the next one settles in. */
+  let flying = false;
+  async function flyOff(direction, then) {
+    if (flying) return;
+    flying = true;
+    const box = $("review");
+    box.classList.remove("dragging", "leaning-left", "leaning-right");
+    box.classList.add("flying", direction < 0 ? "leaning-left" : "leaning-right");
+    box.style.transform = `translateX(${direction * 120}vw) rotate(${direction * 14}deg)`;
+    box.style.opacity = "0";
+    await new Promise((resolve) => setTimeout(resolve, 240));
+    box.classList.remove("flying", "leaning-left", "leaning-right");
+    box.style.transform = "";
+    box.style.opacity = "";
+    try {
+      await then();
+    } finally {
+      flying = false;
+    }
+    if (box.animate) box.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }], { duration: 160, easing: "ease-out" });
+  }
+  const removeWithFlourish = async () => { if (at < shown.length && (await guard())) await flyOff(-1, () => decide(false)); };
+  const keepScored = async (value) => { if (scoring && (await guard())) await flyOff(1, () => { scoring = null; return scoreCurrent(value); }); };
+
+  // A finger: slide the card, and past a hand's width it's decided. On a word, left removes and right
+  // asks for a score; on the scorer, right keeps at the score shown and left goes back.
   (() => {
     const box = $("review");
     let startX = 0, startY = 0, dx = 0, active = false;
     box.addEventListener("touchstart", (event) => {
-      if (scoring || at >= shown.length || event.touches.length !== 1 || event.target.matches("input, button")) return;
+      if (flying || at >= shown.length || event.touches.length !== 1 || event.target.matches("input, button, a")) return;
       active = true;
       dx = 0;
       startX = event.touches[0].clientX;
@@ -711,10 +743,26 @@
     const end = () => {
       if (!active) return;
       active = false;
-      box.classList.remove("dragging", "leaning-left", "leaning-right");
-      box.style.transform = "";
-      if (dx <= -90) decide(false);
-      else if (dx >= 90) decide(true);
+      const moved = dx;
+      if (Math.abs(moved) < 90) {
+        box.classList.remove("dragging", "leaning-left", "leaning-right");
+        box.style.transform = "";
+        return;
+      }
+      if (scoring) {
+        if (moved > 0) keepScored(scoreChosen());
+        else {
+          box.classList.remove("dragging", "leaning-left", "leaning-right");
+          box.style.transform = "";
+          scoring = null;
+          renderCard();
+        }
+      } else if (moved < 0) removeWithFlourish();
+      else {
+        box.classList.remove("dragging", "leaning-left", "leaning-right");
+        box.style.transform = "";
+        decide(true); // opens the scorer
+      }
     };
     box.addEventListener("touchend", end);
     box.addEventListener("touchcancel", end);
@@ -724,7 +772,7 @@
     const target = event.target instanceof Element ? event.target : null;
     if (target && target.matches("select") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) target.blur(); // a menu left focused: the arrows mean the words
     const typing = target && target.matches("input, textarea");
-    if (event.key === "ArrowLeft" && !typing) { event.preventDefault(); decide(false); }
+    if (event.key === "ArrowLeft" && !typing) { event.preventDefault(); removeWithFlourish(); }
     else if (event.key === "ArrowRight" && !typing) { event.preventDefault(); decide(true); }
     else if (event.key === "Backspace" && !typing) { event.preventDefault(); undo(); }
   });
@@ -918,7 +966,7 @@
   $("bulk-remove").addEventListener("click", () => bulk("remove"));
 
   /* Keep or remove every undecided word in the set whose figure clears a threshold. */
-  const STAT_NAMES = { papers: "uses in other papers", outlets: "outlets", spoken: "spoken uses", wiki: "Wikipedia titles", uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
+  const STAT_NAMES = { scrabble: "average Scrabble letter score", papers: "uses in other papers", outlets: "outlets", spoken: "spoken uses", wiki: "Wikipedia titles", uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
   function sweepRows() {
     const stat = $("sweep-stat").value;
     const atLeast = $("sweep-how").value === "min";
@@ -1291,7 +1339,7 @@
 
   const SCRABBLE = { A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3, N: 1, O: 1, P: 3, Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10 };
   const CSV_HEAD = ["word", "reading", "length", "words", "score", "own_score", "base_score", "broda_score", "nyt_uses", "nyt_last_year", "everyday", "zipf", "google", "books_2015_2019",
-    "vowel_pct", "scrabble", "rare_letters", "double_letters", "ends_s", "ends_ed", "ends_ing", "ends_er", "starts_a_the", "popular", "nyt_answer", "unvetted",
+    "vowel_pct", "scrabble", "scrabble_avg", "rare_letters", "double_letters", "ends_s", "ends_ed", "ends_ing", "ends_er", "starts_a_the", "popular", "nyt_answer", "unvetted",
     "lat_uses", "wsj_uses", "usa_today_uses", "new_yorker_uses", "universal_uses", "newsday_uses", "other_outlet_uses", "outlets", "distinct_clues",
     "wikipedia_titles", "subtlex_us", "opensubtitles",
     ...WIKT.map((name) => `wiktionary_${name}`),
@@ -1306,7 +1354,7 @@
     const first = parts[0];
     return [
       w, reading, row.len, parts.length, row.score, row.own ? row.score : "", row.base, row.broda < 0 ? "" : row.broda, row.uses, row.year || "", row.everyday, row.zipf.toFixed(1), row.google, row.books,
-      row.vowels, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0), (w.match(/[JQXZ]/g) || []).length, (w.match(/([A-Z])\1/g) || []).length,
+      row.vowels, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0), row.scrabble, (w.match(/[JQXZ]/g) || []).length, (w.match(/([A-Z])\1/g) || []).length,
       Number(/S$/.test(w)), Number(/ED$/.test(w)), Number(/ING$/.test(w)), Number(/ER$/.test(w)), Number(first === "A" || first === "AN" || first === "THE"),
       row.popular, row.nyt, row.unvetted,
       row.lat, row.wsj, row.usa, row.tny, row.up, row.nw, row.otherPapers, row.outlets, row.clueCount,

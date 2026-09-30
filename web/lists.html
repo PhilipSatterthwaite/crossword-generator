@@ -100,6 +100,21 @@
   .review .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); letter-spacing: 0.06em; }
   .review .definition { margin: 0; max-width: 56ch; font: italic 400 15px / 1.4 var(--serif); color: var(--ink); }
   .review .definition:empty { display: none; }
+  /* On the Train page the card holds still: one height for the word and the scorer alike, the
+     buttons pinned to its foot, and anything that loads late (clues, a definition) kept inside it. */
+  body[data-page="train"] .review { display: flex; flex-direction: column; align-items: center; gap: 12px; box-sizing: border-box;
+    height: min(620px, calc(100svh - 96px)); min-height: 440px; overflow: hidden; overflow-anchor: none; }
+  body[data-page="train"] .review > .decide, body[data-page="train"] .review .scorer .decide { margin-top: auto; }
+  body[data-page="train"] .review #clues-box { flex: 1 1 auto; min-height: 0; overflow: hidden; width: 100%;
+    -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
+  body[data-page="train"] .review .scorer { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(100%, 420px); }
+  body[data-page="train"] .review .scorer .decide { width: 100%; }
+  /* Sideways drags on the card are swipes, never the browser's own scrolling. */
+  body[data-page="train"] .review { touch-action: pan-y; overscroll-behavior: contain; }
+  /* A card dragged or flown past the edge must not widen the page: phones zoom out to fit it. */
+  html:has(body[data-page="train"]), body[data-page="train"] { overflow-x: clip; }
+  .scorer input[type="range"] { touch-action: none; } /* dragging the slider never scrolls the page */
+  .review.flying { transition: transform 0.24s ease-in, opacity 0.24s ease-in !important; }
   .review .facts .tag { font-size: 12px; }
   .review .decide { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
   .review .decide .btn { min-width: 9em; }
@@ -272,6 +287,7 @@
         <option value="papers-up">Fewest uses in other papers first</option>
         <option value="papers-down">Most uses in other papers first</option>
         <option value="spoken-up">Least spoken first</option>
+        <option value="scrabble-down">Highest average Scrabble letter score first</option>
         <option value="broda-up">Lowest Broda score first</option>
         <option value="year-up">Longest since a Times answer first</option>
         <option value="mixed">Mixed sample, for training a model</option>
@@ -337,6 +353,7 @@
         <option value="outlets">outlets</option>
         <option value="spoken">spoken uses</option>
         <option value="wiki">Wikipedia titles</option>
+        <option value="scrabble">average Scrabble letter score</option>
         <option value="broda">Broda score</option>
         <option value="year">last Times year</option>
       </select>
