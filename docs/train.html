@@ -187,6 +187,8 @@
   .bl-bars i { display: block; width: min(45%, 12px); border-radius: 2px 2px 0 0; transition: height 0.4s ease-out; }
   .bl-train { background: var(--chip); box-shadow: inset 0 0 0 1px var(--rule); }
   .bl-test { background: var(--ink); }
+  .bl-col.bonus .bl-test { background: var(--muted); }
+  .bl-col.bonus .bl-len { font-weight: 400; color: var(--muted); }
   .bl-len { font-weight: 600; color: var(--ink); }
   .bl-n { font-size: 10px; }
   .bl-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; margin: 0 0 4px !important; }
@@ -327,15 +329,15 @@
           <p id="meter-weak" class="meter-accuracy"></p>
           <p id="meter-split" class="meter-accuracy"></p>
           <div class="acc">
-            <p class="acc-title">Keep or remove</p>
+            <p class="acc-title" id="acc-scope">Keep or remove</p>
             <div class="acc-head"><span>Training</span><b id="acc-train-value">0%</b></div>
             <div class="acc-track"><i id="acc-train"></i></div>
             <div class="acc-head"><span>Testing</span><b id="acc-test-value">0%</b></div>
             <div class="acc-track"><i id="acc-test"></i></div>
             <p class="acc-title">Keep or remove, by length</p>
             <div class="by-length" id="by-length"></div>
-            <p class="bl-key"><span><i class="bl-train"></i>Training</span><span><i class="bl-test"></i>Testing: % right on top, words tested below</span></p>
-            <p class="acc-title">Scores: how many points off</p>
+            <p class="bl-key"><span><i class="bl-train"></i>Training</span><span><i class="bl-test"></i>Testing: % right on top, words tested below</span><span>Past 10 letters, grey: a bonus</span></p>
+            <p class="acc-title" id="dev-scope">Scores: how many points off</p>
             <table class="dev">
               <thead><tr><th></th><th>Average</th><th>Worst</th></tr></thead>
               <tbody>
@@ -423,6 +425,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=72e72603d5"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
-<script src="listtool.js?v=40546e484e"></script>
+<script src="listtool.js?v=6f3eff83a0"></script>
 </body>
 </html>

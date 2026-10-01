@@ -268,6 +268,29 @@
     shown.sort((a, b) => rank.get(a) - rank.get(b) || (a.word < b.word ? -1 : 1));
   }
 
+  /* On the Train page the words that matter most are 3 to 10 letters long: they come nine cards in
+     ten while any are left, taking each length from 3 to 10 in turn so short words get as many turns
+     as the plentiful longer ones. Each length keeps its own order; past 10 letters is a bonus. */
+  const CORE_MAX = 10;
+  const isCore = (row) => row.len <= CORE_MAX;
+  function favorCore(list) {
+    const byLen = new Map();
+    for (const row of list) if (isCore(row)) (byLen.get(row.len) || byLen.set(row.len, []).get(row.len)).push(row);
+    const queues = [...byLen.keys()].sort((x, y) => x - y).map((len) => byLen.get(len));
+    const core = [];
+    for (let round = 0; core.length < queues.reduce((sum, q) => sum + q.length, 0); round++)
+      for (const q of queues) if (round < q.length) core.push(q[round]);
+    const long = list.filter((row) => !isCore(row));
+    const next = [];
+    let c = 0, l = 0;
+    while (next.length < list.length) {
+      const wantLong = next.length % 10 === 9;
+      if ((wantLong && l < long.length) || c >= core.length) next.push(long[l++]);
+      else next.push(core[c++]);
+    }
+    return next;
+  }
+
   function resort() {
     if (sortKey === "mixed") {
       mixedOrder();
@@ -298,6 +321,7 @@
         }
         shown = next;
       }
+      if (TRAIN) shown = favorCore(shown);
       for (const button of document.querySelectorAll(".grid-head [data-sort]")) button.setAttribute("aria-sort", "none");
       $("count").innerHTML = `<b>${shown.length.toLocaleString()}</b> of ${rows.length.toLocaleString()} words shown`;
       $("scroller").scrollTop = 0;
@@ -1092,8 +1116,9 @@
           const acts = keep.acts;
           // output gradients: binary cross-entropy on keep, squared error on score (only where known)
           const dOut = new Float64Array(2);
-          dOut[0] = sigmoid(out[0]) - Y[i][0];
-          dOut[1] = Y[i][1] >= 0 ? 2 * (out[1] - Y[i][1]) : 0;
+          const weight = Y[i][2] ?? 1;
+          dOut[0] = weight * (sigmoid(out[0]) - Y[i][0]);
+          dOut[1] = Y[i][1] >= 0 ? weight * 2 * (out[1] - Y[i][1]) : 0;
           let delta = dOut;
           for (let k = L.length - 1; k >= 0; k--) {
             const layer = L[k];
@@ -1149,7 +1174,8 @@
   async function train() {
     const decided = decidedRows();
     const X0 = decided.map(featuresOf);
-    const Y = decided.map((row) => [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 100 : -1]);
+    // Words of 3 to 10 letters count fully in training, longer ones a third as much.
+    const Y = decided.map((row) => [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 100 : -1, isCore(row) ? 1 : 0.35]);
     const net = makeNet(FEATURES.length);
     net.mean = FEATURES.map((_, i) => X0.reduce((sum, x) => sum + x[i], 0) / X0.length);
     net.std = FEATURES.map((_, i) => Math.sqrt(X0.reduce((sum, x) => sum + (x[i] - net.mean[i]) ** 2, 0) / X0.length) || 1);
@@ -1176,7 +1202,11 @@
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(trial, trainIdx.map((i) => X[i]), trainIdx.map((i) => Y[i]), epochs, (e) => tick(null, e, epochs * 2));
     let right = 0, baseRight = 0, n = 0, scoreErr = 0, scoreN = 0;
-    let trainRight = 0, trainScoreErr = 0, trainScoreN = 0, trainScoreMax = 0, testScoreMax = 0;
+    let trainRight = 0, trainN = 0, trainScoreErr = 0, trainScoreN = 0, trainScoreMax = 0, testScoreMax = 0;
+    // The headline numbers and the confidence are for 3- to 10-letter words once there are enough of
+    // them held back to judge by; until then, for every length.
+    const focus = [...held].filter((i) => isCore(decided[i])).length >= 10;
+    const counts = (i) => !focus || isCore(decided[i]);
     // Keep-or-remove accuracy for each length, 16 letters and up together.
     const byLength = new Map();
     const tally = (i, side, ok) => {
@@ -1187,8 +1217,10 @@
     };
     for (const i of trainIdx) {
       const out = forward(trial, X[i]);
-      if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
       tally(i, "train", (sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]);
+      if (!counts(i)) continue;
+      trainN++;
+      if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
       if (Y[i][1] >= 0) {
         const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
         trainScoreErr += off;
@@ -1196,15 +1228,16 @@
         trainScoreN++;
       }
     }
-    const trainAcc = trainIdx.length ? Math.round((100 * trainRight) / trainIdx.length) : 0;
+    const trainAcc = trainN ? Math.round((100 * trainRight) / trainN) : 0;
     const keptShare = trainIdx.filter((i) => Y[i][0] === 1).length / trainIdx.length;
     const missed = new Set();
     for (const i of held) {
       const out = forward(trial, X[i]);
+      tally(i, "test", (sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]);
+      if (!counts(i)) continue;
       n++;
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) right++;
       else missed.add(i);
-      tally(i, "test", !missed.has(i));
       if ((keptShare >= 0.5 ? 1 : 0) === Y[i][0]) baseRight++;
       if (Y[i][1] >= 0) {
         const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
@@ -1228,8 +1261,9 @@
     $("meter-note").textContent = stage === "green" ? "Ready to finish the list." : stage === "yellow" ? "Getting there. Keep swiping, then train again." : "Keep swiping, then train again.";
     // Where it goes wrong most: the kind of word whose held-back decisions it misses most often.
     const KINDS = [
-      ["long words (10+ letters)", (row) => row.len >= 10],
-      ["short words (3 or 4 letters)", (row) => row.len <= 4],
+      ["3- and 4-letter words", (row) => row.len <= 4],
+      ["5- to 7-letter words", (row) => row.len >= 5 && row.len <= 7],
+      ["8- to 10-letter words", (row) => row.len >= 8 && row.len <= 10],
       ["phrases", (row) => readingOf(row).includes(" ")],
       ["words never used in the Times", (row) => !row.uses],
       ["uncommon words", (row) => row.everyday < 30],
@@ -1242,7 +1276,7 @@
     const overall = n ? missed.size / n : 0;
     let weakest = null;
     for (const [name, test] of KINDS) {
-      const members = [...held].filter((i) => test(decided[i]));
+      const members = [...held].filter((i) => counts(i) && test(decided[i]));
       if (members.length < 5) continue;
       const rate = members.filter((i) => missed.has(i)).length / members.length;
       if (rate >= overall + 0.1 && (!weakest || rate > weakest.rate)) weakest = { name, rate };
@@ -1250,7 +1284,10 @@
     $("meter-weak").textContent = weakest
       ? `It's weakest on ${weakest.name}: wrong on ${Math.round(100 * weakest.rate)}% of them, ${Math.round(100 * overall)}% overall. The words it's least sure about come up next.`
       : n ? "The words it's least sure about come up next." : "";
-    $("meter-split").textContent = `${trainIdx.length.toLocaleString()} words were used for training and ${n.toLocaleString()} for testing.`;
+    $("meter-split").textContent = `${trainIdx.length.toLocaleString()} words were used for training and ${held.size.toLocaleString()} for testing.` +
+      (focus ? ` Confidence and the numbers below are for the ${n.toLocaleString()} test words of 3 to 10 letters; longer ones are a bonus.` : " Once 10 of the test words are 3 to 10 letters long, confidence is judged on those.");
+    $("acc-scope").textContent = focus ? "Keep or remove, 3 to 10 letters" : "Keep or remove";
+    $("dev-scope").textContent = focus ? "Scores, 3 to 10 letters: how many points off" : "Scores: how many points off";
     $("acc-train-value").textContent = `${trainAcc}%`;
     $("acc-train").style.width = `${trainAcc}%`;
     $("acc-test-value").textContent = `${acc}%`;
@@ -1286,7 +1323,7 @@
       const words = (count) => `${count} ${count === 1 ? "word" : "words"}`;
       const tip = `${label} letters: ${tr === null ? "–" : tr + "%"} right in training (${words(train[1])}), ` +
         `${te === null ? "–" : te + "%"} in testing (${words(test[1])})`;
-      return `<div class="bl-col${test[1] < 5 ? " thin" : ""}" title="${tip}">` +
+      return `<div class="bl-col${test[1] < 5 ? " thin" : ""}${len > CORE_MAX ? " bonus" : ""}" title="${tip}">` +
         `<span class="bl-value">${te === null ? "–" : te}</span>` +
         `<div class="bl-bars"><i class="bl-train" style="height:${tr || 0}%"></i><i class="bl-test" style="height:${te || 0}%"></i></div>` +
         `<span class="bl-len">${label}</span><span class="bl-n">${test[1]}</span></div>`;
