@@ -452,6 +452,16 @@
     renderSets();
   }
 
+  /* What the trained model would do with a word: remove it, or keep it at a score, and how sure it is. */
+  function modelGuess(row) {
+    if (!TRAIN || !model || !model.pOf || !model.pOf.has(row)) return "";
+    const p = model.pOf.get(row);
+    const keep = p >= 0.5;
+    const sure = Math.round(100 * (keep ? p : 1 - p));
+    return `<p class="guess ${keep ? "keep" : "remove"}${sure < 70 ? " unsure" : ""}" title="The model's prediction, from its last training">` +
+      `Model: <b>${keep ? `keep at ${model.scoreOf.get(row)}` : "remove"}</b> <span>${sure < 55 ? "coin toss" : `${sure}% sure`}</span></p>`;
+  }
+
   function renderCard() {
     scoring = null;
     const box = $("review");
@@ -477,10 +487,10 @@
     if (row.nyt) tags.push('<span class="tag nyt">NYT answer</span>');
     if (row.unvetted) tags.push('<span class="tag">unvetted</span>');
     if (row.popular) tags.push('<span class="tag">popular</span>');
-    if (TRAIN && model && model.pOf && Math.abs((model.pOf.get(row) ?? 0) - 0.5) < 0.2) tags.push('<span class="tag" title="The model can\'t tell whether you\'d keep this one">model unsure</span>');
     box.innerHTML = `<p class="progress">${(n - at).toLocaleString()} ${setLength ? `${setLength}-letter words` : "words"} left to decide</p>` +
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
       (row.cuts ? `<p class="reading">read as <b>${readingOf(row)}</b></p>` : "") +
+      modelGuess(row) +
       `<div class="facts"><span>Score <b>${row.score}</b></span><span title="Peter Broda's own score, before the site's popularity nudge">Broda <b>${row.broda < 0 ? "–" : row.broda}</b></span>` +
       `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span>Everyday <b>${row.everyday}</b></span>` +
       `<span title="Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand">Zipf <b>${row.zipf ? row.zipf.toFixed(1) : "–"}</b></span>` +
@@ -585,7 +595,11 @@
     box.style.transform = "";
     box.innerHTML = `<p class="progress">Keeping <b>${row.word}</b> — how good is it?</p>` +
       `<div class="scorer"><p class="big-score" id="score-big">${row.score}</p>` +
-      `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">` +
+      (TRAIN && model && model.scoreOf && model.scoreOf.has(row)
+        ? `<p class="guess keep">Model's guess: <b>${model.scoreOf.get(row)}</b></p>` +
+          `<div class="range-wrap"><input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">` +
+          `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(model.scoreOf.get(row) - 1) / 99})" title="Model's guess"></i></div>`
+        : `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">`) +
       `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
       `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter</div>` +
       `<div class="decide"><button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button>` +
@@ -1361,7 +1375,11 @@
     }
     model.undecided = undecided;
     model.pOf = new Map();
-    for (let i = 0; i < undecided.length; i++) model.pOf.set(undecided[i], pKeep[i]);
+    model.scoreOf = new Map();
+    for (let i = 0; i < undecided.length; i++) {
+      model.pOf.set(undecided[i], pKeep[i]);
+      model.scoreOf.set(undecided[i], score[i]);
+    }
     model.pKeep = pKeep;
     model.score = score;
   }
