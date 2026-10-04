@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-wgXxM/Kn6mNu7FKttIink/PImgcsgAvE+wKGeknFW/w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-x6jEMNW2tWJhgRM7qSsitfIayE2b95QsycA+AoCitso='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -448,7 +448,7 @@
       <section class="fill blocks" aria-labelledby="blocks-title">
         <div class="fill-head"><span id="blocks-title" class="label">Blocks</span></div>
         <div class="control-group fill-settings">
-          <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, filling each one to see how it holds up, and keeps the one that fills the most different ways, never one with a section hanging off the rest by just one or two squares. The blocks and inked words already on the grid stay where they are, and theme entries are built into the pattern.">Design blocks</button>
+          <button type="button" id="design" class="btn" title="Lay out the black squares: the designer tries hundreds of symmetric patterns, many of them taken from real New York Times grids the theme entries fit, filling each one to see how it holds up, and keeps the one that fills the most different ways. It never uses a cluster of blocks the Times almost never prints, or a section hanging off the rest by just one or two squares. The blocks and inked words already on the grid stay where they are, and theme entries are built into the pattern.">Design blocks</button>
           <label class="field" title="The most squares the designer may leave black">Up to <input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % black</label>
           <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
           <label class="check" title="Placing a block places its mirror image too, turned 180°"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
@@ -569,7 +569,7 @@
 
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="filler.js?v=8904f4f420"></script>
-<script src="designer.js?v=880b2c1a32"></script>
+<script src="designer.js?v=f1d0202dbb"></script>
 <script src="store.js?v=a87c2ef649"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=03236482cc"></script>
@@ -1978,7 +1978,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=bd427967c9");
+          worker = new Worker("worker.js?v=37484a34cd");
         } catch (error) {
           useInline();
           return;
@@ -2039,7 +2039,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=bd427967c9");
+          worker = new Worker("worker.js?v=37484a34cd");
         } catch (error) {
           return;
         }
@@ -2337,7 +2337,10 @@
         render();
         const count = result.blockCount;
         const raised = result.capRaisedTo ? ` The block cap was raised to ${Math.round(result.capRaisedTo * 100)}% to fit the theme entries.` : "";
-        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${raised}`);
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const [y, m, d] = (result.basedOn || "").split("-").map(Number);
+        const source = result.basedOn ? ` The blocks ${result.adapted ? "start from" : "are"} the pattern the Times ran on ${months[m - 1]} ${d}, ${y}.` : "";
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${source}${raised}`);
         updateButtons();
       }
     );

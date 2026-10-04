@@ -1,6 +1,6 @@
 /* Runs fills, grid designs and word-option checks off the page's main thread so the grid stays
    responsive. */
-importScripts("words.js", "filler.js", "designer.js");
+importScripts("words.js", "filler.js", "nytpatterns.js", "designer.js");
 
 let words = new Gridfill.WordList(self.GRIDFILL_WORDS);
 

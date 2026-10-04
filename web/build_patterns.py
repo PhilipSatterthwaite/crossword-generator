@@ -1,0 +1,124 @@
+"""Build web/nytpatterns.js: what real New York Times block patterns look like, for the grid designer.
+
+Run: python web/build_patterns.py
+The source is doshea/nyt_crosswords on GitHub (every NYT crossword from 1976 to early 2018 as JSON),
+downloaded once to compileWords/nyt-grids/nyt.zip. Only Will Shortz's puzzles (1994 on) are used,
+since the look of a grid changed when he took over.
+
+Three things come out, each for 15x15 dailies (Monday to Saturday) and 21x21 Sundays:
+
+- shapes   For every 3x3 neighbourhood a square can have (each of its nine squares white, black or
+           off the grid), in how many of the grids it appears, counting each grid's eight
+           rotations and reflections as grids too, since a shape is as natural turned around. The
+           designer refuses a pattern with a shape that almost no grid has (a solid 3x3 of blocks
+           in a corner, say) and charges for rare ones.
+- heat     For each square, the share of grids that have a block there: the familiar heat map.
+- library  Every distinct block pattern, as a hex string of the first half of its squares (the
+           rest mirror them), with its date. The designer starts from one of these when the
+           theme entries fit its slots.
+"""
+import json
+import subprocess
+import zipfile
+from collections import Counter
+from pathlib import Path
+
+HERE = Path(__file__).parent
+ZIP = HERE.parent / "compileWords" / "nyt-grids" / "nyt.zip"
+URL = "https://codeload.github.com/doshea/nyt_crosswords/zip/refs/heads/master"
+OUT = HERE / "nytpatterns.js"
+FIRST_YEAR = 1994
+
+
+def transforms(n):
+    """The eight symmetries of an n x n square, as index maps."""
+    out = []
+    for flip in (False, True):
+        for turns in range(4):
+            m = []
+            for r in range(n):
+                for c in range(n):
+                    rr, cc = r, c
+                    for _ in range(turns):
+                        rr, cc = cc, n - 1 - rr
+                    if flip:
+                        cc = n - 1 - cc
+                    m.append(rr * n + cc)
+            out.append(m)
+    return out
+
+
+def windows(blocks, n):
+    """The key of every square's 3x3 neighbourhood: base 3, 0 white, 1 block, 2 off the grid."""
+    keys = set()
+    for r in range(n):
+        for c in range(n):
+            key = 0
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    rr, cc = r + dr, c + dc
+                    v = 2 if rr < 0 or rr >= n or cc < 0 or cc >= n else blocks[rr * n + cc]
+                    key = key * 3 + v
+            keys.add(key)
+    return keys
+
+
+def main():
+    if not ZIP.exists():
+        ZIP.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["curl", "-sSfL", "--retry", "3", "-o", str(ZIP), URL], check=True)
+    grids = {15: {}, 21: {}}
+    with zipfile.ZipFile(ZIP) as zf:
+        for name in sorted(zf.namelist()):
+            if not name.endswith(".json"):
+                continue
+            year = int(name.split("/")[1])
+            if year < FIRST_YEAR:
+                continue
+            try:
+                data = json.loads(zf.read(name))
+            except ValueError:
+                continue
+            size = data.get("size") or {}
+            n = size.get("rows")
+            if n != size.get("cols") or n not in grids or not data.get("grid"):
+                continue
+            sunday = data.get("dow") == "Sunday"
+            if (n == 21) != sunday:
+                continue  # a 15x15 Sunday or an oversized weekday is a stunt, not the norm
+            blocks = tuple(1 if cell == "." else 0 for cell in data["grid"])
+            if len(blocks) != n * n or any(blocks[i] != blocks[n * n - 1 - i] for i in range(n * n)):
+                continue  # only 180-degree symmetric patterns
+            mm, dd = name.split("/")[2], name.split("/")[3][:2]
+            grids[n].setdefault(blocks, f"{year}-{mm}-{dd}")
+    result = {}
+    for n, found in grids.items():
+        maps = transforms(n)
+        seen = Counter()
+        heat = [0] * (n * n)
+        for blocks in found:
+            for i, b in enumerate(blocks):
+                heat[i] += b
+            for m in maps:
+                turned = [blocks[m[i]] for i in range(n * n)]
+                seen.update(windows(turned, n))
+        count = len(found)
+        library = []
+        half = (n * n + 1) // 2
+        for blocks, date in sorted(found.items(), key=lambda kv: kv[1]):
+            bits = "".join(str(b) for b in blocks[:half])
+            library.append([format(int(bits, 2), "x").rjust((half + 3) // 4, "0"), date])
+        result[n] = {
+            "grids": count,
+            "shapes": {str(k): v for k, v in sorted(seen.items())},  # out of 8 * grids
+            "heat": [round(h / count, 3) for h in heat],
+            "library": library,
+        }
+        print(f"{n}x{n}: {count} distinct patterns, {len(seen)} shapes")
+    OUT.write_text("/* Generated by web/build_patterns.py from doshea/nyt_crosswords: NYT block patterns, 1994-2018. */\n"
+                   "(typeof self !== \"undefined\" ? self : globalThis).NYT_PATTERNS = " + json.dumps(result, separators=(",", ":")) + ";\n", encoding="utf-8")
+    print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB)")
+
+
+if __name__ == "__main__":
+    main()

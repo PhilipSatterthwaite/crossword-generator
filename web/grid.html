@@ -2321,7 +2321,10 @@
         render();
         const count = result.blockCount;
         const raised = result.capRaisedTo ? ` The block cap was raised to ${Math.round(result.capRaisedTo * 100)}% to fit the theme entries.` : "";
-        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${raised}`);
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const [y, m, d] = (result.basedOn || "").split("-").map(Number);
+        const source = result.basedOn ? ` The blocks ${result.adapted ? "start from" : "are"} the pattern the Times ran on ${months[m - 1]} ${d}, ${y}.` : "";
+        setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${source}${raised}`);
         updateButtons();
       }
     );

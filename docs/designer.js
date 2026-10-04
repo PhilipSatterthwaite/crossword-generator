@@ -43,6 +43,17 @@
   const CAP_MOST = 0.24;       // ...and the most it may grow to
   const MIN_OPENING = 3;       // squares any section must be joined to the rest by, at the least
   const SECTION = 4;           // white squares that make a piece of grid a section, for that rule
+  const RARE_SHAPE = 0.002;    // a 3x3 neighbourhood in fewer than this share of Times grids is illegal
+  const HEAT_WEIGHT = 0.5;     // how much a block's square counts, beside the shapes around it
+  const SHAPE_SCALE = 8;       // shape cost per point of ugliness: real grids span about 75 of it
+  const LIBRARY_SHARE = 0.5;   // share of seeds taken from a real Times pattern, when one fits
+
+  /* What real Times grids look like (web/nytpatterns.js, from every Shortz-era puzzle to 2018): for
+     each 3x3 neighbourhood a square can have, in how many grids it appears; the share of grids
+     with a block on each square; and the patterns themselves. */
+  const NYT = root.NYT_PATTERNS || (typeof require === "function" ? (() => {
+    try { require("./nytpatterns.js"); return globalThis.NYT_PATTERNS || null; } catch (error) { return null; }
+  })() : null);
 
   // --- random ---
 
@@ -57,6 +68,157 @@
   }
 
   const now = () => (typeof performance === "object" ? performance.now() : Date.now());
+
+  // --- how much a pattern looks like the Times' ---
+
+  /* The model for one grid size: a cost for every 3x3 neighbourhood (each square white, black or
+     off the grid, read as a base-3 number), whether it's too rare to allow, a cost for a block on
+     each square from the heat map, and the cost of a typical real grid this size. 15x15 data
+     stands in for every size below 18, 21x21 for the rest; the heat map is read at the nearest
+     square. */
+  const shapeModels = new Map();
+  function shapeModel(W, H) {
+    if (!NYT) return null;
+    const name = `${W}x${H}`;
+    if (shapeModels.has(name)) return shapeModels.get(name);
+    const n = W >= 18 && H >= 18 ? 21 : 15;
+    const data = NYT[n];
+    const total = data.grids * 8; // each grid counted in its eight turns and flips
+    const cost = new Float32Array(19683).fill(-Math.log(1e-4));
+    const rare = new Uint8Array(19683).fill(1);
+    for (const key in data.shapes) {
+      const share = data.shapes[key] / total;
+      cost[key] = -Math.log(Math.max(share, 1e-4));
+      rare[key] = share < RARE_SHAPE ? 1 : 0;
+    }
+    // The heat map, evened out over the square's turns and flips.
+    const even = new Float32Array(n * n);
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const s = n - 1;
+        const at = [[r, c], [c, s - r], [s - r, s - c], [s - c, r], [r, s - c], [s - c, s - r], [s - r, c], [c, r]];
+        even[r * n + c] = at.reduce((sum, [rr, cc]) => sum + data.heat[rr * n + cc], 0) / 8;
+      }
+    }
+    const mean = even.reduce((a, b) => a + b, 0) / even.length;
+    const heat = new Float32Array(W * H);
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        const rr = H > 1 ? Math.round((r * (n - 1)) / (H - 1)) : 0;
+        const cc = W > 1 ? Math.round((c * (n - 1)) / (W - 1)) : 0;
+        heat[r * W + c] = HEAT_WEIGHT * Math.log((mean + 0.005) / (even[rr * n + cc] + 0.005));
+      }
+    }
+    const model = { cost, rare, heat, typical: 0, rule: true, size: n, library: W === n && H === n ? data.library : [] };
+    shapeModels.set(name, model);
+    if (W === n && H === n) {
+      const sample = data.library.filter((_, k) => k % Math.max(1, Math.floor(data.library.length / 400)) === 0);
+      const costs = sample.map(([hex]) => shapeScan(decodePattern(hex, n, n), n, n, model).cost).sort((a, b) => a - b);
+      model.typical = costs[Math.floor(costs.length / 2)];
+    } else {
+      model.typical = (shapeModel(n, n).typical * W * H) / (n * n);
+    }
+    return model;
+  }
+
+  /* A library pattern from its hex string: the first half of the squares, the rest their mirror. */
+  function decodePattern(hex, W, H) {
+    const half = Math.ceil((W * H) / 2);
+    const blocks = new Uint8Array(W * H);
+    const bits = hex.length * 4;
+    for (let k = 0; k < half; k++) {
+      const bit = bits - half + k; // the hex is right-aligned: leading zero bits pad it
+      const digit = parseInt(hex[bit >> 2], 16);
+      blocks[k] = (digit >> (3 - (bit & 3))) & 1;
+      blocks[W * H - 1 - k] = blocks[k];
+    }
+    return blocks;
+  }
+
+  /* The pattern's shape cost (its neighbourhoods' rarity, plus its blocks' squares on the heat map)
+     and how many of its neighbourhoods are too rare to allow. */
+  function shapeScan(blocks, W, H, model) {
+    const P = W + 2;
+    const pad = new Uint8Array(P * (H + 2)).fill(2);
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) pad[(r + 1) * P + c + 1] = blocks[r * W + c] ? 1 : 0;
+    let cost = 0;
+    let rare = 0;
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        const a = r * P + c;
+        const key = ((((((((pad[a] * 3 + pad[a + 1]) * 3 + pad[a + 2]) * 3 + pad[a + P]) * 3 + pad[a + P + 1]) * 3 + pad[a + P + 2]) * 3
+          + pad[a + 2 * P]) * 3 + pad[a + 2 * P + 1]) * 3 + pad[a + 2 * P + 2]);
+        cost += model.cost[key];
+        rare += model.rare[key];
+        if (blocks[r * W + c]) cost += model.heat[r * W + c];
+      }
+    }
+    return { cost, rare };
+  }
+
+  // The model the design in progress is held to (one design runs at a time per worker), or null.
+  let shapes = null;
+  const shapeCost = (blocks, W, H) => (shapes ? (shapeScan(blocks, W, H, shapes).cost - shapes.typical) / SHAPE_SCALE : 0);
+
+  /* Real Times patterns the theme entries fit: every entry on an across slot of exactly its length,
+     paired entries on mirror slots, a lone one on the centre slot, every other across slot shorter
+     than the shortest entry (the theme should be what stands out), and the grid's own blocks and
+     letters respected. With no theme entries, every pattern fits. */
+  function libraryMatches(entries, W, H, fixed, rng) {
+    if (!shapes || !shapes.library.length) return [];
+    const byLength = new Map();
+    for (const word of entries) {
+      if (!byLength.has(word.length)) byLength.set(word.length, []);
+      byLength.get(word.length).push(word);
+    }
+    const pairs = [];
+    let centre = null;
+    for (const [, words] of byLength) {
+      for (let i = 0; i + 1 < words.length; i += 2) pairs.push([words[i], words[i + 1]]);
+      if (words.length % 2) {
+        if (centre) return [];
+        centre = words[words.length - 1];
+      }
+    }
+    const shortest = entries.reduce((least, word) => Math.min(least, word.length), W + 1);
+    const middle = (H - 1) / 2;
+    const out = [];
+    for (const [hex, date] of shapes.library) {
+      const blocks = decodePattern(hex, W, H);
+      if (fixed && fixed.blocks.some((b, i) => (b && !blocks[i]) || (fixed.letters[i] && blocks[i]))) continue;
+      const slots = [];
+      for (let r = 0; r < H; r++) {
+        let n = 0;
+        for (let c = 0; c <= W; c++) {
+          if (c < W && !blocks[r * W + c]) n++;
+          else { if (n) slots.push({ row: r, col: c - n, length: n }); n = 0; }
+        }
+      }
+      if (slots.filter((s) => s.length >= shortest).length !== entries.length) continue;
+      const placements = [];
+      if (centre) {
+        const s = slots.find((x) => x.row === middle && x.length === centre.length && x.col === (W - centre.length) / 2);
+        if (!s) continue;
+        placements.push({ word: centre, row: s.row, col: s.col, direction: "across", length: s.length });
+      }
+      const used = new Set();
+      let ok = true;
+      for (const [a, b] of pairs) {
+        const options = slots.filter((s) => s.length === a.length && s.row < middle && !used.has(s));
+        if (!options.length) { ok = false; break; }
+        const s = options[Math.floor(rng() * options.length)];
+        used.add(s);
+        placements.push({ word: a, row: s.row, col: s.col, direction: "across", length: s.length });
+        placements.push({ word: b, row: H - 1 - s.row, col: W - s.col - s.length, direction: "across", length: s.length });
+      }
+      if (!ok) continue;
+      for (const p of placements) p.start = p.row * W + p.col;
+      if (fixed && placements.some((p) => [...p.word].some((ch, k) => fixed.letters[p.start + k] && fixed.letters[p.start + k][0] !== ch))) continue;
+      out.push({ blocks, placements, date });
+    }
+    for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+    return out;
+  }
 
   // --- pattern geometry ---
 
@@ -89,7 +251,11 @@
         }
       }
     }
-    if (pockets(blocks, W, H)) return false;
+    // Held to the Times' own shapes, a pattern may have the pockets a third of real grids have, as
+    // long as each sits in a shape the Times uses; without them, pockets are ruled out altogether.
+    if (shapes && shapes.rule) {
+      if (shapeScan(blocks, W, H, shapes).rare) return false;
+    } else if (pockets(blocks, W, H)) return false;
     return opening(blocks, W, H, blocks.length - count) >= minOpening;
   }
 
@@ -194,8 +360,8 @@
   /* Pockets: a white square with blocks (or the edge) on two adjacent sides and a block on the
      corner diagonally opposite. The square starts both an across and a down entry, each of which
      turns away at once around that corner block, leaving a two-wide channel that snakes diagonally:
-     the S-bends that make a pattern look machine-drawn. Published grids have none, so a legal
-     pattern has none. */
+     the S-bends that make a pattern look machine-drawn. A third of Times grids have one somewhere,
+     though, so they're ruled out only when the Times' shapes aren't checked (see legal). */
   function pockets(blocks, W, H) {
     const at = (r, c) => (r < 0 || r >= H || c < 0 || c >= W ? 1 : blocks[r * W + c]);
     let count = 0;
@@ -465,7 +631,7 @@
         for (let k = minLength; k <= run.len - minLength; k++) order.push(k);
         const short = (k) => (k < 4 ? 1 : 0) + (run.len - k - 1 < 4 ? 1 : 0);
         // ...and counting the threes the block and its mirror would make in the other direction too.
-        const shape = () => threes(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H);
+        const shape = () => threes(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H) + shapeCost(blocks, W, H);
         const before = shape();
         const made = (k) => {
           const i = run.start + run.step * k;
@@ -617,7 +783,7 @@
 
   /* What's wrong with a pattern's shape, to be kept small: its three-letter entries, its lone
      blocks counted three times over (each usually brings a few threes with it), and its walls. */
-  const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H);
+  const ugliness = (blocks, W, H) => threes(blocks, W, H) + 3 * loneBlocks(blocks, W, H) + 4 * walls(blocks, W, H) + 2 * corners(blocks, W, H) + shapeCost(blocks, W, H);
 
   /* The entry the filler proves dead at once, if any: with the theme letters in place, arc
      consistency finds an entry no word fits in a few milliseconds and names it. null when the
@@ -727,6 +893,17 @@
      better. Breadth is given half the budget because seeds differ enough between layouts that
      generating a fresh one usually beats perturbing an old one. */
   function designGrid(spec, words, options = {}) {
+    // nytShapes (true): hold the pattern to the shapes real Times grids use, and seed from them.
+    const { width: W = 15, height: H = 15, nytShapes = true } = spec;
+    shapes = nytShapes ? shapeModel(W, H) : null;
+    try {
+      return designWith(spec, words, options);
+    } finally {
+      shapes = null;
+    }
+  }
+
+  function designWith(spec, words, options) {
     const {
       width: W = 15,
       height: H = 15,
@@ -806,6 +983,11 @@
         }
       }
     }
+    // Blocks already on the grid that make a shape the Times never uses are the constructor's call:
+    // the shapes then only steer, without ruling anything out.
+    if (shapes && fixed && shapeScan(fixed.blocks, W, H, shapes).rare) shapes = { ...shapes, rule: false };
+    const library = anchored.length ? [] : libraryMatches(remaining, W, H, fixed, rng);
+    stats.library = library.length;
     const found = themeLayouts(remaining, W, H, rng, LAYOUT_TRIES, anchored);
     if (found.error) return { success: false, reason: found.error, stats };
     // Only layouts that agree with what the grid already has: no theme letter on a block or over
@@ -856,7 +1038,27 @@
       let built = null;
       let letters = null;
       let placements = null;
-      for (let attempt = 0; attempt < SEED_BATCH; attempt++) {
+      if (library.length && rng() < LIBRARY_SHARE) {
+        // A real Times pattern the theme entries fit, with the entries in their slots. Its block
+        // count is its own: the Times runs up to 42 blocks in a themed 15x15.
+        const match = library.pop();
+        const tryLetters = fixed ? fixed.letters.map((text) => text.charAt(0)) : new Array(W * H).fill("");
+        const frozen = new Uint8Array(W * H);
+        if (fixed) for (let i = 0; i < W * H; i++) if (fixed.blocks[i] || fixed.letters[i]) frozen[i] = 1;
+        for (const p of match.placements) {
+          for (let k = 0; k < p.length; k++) { tryLetters[p.start + k] = p.word[k]; frozen[p.start + k] = 1; }
+          if (p.col > 0) frozen[p.start - 1] = 1;
+          if (p.col + p.length < W) frozen[p.start + p.length] = 1;
+        }
+        const count = match.blocks.reduce((a, b) => a + b, 0);
+        const ownCap = Math.max(maxBlocks, count);
+        if (!legal(match.blocks, W, H, minLength, ownCap, minOpening)) { stats.libraryIllegal = (stats.libraryIllegal || 0) + 1; continue; }
+        built = { blocks: Uint8Array.from(match.blocks), frozen, cap: ownCap, basedOn: match.date };
+        letters = tryLetters;
+        placements = match.placements;
+        stats.librarySeeds = (stats.librarySeeds || 0) + 1;
+      }
+      for (let attempt = 0; attempt < SEED_BATCH && !built; attempt++) {
         const tryPlacements = layouts[Math.floor(rng() * layouts.length)];
         const tryLetters = fixed ? fixed.letters.map((text) => text.charAt(0)) : new Array(W * H).fill("");
         for (const p of tryPlacements) for (let k = 0; k < p.length; k++) tryLetters[p.start + k] = p.word[k];
@@ -874,7 +1076,7 @@
         }
       }
       if (!built) continue;
-      if (!reviveSeed(built, letters, placements, words, probeOptions, W, H, minLength, maxBlocks, minOpening)) {
+      if (!reviveSeed(built, letters, placements, words, probeOptions, W, H, minLength, built.cap || maxBlocks, minOpening)) {
         stats.dead++;
         continue;
       }
@@ -884,7 +1086,7 @@
       const result = probe(rows, words, probeOptions, screenTrials, probeSeconds, rng);
       stats.screened++;
       if (!result.hits) { stats.impossible++; continue; }
-      const entry = { key, rows, blocks: built.blocks, frozen: built.frozen, letters, placements, threes: threes(built.blocks, W, H), lone: loneBlocks(built.blocks, W, H), ugliness: ugliness(built.blocks, W, H), ...result };
+      const entry = { key, rows, blocks: built.blocks, frozen: built.frozen, cap: built.cap || 0, basedOn: built.basedOn || "", letters, placements, threes: threes(built.blocks, W, H), lone: loneBlocks(built.blocks, W, H), ugliness: ugliness(built.blocks, W, H), ...result };
       survivors.push(entry);
       if (better(entry, best)) best = entry;
       report("breadth");
@@ -927,7 +1129,7 @@
       blocks[i] = was ? 0 : 1;
       blocks[j] = blocks[i];
       stats.moves++;
-      if (!legal(blocks, W, H, minLength, maxBlocks, minOpening) || !themesIntact(blocks, W, best.placements)) {
+      if (!legal(blocks, W, H, minLength, Math.max(maxBlocks, best.cap || 0), minOpening) || !themesIntact(blocks, W, best.placements)) {
         blocks[i] = was;
         blocks[j] = was;
         continue;
@@ -935,7 +1137,7 @@
       const rows = gridRows(blocks, best.letters, W, H);
       const result = { ...probe(rows, words, probeOptions, deepTrials, probeSeconds, rng), threes: threes(blocks, W, H), lone: loneBlocks(blocks, W, H), ugliness: ugliness(blocks, W, H) };
       if (result.hits && better(result, best)) {
-        best = { key: rows.join(""), rows, blocks: Uint8Array.from(blocks), frozen: best.frozen, letters: best.letters, placements: best.placements, ...result };
+        best = { key: rows.join(""), rows, blocks: Uint8Array.from(blocks), frozen: best.frozen, cap: best.cap, basedOn: best.basedOn, adapted: true, letters: best.letters, placements: best.placements, ...result };
         stats.kept++;
         report("polish");
       } else {
@@ -956,6 +1158,8 @@
       blockCount: count,
       blockRatio: count / (W * H),
       capRaisedTo: stats.capRaisedTo,
+      basedOn: best.basedOn || "",
+      adapted: Boolean(best.adapted),
       threes: best.threes,
       lone: best.lone,
       candidates: survivors
@@ -968,7 +1172,7 @@
     };
   }
 
-  const api = { designGrid, probe, legal, opening, threes, loneBlocks, walls, pockets, corners, themeLayouts, seedPattern, gridRows };
+  const api = { shapeModel, shapeScan, decodePattern, designGrid, probe, legal, opening, threes, loneBlocks, walls, pockets, corners, themeLayouts, seedPattern, gridRows };
   root.Griddesign = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

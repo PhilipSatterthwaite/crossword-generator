@@ -4,3 +4,5 @@ __pycache__/
 # macOS folder metadata
 .DS_Store
 books-progress.json
+# The NYT puzzle archive build_patterns.py downloads (37 MB); its output is web/nytpatterns.js
+compileWords/nyt-grids/
