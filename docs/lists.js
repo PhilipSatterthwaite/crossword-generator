@@ -84,10 +84,25 @@
   /* Every list saved here: [{id, name, count, updated, words}]. */
   const all = () => run(LISTS, "readonly", (store) => store.getAll()).then((lists) => lists.sort((a, b) => b.updated - a.updated));
 
+  /* No two lists share a name (the built-in ones included), however it's capitalised or spaced. */
+  const BUILT_IN_NAMES = ["Built-in list", "NYT answers"];
+  const sameName = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  /* The name already in use that `name` would clash with, ignoring the list with id `except`, or "". */
+  async function nameTaken(name, except = "") {
+    const names = [...BUILT_IN_NAMES, ...(await all()).filter((list) => list.id !== except).map((list) => list.name)];
+    return names.find((other) => sameName(other, name)) || "";
+  }
+  /* A name for a list made without asking for one (a copy, a file): the name, or with 2, 3... after it. */
+  async function freeName(name) {
+    const base = String(name || "Word list").trim().slice(0, 112) || "Word list";
+    if (!(await nameTaken(base))) return base;
+    for (let n = 2; ; n++) if (!(await nameTaken(`${base} ${n}`))) return `${base} ${n}`;
+  }
+
   async function add(name, text) {
     const { words, skipped } = parse(text);
     if (!words.length) throw new Error("That file had no words in it.");
-    const list = { id: newId(), name: String(name || "Word list").slice(0, 120), count: words.length, updated: Date.now(), words };
+    const list = { id: newId(), name: await freeName(name), count: words.length, updated: Date.now(), words };
     await run(LISTS, "readwrite", (store) => store.put(list));
     announce();
     return { list, skipped };
@@ -107,7 +122,7 @@
   async function create(name, words, { basedOn = "", count } = {}) {
     const list = {
       id: newId(),
-      name: String(name || "Word list").slice(0, 120),
+      name: await freeName(name),
       count: typeof count === "number" ? count : words.length,
       updated: Date.now(),
       basedOn: String(basedOn || ""),
@@ -143,7 +158,9 @@
   async function rename(id, name) {
     const list = await run(LISTS, "readonly", (store) => store.get(id));
     if (!list) return;
-    list.name = String(name || "").slice(0, 120) || list.name;
+    const taken = await nameTaken(name, id);
+    if (taken) throw new Error(`There's already a list called ${taken}.`);
+    list.name = String(name || "").trim().slice(0, 120) || list.name;
     list.updated = later(list.updated); // newer than the copy it replaces, whichever clock stamped that
     await run(LISTS, "readwrite", (store) => store.put(list));
     announce();
@@ -358,7 +375,7 @@
   }
 
   root.FillmeinLists = {
-    parse, all, add, create, put, remove, forgetList, rename,
+    parse, all, add, create, put, remove, forgetList, rename, nameTaken,
     overrides, editsFor, editStamps, setEditsFor, setScore, removeWord, restoreWord, keepWord, unkeepWord,
     getSetting, setSetting, tombstones, clearTombstone,
     merge, state,

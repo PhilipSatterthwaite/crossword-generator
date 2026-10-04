@@ -2579,7 +2579,13 @@
           const finish = async (keep) => {
             const value = box.value.trim();
             if (keep && value && value !== list.name) {
-              await LISTS.rename(list.id, value);
+              try {
+                await LISTS.rename(list.id, value);
+              } catch (error) {
+                setStatus("error", error.message);
+                renderLists();
+                return;
+              }
               await refreshWordList({ recheck: false });
             } else {
               renderLists();

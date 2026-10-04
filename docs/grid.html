@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-x6jEMNW2tWJhgRM7qSsitfIayE2b95QsycA+AoCitso='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-gaGt4LZO/wnjvJyenDprWIn6SWJ2g4aJAwS+7vTHf58='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -570,10 +570,10 @@
 <script src="words.js?v=ed9a1ba31e"></script>
 <script src="filler.js?v=8904f4f420"></script>
 <script src="designer.js?v=f1d0202dbb"></script>
-<script src="store.js?v=a87c2ef649"></script>
+<script src="store.js?v=bdd69993da"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script src="lists.js?v=03236482cc"></script>
-<script type="module" src="account.js?v=72e72603d5"></script>
+<script src="lists.js?v=6bb3132feb"></script>
+<script type="module" src="account.js?v=55092d7575"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>
 (() => {
@@ -2595,7 +2595,13 @@
           const finish = async (keep) => {
             const value = box.value.trim();
             if (keep && value && value !== list.name) {
-              await LISTS.rename(list.id, value);
+              try {
+                await LISTS.rename(list.id, value);
+              } catch (error) {
+                setStatus("error", error.message);
+                renderLists();
+                return;
+              }
               await refreshWordList({ recheck: false });
             } else {
               renderLists();

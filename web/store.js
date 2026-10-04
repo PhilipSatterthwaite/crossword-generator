@@ -8,6 +8,7 @@
   "use strict";
 
   const INDEX = "fillmein:puzzles";
+  const SIGNED_IN = "fillmein:signed-in"; // the account signed in here, as account.js last saw it
   const META_FIELDS = ["title", "author", "copyright", "notes"];
   const PAGES = ["grid.html", "clues.html", "export.html"];
 
@@ -29,6 +30,20 @@
      later (by a device whose clock runs ahead), so the newest edit always counts as the newest when the
      account merges copies from different devices. */
   const stampFor = (entry, part) => Math.max(Date.now(), partTime(entry, part) + 1);
+
+  /* The account signed in in this browser, or null. account.js keeps it current; pages read it before
+     Firebase has answered, so an account's puzzles show at once to it and never to anyone else. */
+  const viewer = () => {
+    try { return localStorage.getItem(SIGNED_IN); } catch (error) { return null; }
+  };
+  const setViewer = (account) => {
+    try {
+      if (account) localStorage.setItem(SIGNED_IN, account);
+      else localStorage.removeItem(SIGNED_IN);
+    } catch (error) { /* storage unavailable */ }
+  };
+  /* Whether this browser may show a puzzle: one kept in no account, or in the account signed in. */
+  const visible = (entry) => Boolean(entry) && (!entry.owner || entry.owner === viewer());
 
   let id = null; // the puzzle this page shows, once open() has found it
   let wantedId = null; // the puzzle the address named, if any
@@ -58,6 +73,7 @@
   /* Every saved puzzle, most recently edited first: [{id, created, updated}]. */
   function list() {
     return Object.entries(readIndex().puzzles)
+      .filter(([, entry]) => visible(entry))
       .map(([pid, entry]) => ({ id: pid, created: entry.created || 0, updated: entry.updated || 0 }))
       .sort((a, b) => b.updated - a.updated);
   }
@@ -93,7 +109,8 @@
   function open({ create: startNew = false } = {}) {
     const wanted = new URLSearchParams(root.location.search).get("p");
     wantedId = wanted || null;
-    if (wanted) id = readIndex().puzzles[wanted] ? wanted : null;
+    // A puzzle kept in an account opens only while that account is signed in.
+    if (wanted) id = visible(readIndex().puzzles[wanted]) ? wanted : null;
     else id = list().length ? list()[0].id : null;
     missing = Boolean(wanted && !id);
     // Only a page with no puzzle named starts a new one: a link to a puzzle this browser doesn't have
@@ -401,6 +418,19 @@
     announce("fillmein:changed", pid, part);
   }
 
+  /* Note the times of parts the account now holds, as sent or as received. */
+  function markSynced(pid, times) {
+    const index = readIndex();
+    if (!index.puzzles[pid]) return;
+    index.puzzles[pid].synced = { ...index.puzzles[pid].synced, ...times };
+    write(INDEX, index);
+  }
+
+  /* Whether the account holds every part of a puzzle as this browser has it, so forgetting the puzzle
+     here loses nothing. */
+  const synced = (pid, entry) => ["grid", "clues", "details"].every((part) =>
+    partData(pid, part) === null || partTime(entry, part) <= ((entry.synced && entry.synced[part]) || 0));
+
   /* Record the account a puzzle is kept in, adding the puzzle to the index if it's new to this browser. */
   function setOwner(pid, owner, created) {
     const index = readIndex();
@@ -443,7 +473,7 @@
     root.addEventListener("fillmein:changed", (event) => {
       if (event.detail.id === id) redraw();
       // The puzzle the address named has arrived (from the account, say): open it.
-      else if (missing && event.detail.id === wantedId && readIndex().puzzles[wantedId]) root.location.reload();
+      else if (missing && event.detail.id === wantedId && visible(readIndex().puzzles[wantedId])) root.location.reload();
     });
     // The Back button can restore an old copy of a page from the browser's cache.
     root.addEventListener("pageshow", (event) => {
@@ -487,8 +517,8 @@
 
   root.GridfillStore = {
     INDEX, META_FIELDS,
-    open, missing: () => missing, list, create, remove, forget, keys, href, linkPages,
-    entries, partTime, partData, applyRemote, setOwner,
+    open, missing: () => missing, current: () => id, wanted: () => wantedId, list, create, remove, forget, keys, href, linkPages,
+    entries, partTime, partData, applyRemote, setOwner, markSynced, synced, viewer, setViewer, visible,
     clueKey, gridData, saveGrid, loadGrid, loadClues, saveClues, loadDetails, saveDetails, setFolder, setTitle, duplicate, importPuzzle,
     folders, addFolder, removeFolder, renameFolder, moveFolder, cleanPath, parentOf, nameOf,
     answerOf, hasClue, isStale, puzzle, watch, renderTabs, bindTitle,

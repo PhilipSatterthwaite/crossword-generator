@@ -68,6 +68,7 @@ const writeAccount = (value) => {
   } catch (error) { /* storage unavailable */ }
 };
 const forgetPuzzlesOf = (owner) => {
+  if (!S) return;
   for (const [pid, entry] of Object.entries(S.entries())) if (entry.owner === owner) S.forget(pid);
 };
 
@@ -126,6 +127,7 @@ async function push() {
     known.set(pid, { ...seen, ...update.parts });
     try {
       await firestore.setDoc(ref, update, { merge: true });
+      S.markSynced(pid, update.parts);
       // Only a puzzle the account really has is marked as the account's, so a failed write never
       // gets it mistaken later for one deleted on another device.
       if (entry.owner !== account && uid === account) S.setOwner(pid, account);
@@ -158,6 +160,32 @@ function applyDoc(pid, data) {
       S.applyRemote(pid, part, JSON.parse(data[part]), time);
     } catch (error) { /* a damaged copy: keep this browser's */ }
   }
+  // Whatever matches the account's copy now is safe to forget at sign-out.
+  const now = S.entries()[pid];
+  const same = {};
+  for (const part of PARTS) if (times[part] && S.partTime(now, part) <= times[part]) same[part] = times[part];
+  S.markSynced(pid, same);
+}
+
+/* Who's signed in has changed (or is first known): what this browser shows follows. Signed out, by the
+   button or because the sign-in lapsed, an account's puzzles leave view: those the account holds in
+   full are erased from this browser, and one with changes the account hasn't got yet is kept out of
+   sight, to go up when its account signs in here again. A page showing puzzles reloads when the change
+   touches them; it only reloads on a change, so it never reloads twice. */
+function followAccount(account) {
+  if (!S) return; // a page without saved puzzles
+  const was = S.viewer();
+  if (leaving) return S.setViewer(account); // the Sign out button tidies up and leaves the page itself
+  S.setViewer(account);
+  let touched = false;
+  for (const [pid, entry] of Object.entries(S.entries())) {
+    if (!entry.owner) continue;
+    if (entry.owner === was || entry.owner === account) touched = true;
+    if (!account && S.synced(pid, entry)) S.forget(pid);
+  }
+  const page = location.pathname.split("/").pop() || "index.html";
+  const showsPuzzles = S.current() || S.wanted() || page === "index.html" || page === "puzzles.html";
+  if (was !== account && touched && showsPuzzles) location.reload();
 }
 
 /* The Firestore module, loaded once and shared with pages that need it (the Export page's share
@@ -316,6 +344,7 @@ window.Fillmein = {
 };
 
 async function startSync(user) {
+  if (!S) return; // a page without saved puzzles has nothing to keep in step
   await loadFirestore();
   if (uid !== user.uid) return; // signed out or switched accounts while Firestore loaded
   const previous = readAccount();
@@ -351,6 +380,7 @@ onAuthStateChanged(auth, (user) => {
   pushTimer = null;
   retryDelay = 0;
   uid = user ? user.uid : null;
+  followAccount(uid);
   renderAccount(user);
   window.dispatchEvent(new CustomEvent("fillmein:user", { detail: { user } }));
   if (user) startSync(user).catch(showError);
@@ -362,6 +392,8 @@ window.addEventListener("fillmein:saved", (event) => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden" && pending.size) push();
 });
+
+let leaving = false; // the Sign out button is signing out
 
 async function signOutHere() {
   const account = uid;
@@ -376,11 +408,14 @@ async function signOutHere() {
   // couldn't be sent stays in this browser, still marked as the account's, and goes up at the next
   // sign-in rather than being lost.
   const sent = await Promise.race([push(), new Promise((resolve) => setTimeout(() => resolve(false), PUSH_WAIT))]);
+  leaving = true;
   await signOut(auth);
   if (account && sent) forgetPuzzlesOf(account);
+  // Whatever couldn't be sent stays, out of sight until the account signs in here again.
   writeAccount(sent ? null : account);
   const page = location.pathname.split("/").pop();
   if (page && page !== "index.html") location.href = "index.html";
+  else location.reload(); // the home page's list of puzzles has changed
 }
 
 // --- the account box ---

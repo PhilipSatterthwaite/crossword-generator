@@ -1407,6 +1407,12 @@
   $("model-make").addEventListener("click", async () => {
     if (!model) return;
     const name = ($("model-name").value.trim() || "Model list").slice(0, 60);
+    const taken = await LISTS.nameTaken(name);
+    if (taken) {
+      $("model-made").textContent = `There's already a list called ${taken}. Give this one another name.`;
+      $("model-name").focus();
+      return;
+    }
     $("model-made").textContent = "Making it…";
     await new Promise((resolve) => setTimeout(resolve, 20));
     const words = [];
