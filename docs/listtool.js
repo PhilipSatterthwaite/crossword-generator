@@ -1386,13 +1386,37 @@
 
   /* What the model would do with the words not yet decided, at the certainty chosen: just a count
      over the verdicts already made, so the box can be changed freely. */
+  /* Words too plainly good to leave to the model: a list it makes keeps them unless you removed them
+     yourself. A dictionary word common in everyday English (one in 30,000 words or commoner), an
+     answer the Times has run five times or more, or a word scored 70 or more. Partial phrases (A PET,
+     ITS A) aren't protected: whether to use them is a taste, and the model can learn it. A word the
+     dictionary lists is no partial, however it reads (ALEE, ABOIL, ATILT). */
+  const PROTECT_ZIPF = 3.5;
+  const PROTECT_USES = 5;
+  const PROTECT_SCORE = 70;
+  const PARTIAL_START = new Set(["A", "AN", "THE"]);
+  const PARTIAL_END = new Set(["A", "AN", "THE", "OF", "TO"]);
+  function isPartial(row) {
+    if (wikt(row, "listed")) return false;
+    const parts = readingOf(row).split(" ");
+    return parts.length > 1 && (PARTIAL_START.has(parts[0]) || PARTIAL_END.has(parts[parts.length - 1]));
+  }
+  function protectedWord(row) {
+    if (isPartial(row)) return false;
+    return (!row.cuts && wikt(row, "listed") && row.zipf >= PROTECT_ZIPF) || row.uses >= PROTECT_USES || row.base >= PROTECT_SCORE;
+  }
+
   function modelVerdicts() {
     const sure = 0.5; // its best guess: remove what it thinks more likely removed than kept
     const out = [];
     const { undecided, pKeep, score } = model;
     for (let i = 0; i < undecided.length; i++) {
-      if (undecided[i].removed || undecided[i].kept || undecided[i].own) continue; // decided since training
-      out.push({ row: undecided[i], keep: 1 - pKeep[i] < sure, score: score[i] });
+      const row = undecided[i];
+      if (row.removed || row.kept || row.own) continue; // decided since training
+      const keep = 1 - pKeep[i] < sure;
+      // A protected word the model would drop keeps the list's own score, not the model's guess.
+      if (!keep && protectedWord(row)) out.push({ row, keep: true, saved: true, score: row.base });
+      else out.push({ row, keep, score: score[i] });
     }
     return out;
   }
@@ -1400,8 +1424,10 @@
     if (!model) return;
     const verdicts = modelVerdicts();
     const dropped = verdicts.filter((v) => !v.keep).length;
+    const saved = verdicts.filter((v) => v.saved).length;
     const decidedKept = rows.filter((row) => !row.removed && (row.kept || row.own)).length;
-    $("model-preview").innerHTML = `New list: <b>${(decidedKept + verdicts.length - dropped).toLocaleString()}</b> words.`;
+    $("model-preview").innerHTML = `New list: <b>${(decidedKept + verdicts.length - dropped).toLocaleString()}</b> words.` +
+      (saved ? ` That keeps ${saved.toLocaleString()} the model would drop that are common words, regular Times answers or scored ${PROTECT_SCORE}+; anything you remove yourself stays out.` : "");
   }
 
   $("model-make").addEventListener("click", async () => {
