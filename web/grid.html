@@ -496,6 +496,7 @@
 
   <dl class="tally">
     <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
+    <div><dt>3-letter words</dt><dd><span id="t-threes" class="value">–</span><span id="t-threes-cap" class="cap"></span></dd></div>
     <div><dt>Blocks</dt><dd><span id="t-blocks" class="value">–</span><span id="t-blocks-cap" class="cap"></span></dd></div>
     <div><dt>Openings</dt><dd><span id="t-open" class="value">–</span><span id="t-open-cap" class="cap"></span></dd></div>
     <div><dt>Avg. length</dt><dd><span id="t-avg" class="value">–</span><span class="cap">letters per entry</span></dd></div>
@@ -1009,7 +1010,13 @@
     const weakest = scored.reduce((low, entry) => (!low || entry.score < low.score ? entry : low), null);
     $("t-words").textContent = slots.length;
     const short = slots.filter((slot) => slot.cells.length === 3).length;
-    $("t-words-cap").textContent = (W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`) + ` · ${short} of 3 letters`;
+    $("t-words-cap").textContent = W === 15 && H === 15 ? "NYT limit: 78 themed, 72 themeless" : `${W}×${H} grid`;
+    // Against the Times' own grids (1994-2018): the middle count, and the range most fall in.
+    const usual = W === 15 && H === 15 ? [14, 6, 22] : W === 21 && H === 21 ? [26, 16, 37] : null;
+    $("t-threes").textContent = short;
+    $("t-threes-cap").textContent = usual ? `NYT grids: about ${usual[0]}, most ${usual[1]}–${usual[2]}`
+      : `${slots.length ? Math.round((100 * short) / slots.length) : 0}% of entries`;
+    $("t-threes").parentElement.parentElement.classList.toggle("warn", Boolean(usual) && short > usual[2]);
     $("t-blocks").textContent = blockCount;
     // The Times asks for no more than about a sixth of a daily or Sunday grid in black: 38 for a 15×15.
     const blockLimit = W >= 15 && H >= 15 ? ` · NYT limit about ${Math.round((W * H) / 6)}` : "";
