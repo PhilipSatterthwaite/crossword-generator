@@ -137,6 +137,12 @@
   .entry-word { font: 700 17px / 1.2 var(--sans); letter-spacing: 0.1em; overflow-wrap: anywhere; }
   .entry-row .actions { margin-left: auto; gap: 6px; }
   .word-actions { display: contents; }
+  /* What the selected word is: a definition, the Times clue used most for it, when the Times last ran it. */
+  .word-about { display: grid; gap: 3px; margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .word-about p { margin: 0; }
+  .word-about b { font-weight: 600; color: var(--ink); }
+  .word-about q { color: var(--ink); }
+  .word-about a { color: inherit; }
   .word-score input { width: 90px; }
 
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
@@ -464,6 +470,7 @@
             <span id="word-actions" class="word-actions" hidden></span>
           </div>
         </div>
+        <div id="word-about" class="word-about" hidden></div>
       </div>
       <section class="options" aria-labelledby="options-title">
         <div class="options-head">
@@ -1383,8 +1390,60 @@
     return lines.some((line) => line.split("#").includes(word));
   }
 
+  /* For a word you don't know: Wiktionary's first definition, the clue the Times has used most for
+     it, and the last year the Times ran it, each from a small file per first two letters. */
+  const PAST_VERSION = "PASTCLUES_VERSION";
+  const DEFS_VERSION = "DEFS_VERSION";
+  const wordFiles = new Map();
+  function wordFile(folder, version, word) {
+    const key = `${folder}/${word.slice(0, 2)}`;
+    if (!wordFiles.has(key)) {
+      wordFiles.set(key, fetch(`${key}.json?v=${version}`).then((r) => (r.ok ? r.json() : {})).catch(() => {
+        wordFiles.delete(key);
+        return {};
+      }));
+    }
+    return wordFiles.get(key).then((file) => file[word]);
+  }
+  async function renderWordAbout() {
+    const box = $("word-about");
+    const k = currentSlot();
+    const word = k >= 0 && slots[k].cells.every((i) => ink[i] || pencil[i]) ? slots[k].cells.map((i) => (ink[i] || pencil[i])[0]).join("") : "";
+    if (box.dataset.word === word) return;
+    box.dataset.word = word;
+    box.replaceChildren();
+    box.hidden = true;
+    if (!word) return;
+    const [definition, clues] = await Promise.all([wordFile("defs", DEFS_VERSION, word), wordFile("pastclues", PAST_VERSION, word)]);
+    if (box.dataset.word !== word) return; // moved on meanwhile
+    const line = (label, ...content) => {
+      const p = document.createElement("p");
+      const b = document.createElement("b");
+      b.textContent = `${label} `;
+      p.append(b, ...content);
+      box.append(p);
+    };
+    if (definition) line("Means", definition);
+    if (clues && clues.length) {
+      const [text, uses] = clues[0];
+      const quote = document.createElement("q");
+      quote.textContent = text;
+      line("Times clue", quote, uses > 1 ? ` (used ${uses} times)` : "");
+      line("Last in the Times", String(Math.max(...clues.map((clue) => clue[2]))));
+    } else {
+      line("No Times clues on file.");
+    }
+    if (!definition) {
+      const lower = encodeURIComponent(word.toLowerCase());
+      const look = (name, href) => Object.assign(document.createElement("a"), { textContent: name, href, target: "_blank", rel: "noopener" });
+      line("Look it up:", look("OneLook", `https://www.onelook.com/?w=${lower}`), " · ", look("Wiktionary", `https://en.wiktionary.org/wiki/${lower}`));
+    }
+    box.hidden = false;
+  }
+
   function refreshOptions() {
     renderWordActions();
+    renderWordAbout();
     const k = currentSlot();
     if (k < 0) {
       const signature = `none|${blocks[sel]}`;
