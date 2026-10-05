@@ -79,6 +79,14 @@ PUZZLE_DISCOUNT = 0.6      # crossword appearances count for less than everyday 
 # abbreviations, junk and slurs lower than that). Crossword-only regulars like ALEE don't count.
 POPULAR_ZIPF = 3.0
 POPULAR_FLOOR = 40
+# A word Broda rates as fill (this or more) that has run in a published crossword keeps this score at
+# least: the popularity nudge tells unknown words apart, it shouldn't dock ones constructors use
+# (PREEN, GRUEL, SCRAM fell to 49 and out of every fill at the default minimum).
+PROVEN_FLOOR = 50
+# A word the review file flags (web/find_bad_words.py) stays in the list anyway if the Times-era
+# crosswords have run it this often: ENS, SSS, MNO and ONAN are crosswordese, not garbage. Crude words
+# stay out however often they ran.
+REVIEW_PUBLISHED_PASS = 3
 
 FUNCTION_WORDS = {"A", "AN", "THE", "OF", "TO", "IN", "ON", "AT", "BY", "FOR", "AND", "OR", "IS", "IT",
                   "AS", "BE", "UP", "SO", "NO", "MY", "ME", "WE", "US"}
@@ -327,7 +335,7 @@ def read_word_file(path):
     return words
 
 
-def load_blocklist():
+def load_blocklist(counts=None):
     """Words and phrases never to offer (slurs, obscenities), from compileWords/blocklist*.txt,
     minus the exceptions in compileWords/allowlist.txt. Broda's scores don't reliably keep
     these out: he scores SPIC 50, likely for SPIC AND SPAN."""
@@ -337,11 +345,19 @@ def load_blocklist():
     # Every word still listed in a review file (web/find_bad_words.py writes one) is blocked too --
     # delete a line there to keep that word instead of marking it. Section headers ("## ...") and
     # comments ("# ...") are skipped; a listed word looks like "WORD   score   reason".
+    # Words published crosswords keep running are let through (see REVIEW_PUBLISHED_PASS), unless
+    # they sit in the crude section.
     for path in COMPILE.glob("review*.txt"):
+        crude = False
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("## "):
+                crude = line.lower().startswith("## crude")
             match = re.match(r"([A-Z]+)\s+-?\d+\s", line)
             if match:
-                blocked.add(match.group(1))
+                word = match.group(1)
+                if not crude and counts and counts.get(word, 0) >= REVIEW_PUBLISHED_PASS:
+                    continue
+                blocked.add(word)
     allowlist = COMPILE / "allowlist.txt"
     if allowlist.exists():
         blocked -= read_word_file(allowlist)
@@ -396,6 +412,8 @@ def main():
         readings[word] = reading(word, zipf)
         google[word] = google_count(word, readings[word][1], unigrams, bigrams)
         scores[word] = adjust(score, how_popular)
+        if score >= PROVEN_FLOOR and counts.get(word, 0) >= 1:
+            scores[word] = max(scores[word], PROVEN_FLOOR)
         if is_popular and scores[word] >= POPULAR_FLOOR:
             popular.add(word)
     for word, count in counts.items():
@@ -409,7 +427,7 @@ def main():
                 popular.add(word)
     # Blocked words leave the list entirely: no autofill or word option offers them at any
     # minimum score, though you can still ink one yourself.
-    blocked = load_blocklist() & set(scores)
+    blocked = load_blocklist(counts) & set(scores)
     for word in blocked:
         del scores[word]
         popular.discard(word)

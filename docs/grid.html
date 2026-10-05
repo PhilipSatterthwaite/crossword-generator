@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-W896bHcDQiqhVcDfImAf6IMhy5pSRAXiGMolOr5tFSk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-IwOapD5J1ug2nQ6DMIWvEkC88c23aerrzuKjD1FrA4g='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -24,7 +24,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" href="words.js?v=ed9a1ba31e" as="script">
+<link rel="preload" href="words.js?v=c65d859382" as="script">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <link rel="stylesheet" href="theme.css?v=d80e70f9f3">
 <style>
@@ -568,7 +568,7 @@
   </div>
 </dialog>
 
-<script src="words.js?v=ed9a1ba31e"></script>
+<script src="words.js?v=c65d859382"></script>
 <script src="filler.js?v=8904f4f420"></script>
 <script src="designer.js?v=f1d0202dbb"></script>
 <script src="store.js?v=bdd69993da"></script>
@@ -1985,7 +1985,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=37484a34cd");
+          worker = new Worker("worker.js?v=1c8220172f");
         } catch (error) {
           useInline();
           return;
@@ -2046,7 +2046,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=37484a34cd");
+          worker = new Worker("worker.js?v=1c8220172f");
         } catch (error) {
           return;
         }
@@ -2265,31 +2265,49 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setStatus("busy", "Filling…");
-    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: minScore(), allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
-    runner.fill(
-      rows,
-      fillOptions,
-      (partial, stats) => {
-        applyRows(partial, false);
-        render();
-        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}`);
-      },
-      (result) => {
-        running = false;
-        pencil.fill("");
-        if (result.success) {
+    const wanted = minScore();
+    // When the search proves no fill exists with every word at the minimum score, it tries again
+    // LOWER_STEP lower, down to LOWEST, and says so.
+    // Running out of time proves nothing, so that never lowers it.
+    const LOWER_STEP = 10;
+    const LOWEST = 30;
+    const attempt = (floor) => {
+      const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
+      runner.fill(
+        rows,
+        fillOptions,
+        (partial, stats) => {
+          applyRows(partial, false);
           render();
-          void gridEl.offsetWidth;
-          applyRows(result.grid, true);
-          setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.`);
-        } else {
-          setStatus("error", result.reason);
+          const lowered = floor < wanted ? `, words down to ${floor}` : "";
+          setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}${lowered}`);
+        },
+        (result) => {
+          if (!result.success && !result.timedOut && running && floor - LOWER_STEP >= LOWEST) {
+            setStatus("busy", `Nothing fits with every word at ${floor} or more. Trying down to ${floor - LOWER_STEP}…`);
+            attempt(floor - LOWER_STEP);
+            return;
+          }
+          running = false;
+          pencil.fill("");
+          if (result.success) {
+            render();
+            void gridEl.offsetWidth;
+            applyRows(result.grid, true);
+            const lowered = floor < wanted
+              ? ` Nothing fits with every word at ${wanted} or more, so it used words down to ${floor}${floor < WEAK && tintEl.checked ? "; those under 50 are tinted" : ""}.`
+              : "";
+            setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.${lowered}`);
+          } else {
+            setStatus("error", floor < wanted ? `${result.reason} (Tried words down to a score of ${floor}.)` : result.reason);
+          }
+          finishFill();
+          render();
+          resumeCheck();
         }
-        finishFill();
-        render();
-        resumeCheck();
-      }
-    );
+      );
+    };
+    attempt(wanted);
     updateButtons();
   }
 
