@@ -2235,8 +2235,14 @@
     fillBefore = null;
   }
 
-  function runFill(variety) {
+  /* Fill the grid with words scoring at least the minimum. If the search proves nothing fits at
+     that score, it says so and offers a button to go LOWER_STEP lower (down to LOWEST): words under
+     the minimum go in only when asked for. Running out of time proves nothing, so it never offers. */
+  const LOWER_STEP = 10;
+  const LOWEST = 30;
+  function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
+    const wanted = minScore();
     const rows = solverRows();
     // Filling again over a fill already on the grid starts from that fill, so after a small change
     // most of it stays put. Another fill is meant to be different, so it starts fresh.
@@ -2248,50 +2254,42 @@
     pencil.fill("");
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
-    setStatus("busy", "Filling…");
-    const wanted = minScore();
-    // When the search proves no fill exists with every word at the minimum score, it tries again
-    // LOWER_STEP lower, down to LOWEST, and says so.
-    // Running out of time proves nothing, so that never lowers it.
-    const LOWER_STEP = 10;
-    const LOWEST = 30;
-    const attempt = (floor) => {
-      const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
-      runner.fill(
-        rows,
-        fillOptions,
-        (partial, stats) => {
-          applyRows(partial, false);
+    setStatus("busy", floor < wanted ? `Filling with words down to ${floor}…` : "Filling…");
+    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
+    runner.fill(
+      rows,
+      fillOptions,
+      (partial, stats) => {
+        applyRows(partial, false);
+        render();
+        const lowered = floor < wanted ? `, words down to ${floor}` : "";
+        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}${lowered}`);
+      },
+      (result) => {
+        running = false;
+        pencil.fill("");
+        if (result.success) {
           render();
-          const lowered = floor < wanted ? `, words down to ${floor}` : "";
-          setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}${lowered}`);
-        },
-        (result) => {
-          if (!result.success && !result.timedOut && running && floor - LOWER_STEP >= LOWEST) {
-            setStatus("busy", `Nothing fits with every word at ${floor} or more. Trying down to ${floor - LOWER_STEP}…`);
-            attempt(floor - LOWER_STEP);
-            return;
+          void gridEl.offsetWidth;
+          applyRows(result.grid, true);
+          const lowered = floor < wanted ? ` It used words down to ${floor}, as asked${floor < WEAK && tintEl.checked ? "; those under 50 are tinted" : ""}.` : "";
+          setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.${lowered}`);
+        } else {
+          setStatus("error", result.reason);
+          if (!result.timedOut && floor - LOWER_STEP >= LOWEST) {
+            const lower = document.createElement("button");
+            lower.type = "button";
+            lower.className = "btn quiet small status-action";
+            lower.textContent = `Fill with words down to ${floor - LOWER_STEP}`;
+            lower.addEventListener("click", () => runFill(variety, floor - LOWER_STEP));
+            statusEl.append(" ", lower);
           }
-          running = false;
-          pencil.fill("");
-          if (result.success) {
-            render();
-            void gridEl.offsetWidth;
-            applyRows(result.grid, true);
-            const lowered = floor < wanted
-              ? ` Nothing fits with every word at ${wanted} or more, so it used words down to ${floor}${floor < WEAK && tintEl.checked ? "; those under 50 are tinted" : ""}.`
-              : "";
-            setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.${lowered}`);
-          } else {
-            setStatus("error", floor < wanted ? `${result.reason} (Tried words down to a score of ${floor}.)` : result.reason);
-          }
-          finishFill();
-          render();
-          resumeCheck();
         }
-      );
-    };
-    attempt(wanted);
+        finishFill();
+        render();
+        resumeCheck();
+      }
+    );
     updateButtons();
   }
 
