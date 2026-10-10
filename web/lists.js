@@ -214,6 +214,34 @@
   /* {list id: {scores, removed, recent}}. */
   const overrides = async () => (await readRecord()).byList;
 
+  /* Every list's edits as one, for the Train page: what you've decided about a word in any list (a
+     removal while constructing, a score, a word confirmed) is your taste wherever you made it. Where
+     lists disagree, the list edited most recently has the say. */
+  async function editsEverywhere() {
+    const { byList, stamps } = await readRecord();
+    const verdict = new Map(); // word -> "removed" or a score
+    const kept = new Set();
+    for (const id of Object.keys(byList).sort((a, b) => (stamps[a] || 0) - (stamps[b] || 0))) {
+      const edits = byList[id];
+      for (const word of edits.kept) {
+        if (verdict.get(word) === "removed") verdict.delete(word);
+        kept.add(word);
+      }
+      for (const word of edits.removed) {
+        verdict.set(word, "removed");
+        kept.delete(word);
+      }
+      for (const [word, score] of Object.entries(edits.scores)) verdict.set(word, score);
+    }
+    const merged = emptyEdits();
+    for (const [word, value] of verdict) {
+      if (value === "removed") merged.removed.push(word);
+      else merged.scores[word] = value;
+    }
+    merged.kept = [...kept];
+    return merged;
+  }
+
   /* Just the edits for one list. */
   const editsFor = async (listId) => tidyEdits((await overrides())[listId]);
 
@@ -369,13 +397,14 @@
 
   /* Everything a page needs to build the list it should be using right now: every list, and the edits
      belonging to the one in use. */
-  async function state(listId = "built-in") {
-    const [lists, byList] = await Promise.all([all(), overrides()]);
-    return { lists, edits: tidyEdits(byList[listId]), byList };
+  /* The lists, and the edits for one of them (or, with everywhere, every list's edits as one). */
+  async function state(listId = "built-in", { everywhere = false } = {}) {
+    const [lists, byList, merged] = await Promise.all([all(), overrides(), everywhere ? editsEverywhere() : null]);
+    return { lists, edits: merged || tidyEdits(byList[listId]), byList };
   }
 
   root.FillmeinLists = {
-    parse, all, add, create, put, remove, forgetList, rename, nameTaken,
+    parse, all, add, create, put, remove, forgetList, rename, nameTaken, editsEverywhere,
     overrides, editsFor, editStamps, setEditsFor, setScore, removeWord, restoreWord, keepWord, unkeepWord,
     getSetting, setSetting, tombstones, clearTombstone,
     merge, state,

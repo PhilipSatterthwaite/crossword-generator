@@ -156,7 +156,7 @@
   };
 
   async function loadList() {
-    state = await LISTS.state(listId);
+    state = await LISTS.state(listId, { everywhere: TRAIN });
     const list = chosen();
     if (!list && !isBuiltIn(listId)) listId = "built-in";
     rememberWhere();
@@ -946,7 +946,8 @@
 
   /* Many words at once, as one saved change: everything shown, or the rows given. */
   async function bulk(kind, which = shown, why = "shown") {
-    if (!which.length) return;
+    // The Train page holds every list's edits as one, which mustn't be written back into a single list.
+    if (TRAIN || !which.length) return;
     if (!(await guard())) return;
     const n = which.length;
     const value = Math.max(0, Math.min(100, Math.round(Number($("bulk-score").value)) || 0));
@@ -1180,12 +1181,12 @@
     const decided = decidedRows();
     const removed = decided.filter((row) => row.removed).length;
     const scored = decided.filter((row) => !row.removed && row.own).length;
-    $("model-count").innerHTML = `<b>${decided.length.toLocaleString()}</b> words decided: ${removed.toLocaleString()} removed, ${(decided.length - removed).toLocaleString()} kept.` +
+    $("model-count").innerHTML = `<b>${decided.length.toLocaleString()}</b> words decided across all your lists: ${removed.toLocaleString()} removed, ${(decided.length - removed).toLocaleString()} kept.` +
       (decided.length < 40 || !removed ? " Decide at least 40, some of each, to train." : "");
     $("train").disabled = decided.length < 40 || decided.some((r) => r.removed) === false;
   }
 
-  async function train() {
+  async function train(quiet = false) {
     const decided = decidedRows();
     const X0 = decided.map(featuresOf);
     // Words of 3 to 10 letters count fully in training, longer ones a third as much.
@@ -1320,10 +1321,10 @@
     $("train").disabled = false;
     $("train").textContent = "Train again";
     previewModel();
-    $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!quiet) $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" }); // not when it trained on opening
     refilter(); // the feed now leads with what it's unsure about
   }
-  $("train").addEventListener("click", train);
+  $("train").addEventListener("click", () => train());
 
   /* One column per length: training accuracy as the pale bar, testing as the dark one. A length with
      only a few test words is drawn faint, since its number means little yet. */
@@ -1448,7 +1449,7 @@
     const list = await LISTS.create(name, words);
     $("model-make").disabled = false;
     $("model-made").innerHTML = `Made <b>${name.replace(/[&<>]/g, "")}</b> (${words.length.toLocaleString()} words).`;
-    state = await LISTS.state(listId);
+    state = await LISTS.state(listId, { everywhere: TRAIN });
     renderWhich();
   });
 
@@ -1505,7 +1506,7 @@
     if (busy || localWrites) return;
     busy = true;
     try {
-      const fresh = await LISTS.state(listId);
+      const fresh = await LISTS.state(listId, { everywhere: TRAIN });
       // Only the scores and removals matter here; the recent-words list changes with every edit.
       const gist = (edits) => JSON.stringify([Object.entries(edits.scores || {}).sort(), [...(edits.removed || [])].sort(), [...(edits.kept || [])].sort()]);
       const before = gist(state.edits);
@@ -1534,5 +1535,9 @@
     if (mixed) mixed.remove();
   }
   setMode("review");
-  loadList();
+  // The Train page trains as soon as it opens, when there's enough to learn from, so its guesses show
+  // on the very first card.
+  loadList().then(() => {
+    if (TRAIN && !$("train").disabled) train(true);
+  });
 })();
