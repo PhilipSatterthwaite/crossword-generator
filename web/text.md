@@ -382,7 +382,7 @@ The link names a puzzle this browser doesn't have. If it's in your account, sign
 Theme entries
 
 [grid.theme.note]
-Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in.
+Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Design blocks builds the grid around it, with crossing words that run through the rebus.
 
 [grid.design]
 Design blocks

@@ -1585,7 +1585,21 @@
     return problems;
   }
 
-  const api = { BLOCK, GridError, WordList, parseGrid, prepare, fill, checkOptions, checkFill };
+  /* A theme entry as the squares it takes: "BIG[STAR]FISH" is B, I, G, STAR, F, I, S, H, the
+     bracketed letters sharing one rebus square. Any kind of bracket will do; anything else that isn't
+     a letter is dropped. */
+  function themeSquares(text) {
+    const squares = [];
+    const pattern = /[[{(]([^\]})]*)[\]})]|([A-Za-z])/g;
+    let match;
+    while ((match = pattern.exec(String(text)))) {
+      const letters = (match[2] || match[1]).toUpperCase().replace(/[^A-Z]/g, "");
+      if (letters) squares.push(letters);
+    }
+    return squares;
+  }
+
+  const api = { BLOCK, GridError, WordList, parseGrid, prepare, fill, checkOptions, checkFill, themeSquares };
   root.Gridfill = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : globalThis);

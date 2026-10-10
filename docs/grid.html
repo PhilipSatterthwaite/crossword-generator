@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-NDLm1EHZ2Sn658R7dIQNHl+qKN9ug1rzwfxVy7ukXNY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-SdMHdvqOu494Oe71qHb5FD/Mn3eN3qT4QjDWSR5nU1I='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -245,6 +245,7 @@
     border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); font-size: 13px;
   }
   .theme-word { font-weight: 700; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+  .theme-word .rebus-square { padding: 0 3px; border: 1px solid var(--rule); border-radius: 3px; font-size: 0.85em; }
   .theme-where { color: var(--muted); }
   .theme-where.placed { color: var(--ink); }
   button.theme-where { padding: 0; border: 0; background: none; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
@@ -507,10 +508,10 @@
   <section class="theme" aria-labelledby="theme-title">
     <div class="theme-head">
       <h2 id="theme-title">Theme entries</h2>
-      <p class="theme-note">Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in.</p>
+      <p class="theme-note">Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Design blocks builds the grid around it, with crossing words that run through the rebus.</p>
     </div>
     <form id="theme-form" class="theme-form" novalidate>
-      <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry" aria-label="Theme entry">
+      <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
       <button type="submit" class="btn small">Add</button>
     </form>
     <p id="theme-message" class="theme-message" role="status"></p>
@@ -576,8 +577,8 @@
 </dialog>
 
 <script src="words.js?v=c65d859382"></script>
-<script src="filler.js?v=8904f4f420"></script>
-<script src="designer.js?v=f1d0202dbb"></script>
+<script src="filler.js?v=653e783aef"></script>
+<script src="designer.js?v=eb12a1ed71"></script>
 <script src="store.js?v=bdd69993da"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=9fd41995f3"></script>
@@ -1065,24 +1066,38 @@
 
   // --- theme entries ---
 
+  /* A theme entry is kept as typed, with any rebus square in brackets: BIG[STAR]FISH. Its parts are the
+     squares it takes, several letters in a rebus square. */
+  const themeParts = (word) => G.themeSquares(word);
+  const isRebusTheme = (word) => /\[/.test(word);
+  const themeText = (parts) => parts.map((part) => (part.length > 1 ? `[${part}]` : part)).join("");
+  const themeHtml = (word) => themeParts(word).map((part) => (part.length > 1 ? `<span class="rebus-square">${part}</span>` : part)).join("");
+  /* Whether a slot holds a rebus theme entry square for square (inked, or with pencil too). */
+  const holdsRebus = (slot, parts, withPencil) => slot.cells.length === parts.length && slot.cells.every((i, p) => (ink[i] || (withPencil && pencil[i]) || "") === parts[p]);
+  /* Where a theme entry sits in the grid, among the complete entries, or undefined. */
+  const themeAt = (word, complete) => (isRebusTheme(word)
+    ? complete.find((entry) => holdsRebus(entry.slot, themeParts(word), true))
+    : complete.find((entry) => entry.word === word));
+
   /* Each theme entry, where it is in the grid now, and a way to ink it into the selected entry. */
   function renderTheme(complete, k) {
     const listEl = $("theme-list");
     const rows = theme.map((word, t) => {
-      const at = complete.find((entry) => entry.word === word);
+      const at = themeAt(word, complete);
       const penciled = at && at.slot.cells.some((i) => !ink[i]);
       const where = at
         ? `<button type="button" class="theme-where placed" data-theme-go="${slots.indexOf(at.slot)}" title="Select ${at.slot.name}">${at.slot.name}${penciled ? ", penciled" : ""}</button>`
         : `<span class="theme-where">${running ? "being placed" : "not in the grid yet"}</span>`;
       let place = "";
       const slot = k >= 0 ? slots[k] : null;
-      if (slot && entryLength(slot) === word.length && !(at && at.slot === slot)) {
-        const parts = spread(slot, word);
+      const rebus = isRebusTheme(word);
+      if (slot && (rebus ? slot.cells.length === themeParts(word).length : entryLength(slot) === word.length) && !(at && at.slot === slot)) {
+        const parts = rebus ? themeParts(word) : spread(slot, word);
         const clash = slot.cells.some((i, p) => ink[i] && ink[i] !== parts[p]);
         const title = clash ? `Its letters clash with ${slot.name}` : `Ink ${word} into ${slot.name}`;
         place = `<button type="button" class="tiny" data-theme-place="${t}"${clash || running ? " disabled" : ""} title="${title}">Put in ${slot.name}</button>`;
       }
-      return `<li class="theme-row"><span class="theme-word">${word}</span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
+      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)}</span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
     });
     const html = rows.join("");
     if (listEl.dataset.html !== html) {
@@ -1095,10 +1110,13 @@
     event.preventDefault();
     const input = $("theme-word");
     const message = $("theme-message");
-    const word = input.value.toUpperCase().replace(/[^A-Z]/g, "");
+    // Bracketed letters share a rebus square: BIG[STAR]FISH takes eight squares.
+    const parts = themeParts(input.value);
+    const word = themeText(parts);
+    const unit = isRebusTheme(word) ? "squares" : "letters";
     if (!word) message.textContent = "Type a word to add.";
-    else if (word.length < 3) message.textContent = "Theme entries need at least 3 letters.";
-    else if (word.length > Math.max(W, H)) message.textContent = `${word} has ${word.length} letters, more than the grid is wide.`;
+    else if (parts.length < 3) message.textContent = `Theme entries need at least 3 ${unit}.`;
+    else if (parts.length > Math.max(W, H)) message.textContent = `${word} takes ${parts.length} ${unit}, more than the grid is wide.`;
     else if (theme.includes(word)) message.textContent = `${word} is already a theme entry.`;
     else if (theme.length >= THEME_MOST) message.textContent = `A puzzle can have up to ${THEME_MOST} theme entries.`;
     else {
@@ -1124,8 +1142,10 @@
     } else if (place) {
       const word = theme[Number(place.dataset.themePlace)];
       const k = currentSlot();
-      if (!word || k < 0 || entryLength(slots[k]) !== word.length) return;
-      const parts = spread(slots[k], word);
+      if (!word || k < 0) return;
+      const rebus = isRebusTheme(word);
+      if (rebus ? slots[k].cells.length !== themeParts(word).length : entryLength(slots[k]) !== word.length) return;
+      const parts = rebus ? themeParts(word) : spread(slots[k], word);
       edit(() => {
         slots[k].cells.forEach((i, p) => {
           ink[i] = parts[p];
@@ -2044,7 +2064,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=1c8220172f");
+          worker = new Worker("worker.js?v=867f661e0a");
         } catch (error) {
           useInline();
           return;
@@ -2105,7 +2125,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=1c8220172f");
+          worker = new Worker("worker.js?v=867f661e0a");
         } catch (error) {
           return;
         }
@@ -2317,6 +2337,12 @@
   const LOWEST = 30;
   function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
+    // Autofill places plain theme entries itself, but not a rebus one: that needs its square chosen.
+    const loose = theme.filter((word) => isRebusTheme(word) && !slots.some((slot) => holdsRebus(slot, themeParts(word), false)));
+    if (loose.length) {
+      setStatus("error", `Put ${loose.join(" and ")} in the grid first: select an entry with ${themeParts(loose[0]).length} squares and use Put in, or press Design blocks to build the grid around ${loose.length === 1 ? "it" : "them"}.`);
+      return;
+    }
     const wanted = minScore();
     const rows = solverRows();
     // Filling again over a fill already on the grid starts from that fill, so after a small change
@@ -2977,7 +3003,7 @@
       const id = typeof data.lists.id === "string" ? data.lists.id : data.lists.use === "built-in" ? "built-in" : first;
       listChoice = { id: id || "built-in" };
     }
-    theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^[A-Z]{2,}$/.test(word)).slice(0, THEME_MOST) : [];
+    theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 2).slice(0, THEME_MOST) : [];
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();

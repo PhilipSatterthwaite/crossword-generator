@@ -213,12 +213,16 @@
       }
       if (!ok) continue;
       for (const p of placements) p.start = p.row * W + p.col;
-      if (fixed && placements.some((p) => [...p.word].some((ch, k) => fixed.letters[p.start + k] && fixed.letters[p.start + k][0] !== ch))) continue;
+      if (fixed && placements.some((p) => p.word.some((square, k) => !sameSquare(fixed.letters[p.start + k], square)))) continue;
       out.push({ blocks, placements, date });
     }
     for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
     return out;
   }
+
+  /* Whether a square already lettered (text, or nothing) agrees with what an entry wants there. A
+     plain letter matches a rebus square that starts with it, as the grid's own rebus squares did. */
+  const sameSquare = (text, want) => !text || text === want || (want.length === 1 && text[0] === want);
 
   // --- pattern geometry ---
 
@@ -439,7 +443,7 @@
       let row = "";
       for (let c = 0; c < W; c++) {
         const i = r * W + c;
-        row += blocks[i] ? "#" : letters[i] || ".";
+        row += blocks[i] ? "#" : (letters[i] || ".")[0]; // a rebus square's other letters go as the rebus
       }
       rows.push(row);
     }
@@ -480,7 +484,9 @@
           return { error: `${centre} and ${words[words.length - 1]} are both left without a partner of the same length. Theme entries pair up by length, and only one can sit in the middle.` };
         }
         if ((W - length) % 2 !== 0) {
-          return { error: `${words[words.length - 1]} is ${length} letters, so it can't be centred in a ${W}-wide grid. Give it a partner of the same length, or change its length by one.` };
+          const last = words[words.length - 1];
+          const unit = Array.isArray(last) && last.some((square) => square.length > 1) ? "squares" : "letters"; // a rebus entry counts squares
+          return { error: `${last} is ${length} ${unit}, so it can't be centred in a ${W}-wide grid. Give it a partner of the same length, or change its length by one.` };
         }
         if (length > W) return { error: `${words[words.length - 1]} is longer than the grid is wide.` };
         centre = words[words.length - 1];
@@ -694,6 +700,7 @@
       const attempt = Gridfill.fill(rows, words, {
         minScore: options.minScore,
         allowPopular: options.allowPopular,
+        rebus: options.rebus || null,
         timeLimit: seconds,
         seed: Math.floor(rng() * 1e9),
         variety: true,
@@ -929,12 +936,26 @@
     let cap = maxBlockRatio;
     let maxBlocks = Math.floor(cap * W * H);
     const probeOptions = { minScore, allowPopular, rebus };
+    // The solver's options for a pattern whose letters are these: any rebus square a theme entry put
+    // in (several letters in one square) joins the grid's own, so the entries crossing it must run
+    // through all its letters.
+    const optionsFor = (letters) => {
+      const squares = { ...(rebus || {}) };
+      letters.forEach((text, i) => { if (text && text.length > 1) squares[i] = text; });
+      return { ...probeOptions, rebus: squares };
+    };
     const fixed = keptBlocks || keptLetters
       ? { blocks: Uint8Array.from({ length: W * H }, (_, i) => (keptBlocks && keptBlocks[i] ? 1 : 0)), letters: Array.from({ length: W * H }, (_, i) => (keptLetters && keptLetters[i]) || "") }
       : null;
     const stats = { layouts: 0, seeded: 0, seedFailed: 0, dead: 0, screened: 0, impossible: 0, deepened: 0, moves: 0, kept: 0, capRaisedTo: 0 };
 
-    const clean = themes.map((w) => String(w).toUpperCase().replace(/[^A-Z]/g, "")).filter(Boolean);
+    // Each theme entry as the squares it takes (see Gridfill.themeSquares): an array whose length is
+    // its squares and whose items are their letters, several in a rebus square. Shown as typed.
+    const clean = themes.map((typed) => {
+      const squares = Gridfill.themeSquares(typed);
+      squares.toString = () => squares.map((x) => (x.length > 1 ? `[${x}]` : x)).join("");
+      return squares;
+    }).filter((squares) => squares.length);
     // Theme entries already inked in full stay where they are. One that reads across anchors a
     // partner of its length in the mirror row; one that reads down is simply already there.
     const anchored = [];
@@ -949,7 +970,7 @@
           let hit = true;
           for (let k = 0; k < n && hit; k++) {
             const text = fixed.letters[at(a, b + k)];
-            if (!text || text[0] !== word[k]) hit = false;
+            if (!text || !sameSquare(text, word[k])) hit = false;
           }
           if (!hit) continue;
           // Its ends must be caps or become them: a letter beyond either end means it's part of something longer.
@@ -975,8 +996,7 @@
           while (c + n < W && fixed.letters[r * W + c + n]) n++;
           const capped = c + n === W || fixed.blocks[r * W + c + n];
           if (capped && lengths.has(n) && !anchored.some((p) => p.row === r && p.col === c)) {
-            let word = "";
-            for (let k = 0; k < n; k++) word += fixed.letters[r * W + c + k][0];
+            const word = Array.from({ length: n }, (_, k) => fixed.letters[r * W + c + k]);
             anchored.push({ word, row: r, col: c, direction: "across", length: n });
           }
           c += n;
@@ -995,7 +1015,7 @@
     const agrees = (p) => {
       for (let k = 0; k < p.length; k++) {
         const i = p.start + k;
-        if (fixed.blocks[i] || (fixed.letters[i] && fixed.letters[i][0] !== p.word[k])) return false;
+        if (fixed.blocks[i] || !sameSquare(fixed.letters[i], p.word[k])) return false;
       }
       if (p.col > 0 && fixed.letters[p.start - 1]) return false;
       if (p.col + p.length < W && fixed.letters[p.start + p.length]) return false;
@@ -1076,14 +1096,14 @@
         }
       }
       if (!built) continue;
-      if (!reviveSeed(built, letters, placements, words, probeOptions, W, H, minLength, built.cap || maxBlocks, minOpening)) {
+      if (!reviveSeed(built, letters, placements, words, optionsFor(letters), W, H, minLength, built.cap || maxBlocks, minOpening)) {
         stats.dead++;
         continue;
       }
       const rows = gridRows(built.blocks, letters, W, H);
       const key = rows.join("");
       if (survivors.some((s) => s.key === key)) continue;
-      const result = probe(rows, words, probeOptions, screenTrials, probeSeconds, rng);
+      const result = probe(rows, words, optionsFor(letters), screenTrials, probeSeconds, rng);
       stats.screened++;
       if (!result.hits) { stats.impossible++; continue; }
       const entry = { key, rows, blocks: built.blocks, frozen: built.frozen, cap: built.cap || 0, basedOn: built.basedOn || "", letters, placements, threes: threes(built.blocks, W, H), lone: loneBlocks(built.blocks, W, H), ugliness: ugliness(built.blocks, W, H), ...result };
@@ -1106,7 +1126,7 @@
     survivors.sort((a, b) => (better(a, b) ? -1 : 1));
     for (const entry of survivors) {
       if (now() >= deepUntil) break;
-      const more = probe(entry.rows, words, probeOptions, deepTrials, probeSeconds, rng);
+      const more = probe(entry.rows, words, optionsFor(entry.letters), deepTrials, probeSeconds, rng);
       stats.deepened++;
       entry.distinct = Math.max(entry.distinct, more.distinct);
       entry.hits = more.hits;
@@ -1135,7 +1155,7 @@
         continue;
       }
       const rows = gridRows(blocks, best.letters, W, H);
-      const result = { ...probe(rows, words, probeOptions, deepTrials, probeSeconds, rng), threes: threes(blocks, W, H), lone: loneBlocks(blocks, W, H), ugliness: ugliness(blocks, W, H) };
+      const result = { ...probe(rows, words, optionsFor(best.letters), deepTrials, probeSeconds, rng), threes: threes(blocks, W, H), lone: loneBlocks(blocks, W, H), ugliness: ugliness(blocks, W, H) };
       if (result.hits && better(result, best)) {
         best = { key: rows.join(""), rows, blocks: Uint8Array.from(blocks), frozen: best.frozen, cap: best.cap, basedOn: best.basedOn, adapted: true, letters: best.letters, placements: best.placements, ...result };
         stats.kept++;
@@ -1151,7 +1171,8 @@
       success: true,
       rows: best.rows,
       blocks: Array.from(best.blocks),
-      placements: best.placements,
+      // Plain arrays: a theme entry's squares carry a way to print themselves, which can't leave a worker.
+      placements: best.placements.map((p) => ({ ...p, word: Array.from(p.word) })),
       fill: best.fill,
       distinct: best.distinct,
       hits: best.hits,
