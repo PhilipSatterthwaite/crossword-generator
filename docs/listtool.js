@@ -590,7 +590,6 @@
     const row = shown[at];
     scoring = row;
     const box = $("review");
-    const keepX = scrollX, keepY = scrollY;
     box.className = "review";
     box.style.transform = "";
     box.innerHTML = `<p class="progress">Keeping <b>${row.word}</b> — how good is it?</p>` +
@@ -609,15 +608,12 @@
       $("score-range").value = n;
       if (document.activeElement !== $("score-box")) $("score-box").value = n;
     };
-    scrollTo(keepX, keepY); // swapping the card's contents never moves the page
     $("score-range").addEventListener("input", () => show(Number($("score-range").value)));
     $("score-box").addEventListener("input", () => { const n = Number($("score-box").value); if (n >= 1 && n <= 100) show(n); });
     if (!matchMedia("(pointer: coarse)").matches) {
-      // Selecting the box lets a typed score replace it; browsers scroll to a selection, so put the page back.
-      const x = scrollX, y = scrollY;
+      // Selecting the box lets a typed score replace it.
       $("score-box").focus({ preventScroll: true });
       $("score-box").select();
-      scrollTo(x, y);
     }
   }
   const scoreChosen = () => Math.max(1, Math.min(100, Math.round(Number($("score-box").value) || Number($("score-range").value) || 50)));
@@ -1271,6 +1267,9 @@
     const confidence = Math.max(0, Math.min(100, Math.round(((acc - 50) / 45) * 100)));
     const stage = confidence >= 85 ? "green" : confidence >= 60 ? "yellow" : "red";
     $("meter-value").textContent = confidence;
+    $("tab-badge").textContent = confidence;
+    $("tab-badge").hidden = false;
+    $("tab-badge").title = "Confidence";
     $("meter-fill").style.width = `${Math.max(2, confidence)}%`;
     $("meter").dataset.stage = stage;
     $("meter-note").textContent = stage === "green" ? "Ready to finish the list." : stage === "yellow" ? "Getting there. Keep swiping, then train again." : "Keep swiping, then train again.";
@@ -1535,6 +1534,23 @@
     if (mixed) mixed.remove();
   }
   setMode("review");
+  // The Train page's tabs: Swipe and Results, the one last open opening again.
+  if (TRAIN) {
+    const TAB = "fillmein:train:tab";
+    const showTab = (tab) => {
+      document.body.dataset.tab = tab;
+      for (const button of document.querySelectorAll(".train-tabs [data-tab]")) button.setAttribute("aria-selected", String(button.dataset.tab === tab));
+      try { localStorage.setItem(TAB, tab); } catch (error) { /* no storage */ }
+      if (tab === "swipe") focusReview();
+    };
+    let first = "swipe";
+    try { if (localStorage.getItem(TAB) === "results") first = "results"; } catch (error) { /* no storage */ }
+    showTab(first);
+    document.querySelector(".train-tabs").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-tab]");
+      if (button) showTab(button.dataset.tab);
+    });
+  }
   // The Train page trains as soon as it opens, when there's enough to learn from, so its guesses show
   // on the very first card.
   loadList().then(() => {

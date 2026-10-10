@@ -436,7 +436,7 @@ Swipe through words, then let a model pare the list down the way you would.
 Train a list
 
 [train.lead]
-Words come up at random from across the whole list. Swipe left (or press ←) to remove one; swipe right (or press →) to keep it and give it a score. Then train the model below. When its confidence is green, it can finish the rest of the list into a new one. Expect a few thousand words to get there.
+Swipe left (or press ←) to remove a word, right (or press →) to keep it and score it. Results shows what the model has learned from every list you've edited; once its confidence is green, it can finish the list for you.
 
 // The link from the Train page back to the editor.
 [train.other]
