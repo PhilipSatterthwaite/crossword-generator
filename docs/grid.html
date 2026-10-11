@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-SdMHdvqOu494Oe71qHb5FD/Mn3eN3qT4QjDWSR5nU1I='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-rWPoYA81ujtkkpYo2tO/fd7ufYiAPTd1cZhlSqjS7WM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -245,6 +245,7 @@
     border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); font-size: 13px;
   }
   .theme-word { font-weight: 700; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+  .theme-word .theme-len { font-weight: 400; letter-spacing: 0; color: var(--muted); }
   .theme-word .rebus-square { padding: 0 3px; border: 1px solid var(--rule); border-radius: 3px; font-size: 0.85em; }
   .theme-where { color: var(--muted); }
   .theme-where.placed { color: var(--ink); }
@@ -1097,7 +1098,11 @@
         const title = clash ? `Its letters clash with ${slot.name}` : `Ink ${word} into ${slot.name}`;
         place = `<button type="button" class="tiny" data-theme-place="${t}"${clash || running ? " disabled" : ""} title="${title}">Put in ${slot.name}</button>`;
       }
-      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)}</span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
+      // Its length in brackets; a rebus entry also says how many squares it takes.
+      const squares = themeParts(word);
+      const letters = squares.join("").length;
+      const size = squares.length === letters ? `(${letters})` : `(${letters} letters, ${squares.length} squares)`;
+      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)} <span class="theme-len">${size}</span></span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
     });
     const html = rows.join("");
     if (listEl.dataset.html !== html) {

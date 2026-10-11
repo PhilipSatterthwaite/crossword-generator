@@ -231,6 +231,7 @@
     border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); font-size: 13px;
   }
   .theme-word { font-weight: 700; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+  .theme-word .theme-len { font-weight: 400; letter-spacing: 0; color: var(--muted); }
   .theme-word .rebus-square { padding: 0 3px; border: 1px solid var(--rule); border-radius: 3px; font-size: 0.85em; }
   .theme-where { color: var(--muted); }
   .theme-where.placed { color: var(--ink); }
@@ -1081,7 +1082,11 @@
         const title = clash ? `Its letters clash with ${slot.name}` : `Ink ${word} into ${slot.name}`;
         place = `<button type="button" class="tiny" data-theme-place="${t}"${clash || running ? " disabled" : ""} title="${title}">Put in ${slot.name}</button>`;
       }
-      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)}</span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
+      // Its length in brackets; a rebus entry also says how many squares it takes.
+      const squares = themeParts(word);
+      const letters = squares.join("").length;
+      const size = squares.length === letters ? `(${letters})` : `(${letters} letters, ${squares.length} squares)`;
+      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)} <span class="theme-len">${size}</span></span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
     });
     const html = rows.join("");
     if (listEl.dataset.html !== html) {
