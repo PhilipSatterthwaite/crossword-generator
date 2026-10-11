@@ -9,7 +9,7 @@
   let localWrites = 0;
   const LISTS = { ...window.FillmeinLists };
   const TRAIN = document.body.dataset.page === "train";
-  for (const name of ["removeWord", "restoreWord", "setScore", "keepWord", "unkeepWord", "setEditsFor", "create"]) {
+  for (const name of ["removeWord", "restoreWord", "setScore", "keepWord", "unkeepWord", "setEditsFor", "create", "put"]) {
     const write = window.FillmeinLists[name];
     LISTS[name] = async (...args) => {
       localWrites++;
@@ -1332,6 +1332,7 @@
     $("train").disabled = false;
     $("train").textContent = "Train again";
     previewModel();
+    await saveTrainedCopy();
     if (!quiet) $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" }); // not when it trained on opening
     live.length = 0;
     renderLive();
@@ -1339,6 +1340,39 @@
     refilter(); // the feed now leads with what it's unsure about
   }
   $("train").addEventListener("click", () => train());
+
+  /* The list the model would make: every word you kept or scored, and every undecided word it keeps. */
+  function modelWords() {
+    const words = [];
+    for (const row of rows) if (!row.removed && (row.kept || row.own)) words.push([row.word, row.score]);
+    for (const v of modelVerdicts()) if (v.keep) words.push([v.row.word, v.score]);
+    return words;
+  }
+
+  /* Each training run saves that list into one copy of the list being trained, "Name (trained)": made
+     the first time, brought up to date after that, so the list to fill from is always the latest
+     without saving it by hand. Training on such a copy saves nothing, or copies would breed copies. */
+  const COPIES = "fillmein:train:copies"; // id of the list trained -> id of its trained copy
+  async function saveTrainedCopy() {
+    let copies = {};
+    try { copies = JSON.parse(localStorage.getItem(COPIES) || "{}") || {}; } catch (error) { /* start afresh */ }
+    if (!model || !model.undecided || Object.values(copies).includes(listId)) return;
+    const words = modelWords();
+    const existing = state.lists.find((list) => list.id === copies[listId]);
+    let list;
+    if (existing) {
+      list = { ...existing, words, count: words.length, updated: Date.now(), basedOn: "" };
+      await LISTS.put(list);
+    } else {
+      const source = chosen();
+      list = await LISTS.create(`${source ? source.name : BUILT_INS[listId]} (trained)`, words);
+      copies[listId] = list.id;
+      try { localStorage.setItem(COPIES, JSON.stringify(copies)); } catch (error) { /* it makes a fresh copy next time */ }
+    }
+    $("model-made").innerHTML = `Saved to <b>${list.name.replace(/[&<>]/g, "")}</b> (${words.length.toLocaleString()} words), updated each time you train. Pick it in the grid's List menu to fill from it.`;
+    state = await LISTS.state(listId, { everywhere: TRAIN });
+    renderWhich();
+  }
 
   // What the model learns from a decision: keep or remove, your score when you gave one, and how much
   // it counts (words of 3 to 10 letters fully, longer ones a third as much).
@@ -1573,9 +1607,7 @@
     await new Promise((resolve) => setTimeout(resolve, 20));
     await learning;
     await refreshVerdicts();
-    const words = [];
-    for (const row of rows) if (!row.removed && (row.kept || row.own)) words.push([row.word, row.score]);
-    for (const v of modelVerdicts()) if (v.keep) words.push([v.row.word, v.score]);
+    const words = modelWords();
     $("model-make").disabled = true;
     const list = await LISTS.create(name, words);
     $("model-make").disabled = false;
