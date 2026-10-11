@@ -454,12 +454,12 @@
 
   /* What the trained model would do with a word: remove it, or keep it at a score, and how sure it is. */
   function modelGuess(row) {
-    if (!TRAIN || !model || !model.pOf || !model.pOf.has(row)) return "";
-    const p = model.pOf.get(row);
+    if (!TRAIN || !model || row.removed || row.kept || row.own) return "";
+    const { p, score } = guessFor(row);
     const keep = p >= 0.5;
     const sure = Math.round(100 * (keep ? p : 1 - p));
-    return `<p class="guess ${keep ? "keep" : "remove"}${sure < 70 ? " unsure" : ""}" title="The model's prediction, from its last training">` +
-      `Model: <b>${keep ? `keep at ${model.scoreOf.get(row)}` : "remove"}</b> <span>${sure < 55 ? "coin toss" : `${sure}% sure`}</span></p>`;
+    return `<p class="guess ${keep ? "keep" : "remove"}${sure < 70 ? " unsure" : ""}" title="The model's prediction, as of your last swipe">` +
+      `Model: <b>${keep ? `keep at ${score}` : "remove"}</b> <span>${sure < 55 ? "coin toss" : `${sure}% sure`}</span></p>`;
   }
 
   function renderCard() {
@@ -594,10 +594,10 @@
     box.style.transform = "";
     box.innerHTML = `<p class="progress">Keeping <b>${row.word}</b> — how good is it?</p>` +
       `<div class="scorer"><p class="big-score" id="score-big">${row.score}</p>` +
-      (TRAIN && model && model.scoreOf && model.scoreOf.has(row)
-        ? `<p class="guess keep">Model's guess: <b>${model.scoreOf.get(row)}</b></p>` +
+      (TRAIN && model
+        ? `<p class="guess keep">Model's guess: <b>${guessFor(row).score}</b></p>` +
           `<div class="range-wrap"><input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">` +
-          `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(model.scoreOf.get(row) - 1) / 99})" title="Model's guess"></i></div>`
+          `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(guessFor(row).score - 1) / 99})" title="Model's guess"></i></div>`
         : `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">`) +
       `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
       `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter</div>` +
@@ -645,6 +645,7 @@
       row.own = false;
       row.score = row.base;
       noteEdit(row.word, "removed");
+      learnFrom(row);
     }
     at++;
     remember();
@@ -665,6 +666,7 @@
     row.kept = true;
     noteEdit(row.word, score);
     noteKept(row.word, true);
+    learnFrom(row);
     at++;
     remember();
     renderCard();
@@ -1186,7 +1188,7 @@
     const decided = decidedRows();
     const X0 = decided.map(featuresOf);
     // Words of 3 to 10 letters count fully in training, longer ones a third as much.
-    const Y = decided.map((row) => [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 100 : -1, isCore(row) ? 1 : 0.35]);
+    const Y = decided.map(targetOf);
     const net = makeNet(FEATURES.length);
     net.mean = FEATURES.map((_, i) => X0.reduce((sum, x) => sum + x[i], 0) / X0.length);
     net.std = FEATURES.map((_, i) => Math.sqrt(X0.reduce((sum, x) => sum + (x[i] - net.mean[i]) ** 2, 0) / X0.length) || 1);
@@ -1259,7 +1261,7 @@
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
     await trainNet(net, X, Y, epochs, (e) => tick(null, e + epochs, epochs * 2));
-    model = { net, decided: decided.length };
+    model = { net, decided: decided.length, version: 0, predicted: -1 };
     const acc = n ? Math.round((100 * right) / n) : 0, base = n ? Math.round((100 * baseRight) / n) : 0;
     // Confidence: how often it got right the decisions it wasn't trained on.
     // Confidence runs from a coin toss (50% right on the held-back words: 0) to 95% right or better
@@ -1314,6 +1316,7 @@
     $("dev-test-avg").textContent = scoreN ? points(scoreErr / scoreN) : "–";
     $("dev-test-max").textContent = scoreN ? points(testScoreMax) : "–";
     await predictAll((share) => progress(0.7 + 0.3 * share, "Training…"));
+    model.predicted = model.version;
     $("train-progress").hidden = true;
     $("model-result").hidden = false;
     $("model-made").textContent = "";
@@ -1321,9 +1324,127 @@
     $("train").textContent = "Train again";
     previewModel();
     if (!quiet) $("model-result").scrollIntoView({ block: "nearest", behavior: "smooth" }); // not when it trained on opening
+    live.length = 0;
+    renderLive();
+    saveModel();
     refilter(); // the feed now leads with what it's unsure about
   }
   $("train").addEventListener("click", () => train());
+
+  // What the model learns from a decision: keep or remove, your score when you gave one, and how much
+  // it counts (words of 3 to 10 letters fully, longer ones a third as much).
+  function targetOf(row) {
+    return [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 100 : -1, isCore(row) ? 1 : 0.35];
+  }
+
+  /* The model's guess for a word right now, {p: how likely you'd keep it, score}: worked out when
+     asked, and kept until the model next learns, so a card shows what it thinks after your last swipe. */
+  function guessFor(row) {
+    if (model.guessed !== model.version) {
+      model.guesses = new Map();
+      model.guessed = model.version;
+    }
+    let guess = model.guesses.get(row);
+    if (!guess) {
+      const out = forward(model.net, standardize(model.net, [featuresOf(row)])[0]);
+      guess = { p: sigmoid(out[0]), score: Math.max(1, Math.min(100, Math.round(out[1] * 100))) };
+      model.guesses.set(row, guess);
+    }
+    return guess;
+  }
+
+  /* Learning as you swipe. Before it learns from a decision, the model's guess for that word is
+     checked against what you did: a fair test, since it hadn't seen the word. Then it takes a couple
+     of small steps on that decision with REPLAY earlier ones mixed in, so it doesn't forget them for
+     the newest. Each takes a few milliseconds, one after another. */
+  const LIVE = 50; // swipes the running accuracy covers
+  const REPLAY = 31;
+  const live = []; // 1 for a guess that matched your decision, 0 for one that didn't, newest last
+  let learning = Promise.resolve();
+  function learnFrom(row) {
+    if (!TRAIN || !model) return;
+    const guess = guessFor(row);
+    live.push((guess.p >= 0.5) === !row.removed ? 1 : 0);
+    if (live.length > LIVE) live.shift();
+    learning = learning.then(async () => {
+      const pool = decidedRows().filter((other) => other !== row);
+      const batch = [row];
+      for (let k = 0; k < REPLAY && pool.length; k++) batch.push(pool[Math.floor(Math.random() * pool.length)]);
+      await trainNet(model.net, standardize(model.net, batch.map(featuresOf)), batch.map(targetOf), 2, null, Math.random);
+      model.version++;
+      renderLive();
+      saveModelSoon();
+    }).catch(() => {});
+  }
+  function renderLive() {
+    const box = $("model-live");
+    if (!box) return;
+    const right = live.reduce((a, b) => a + b, 0);
+    box.hidden = !model || !live.length;
+    box.innerHTML = live.length
+      ? `Learning as you swipe: it guessed <b>${right} of your last ${live.length}</b> decisions right (${Math.round((100 * right) / live.length)}%) before it saw them. Train again for fresh test numbers.`
+      : "";
+  }
+
+  /* The model is kept in this browser, so the page opens with it instead of training again: its
+     weights, what Results showed, and the running accuracy. A change to the features it reads makes
+     an old one useless, so the feature list is saved with it. */
+  const MODEL_KEY = "fillmein:train:model";
+  const pack = (values) => Array.from(values, (x) => Math.round(x * 1e6) / 1e6);
+  function saveModel() {
+    if (!model) return;
+    const saved = {
+      v: 1,
+      features: FEATURES.join(","),
+      layers: model.net.layers.map((layer) => ({ n: layer.n, m: layer.m, w: pack(layer.w), b: pack(layer.b) })),
+      mean: Array.from(model.net.mean), // full precision: a tiny spread rounded to 0 would divide by 0
+      std: Array.from(model.net.std),
+      meter: $("meter").outerHTML,
+      badge: $("tab-badge").textContent,
+      live: live.slice(),
+      decided: model.decided,
+    };
+    try { localStorage.setItem(MODEL_KEY, JSON.stringify(saved)); } catch (error) { /* full or unavailable: it trains again next time */ }
+  }
+  let saveTimer = 0;
+  const saveModelSoon = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveModel, 1500);
+  };
+  function restoreModel() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(MODEL_KEY) || "null"); } catch (error) { return false; }
+    if (!saved || saved.v !== 1 || saved.features !== FEATURES.join(",")) return false;
+    const net = makeNet(FEATURES.length);
+    if (saved.layers.length !== net.layers.length || saved.layers.some((layer, k) => layer.n !== net.layers[k].n || layer.m !== net.layers[k].m)) return false;
+    saved.layers.forEach((layer, k) => {
+      net.layers[k].w = Float64Array.from(layer.w);
+      net.layers[k].b = Float64Array.from(layer.b);
+    });
+    net.mean = saved.mean;
+    net.std = saved.std.map((x) => x || 1);
+    model = { net, decided: saved.decided || 0, version: 0, predicted: -1 };
+    $("meter").outerHTML = saved.meter;
+    $("tab-badge").textContent = saved.badge || "";
+    $("tab-badge").hidden = !saved.badge;
+    live.splice(0, live.length, ...(saved.live || []));
+    renderLive();
+    $("model-result").hidden = false;
+    $("train").textContent = "Train again";
+    if (!scoring) renderCard(); // the card on show gets the model's guess
+    return true;
+  }
+
+  /* Every undecided word's verdict, for ranking the feed and for Make the list, from the model as it
+     is now: worked out again only when the model has learned since. */
+  async function refreshVerdicts(note) {
+    if (!model || model.predicted === model.version) return;
+    const version = model.version;
+    if (note) $("model-preview").textContent = note;
+    await predictAll(() => {});
+    model.predicted = version;
+    previewModel();
+  }
 
   /* One column per length: training accuracy as the pale bar, testing as the dark one. A length with
      only a few test words is drawn faint, since its number means little yet. */
@@ -1441,6 +1562,8 @@
     }
     $("model-made").textContent = "Making it…";
     await new Promise((resolve) => setTimeout(resolve, 20));
+    await learning;
+    await refreshVerdicts();
     const words = [];
     for (const row of rows) if (!row.removed && (row.kept || row.own)) words.push([row.word, row.score]);
     for (const v of modelVerdicts()) if (v.keep) words.push([v.row.word, v.score]);
@@ -1542,6 +1665,7 @@
       for (const button of document.querySelectorAll(".train-tabs [data-tab]")) button.setAttribute("aria-selected", String(button.dataset.tab === tab));
       try { localStorage.setItem(TAB, tab); } catch (error) { /* no storage */ }
       if (tab === "swipe") focusReview();
+      else refreshVerdicts("Checking every word with what it has learned since…");
     };
     let first = "swipe";
     try { if (localStorage.getItem(TAB) === "results") first = "results"; } catch (error) { /* no storage */ }
@@ -1553,7 +1677,15 @@
   }
   // The Train page trains as soon as it opens, when there's enough to learn from, so its guesses show
   // on the very first card.
-  loadList().then(() => {
-    if (TRAIN && !$("train").disabled) train(true);
+  loadList().then(async () => {
+    if (!TRAIN) return;
+    if (restoreModel()) {
+      // Opened with the model as it was left; the full ranking follows in the background, and only
+      // reorders the feed if no word has been decided meanwhile.
+      await refreshVerdicts("Checking every word…");
+      if (!history.length) refilter();
+    } else if (!$("train").disabled) {
+      train(true);
+    }
   });
 })();
