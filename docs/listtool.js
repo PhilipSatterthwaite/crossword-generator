@@ -600,7 +600,7 @@
           `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(guessFor(row).score - 1) / 99})" title="Model's guess"></i></div>`
         : `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">`) +
       `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
-      `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter</div>` +
+      `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter or →</div>` +
       `<div class="decide"><button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button>` +
       `<button type="button" class="btn primary" data-decide="score-done"><kbd>⏎</kbd>Keep</button></div></div>`;
     const show = (n) => {
@@ -804,7 +804,16 @@
     box.addEventListener("touchcancel", end);
   })();
   document.addEventListener("keydown", (event) => {
-    if (mode !== "review" || event.ctrlKey || event.metaKey || event.altKey || scoring) return;
+    if (mode !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
+    // Scoring a word, → keeps it at the score chosen, wherever the focus is: in the number box or on
+    // the slider it would otherwise move the caret or the score.
+    if (scoring) {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        keepScored(scoreChosen());
+      }
+      return;
+    }
     const target = event.target instanceof Element ? event.target : null;
     if (target && target.matches("select") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) target.blur(); // a menu left focused: the arrows mean the words
     const typing = target && target.matches("input, textarea");
