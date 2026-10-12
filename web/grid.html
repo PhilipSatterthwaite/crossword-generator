@@ -190,6 +190,7 @@
   .option[data-status="fails"] .option-word { text-decoration: line-through; text-decoration-thickness: 1px; }
   .option[data-status="fails"] .score { opacity: 0.55; }
   .option-word { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .option-combo { flex: none; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .option-mark { flex: none; width: 1.1em; text-align: center; font-weight: 700; letter-spacing: 0; }
   .tag { flex: none; font: 600 10px / 1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
   .tag.dupe { margin-left: 6px; color: var(--danger); letter-spacing: 0.04em; }
@@ -1269,7 +1270,65 @@
       total++;
       list.push({ word, score: entry.scores[w], status: null, popular: below });
     }
+    rankByCrossings(slot, list);
     return { list, total };
+  }
+
+  /* Order word options by what they leave the entries across them, not by their own score alone: a
+     word's combination is the average of its score and, for each crossing entry not already all in
+     ink, the best-scoring word (at the minimum or over) that still fits there with the letter it
+     gives. Pencil letters don't count, since a fill replaces them. A crossing nothing fits counts 0.
+     Ties keep the word's own score order. */
+  function rankByCrossings(slot, list) {
+    if (!list.length) return;
+    const crossings = [];
+    slot.cells.forEach((i, p) => {
+      const other = slots.find((s) => s !== slot && s.direction !== slot.direction && s.cells.includes(i));
+      if (!other || other.cells.every((c) => ink[c])) return; // none, or already in pen
+      // The crossing's letters in ink, and where in them the shared square's letter goes.
+      const pattern = [];
+      let at = -1;
+      for (const c of other.cells) {
+        if (c === i) at = pattern.length;
+        const text = ink[c];
+        if (text) for (const letter of text) pattern.push(letter.charCodeAt(0));
+        else pattern.push(0);
+      }
+      crossings.push({ p, pattern, at, fixed: Boolean(ink[i]), cache: new Map() });
+    });
+    for (const option of list) {
+      const parts = spread(slot, option.word);
+      let sum = option.score;
+      for (const x of crossings) {
+        const pattern = x.pattern.slice();
+        if (!x.fixed) pattern[x.at] = parts[x.p].charCodeAt(0);
+        const key = pattern[x.at];
+        if (!x.cache.has(key)) x.cache.set(key, bestFitScore(pattern));
+        sum += x.cache.get(key);
+      }
+      option.combo = Math.round(sum / (1 + crossings.length));
+    }
+    list.sort((a, b) => b.combo - a.combo || b.score - a.score);
+  }
+
+  /* The best score of a word that fits a pattern of letter codes (0 open), at the minimum or over, or
+     0 when none does. The list is sorted best first, so the first match is the answer. */
+  function bestFitScore(pattern) {
+    const length = pattern.length;
+    const entry = lexiconFor(length);
+    if (!entry) return 0;
+    const min = minScore();
+    const withPopular = allowPopularEl.checked && entry.popular;
+    for (let w = 0; w < entry.scores.length; w++) {
+      const below = entry.scores[w] < min;
+      if (below && !withPopular) break;
+      if (below && !((entry.popular.charCodeAt(w >> 3) >> (w & 7)) & 1)) continue;
+      const offset = w * length;
+      let match = true;
+      for (let p = 0; p < length && match; p++) if (pattern[p] && entry.letters.charCodeAt(offset + p) !== pattern[p]) match = false;
+      if (match && !hidden.has(entry.letters.substr(offset, length))) return entry.scores[w];
+    }
+    return 0;
   }
 
   /* The word filled into the selected entry: add it to the list, or take it out or change its score. */
@@ -1690,7 +1749,7 @@
     if (!row) {
       row = document.createElement("li");
       row.className = "option-row";
-      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}<span class="option-mark" aria-hidden="true"></span></button>` +
+      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}${option.combo !== undefined ? `<span class="option-combo" title="Average of ${option.word} and the best word that fits each entry crossing it">avg ${option.combo}</span>` : ""}<span class="option-mark" aria-hidden="true"></span></button>` +
         `<span class="option-edit"><button type="button" data-word-action="score" data-word="${option.word}" title="Give ${option.word} your own score">Score</button><button type="button" class="drop" data-word-action="remove" data-word="${option.word}" title="Take ${option.word} out of your word list">Remove</button></span>`;
       optionRows.set(i, row);
     }
@@ -1735,7 +1794,8 @@
       return;
     }
 
-    // Confirmed words first, confirmed bad last; within each group, best score first (list order).
+    // Confirmed words first, confirmed bad last; within each group, best combination with the
+    // crossing entries first (list order, see rankByCrossings).
     if (optionRowsFor !== list) {
       optionRows.clear();
       optionRowsFor = list;
