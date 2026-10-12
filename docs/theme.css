@@ -440,3 +440,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 @media (prefers-reduced-motion: reduce) {
   .status[data-state="busy"]::before { animation: none; }
 }
+
+/* A box to choose or drop a crossword file in (Solve a puzzle, on the home page and the solve page). */
+.drop { position: relative; display: grid; place-items: center; gap: 8px; min-height: 130px; padding: 20px; border: 2px dashed var(--rule); border-radius: 8px;
+  background: var(--surface); text-align: center; cursor: pointer; }
+.drop.over { border-color: var(--ink); background: var(--cell); }
+.drop:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.drop b { font-size: 17px; color: var(--ink); }
+.drop span { font-size: 13px; color: var(--muted); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }

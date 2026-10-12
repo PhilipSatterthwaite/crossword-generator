@@ -33,7 +33,7 @@ Build crosswords with a scored word list and an autofill that knows real crosswo
 Construct a crossword completely free with our automatic grid-filling software.
 
 [home.new.heading]
-Start a new puzzle
+Create
 
 [home.new.body]
 Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.
@@ -62,10 +62,10 @@ Saved to your account, so they're here on every device you sign in on.
 // Browsing published puzzles: soon
 
 [home.quick.heading]
-Quick add
+Word lists
 
 [home.quick.body]
-Put a word into one of your word lists, with a score from 0 to 100. Every puzzle that fills from that list will use it.
+Quick add: put a word into one of your word lists, with a score from 0 to 100. Every puzzle that fills from that list will use it.
 
 // Shown under the form while there's no list of your own to add to yet.
 [home.quick.first]
@@ -79,7 +79,7 @@ Sort, filter and edit whole lists
 Solve a puzzle
 
 [home.solve.body]
-Got a crossword file? Open a .puz, .ipuz or .jpz and solve it right here, no Across Lite needed.
+Got a crossword file? Open a .puz, .ipuz or .jpz and solve it right here, no Across Lite needed. Your progress is kept in this browser.
 
 [home.guide.heading]
 How to make a crossword

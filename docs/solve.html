@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-a2WEA5tr8D/vByJXDJjZFDyXTDKW+USnn0fJnIICrjQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-dGE37E4oWPzfNnvAZISryrfCVMYdhObDYgfLYPG9tkU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solve a puzzle · fillmein</title>
 <meta name="description" content="Solve a crossword in your browser: open a .puz, .ipuz or .jpz file, or a link someone shared from fillmein.">
@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=d80e70f9f3">
+<link rel="stylesheet" href="theme.css?v=f97fe2d008">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -128,12 +128,6 @@
   .upload { display: grid; gap: 14px; max-width: 640px; }
   .upload h1 { margin: 0; font: 600 32px / 1.15 var(--serif); }
   .upload > p { margin: 0; color: var(--muted); line-height: 1.5; }
-  .drop { display: grid; place-items: center; gap: 8px; min-height: 150px; padding: 20px; border: 2px dashed var(--rule); border-radius: 8px;
-    background: var(--surface); text-align: center; cursor: pointer; }
-  .drop.over { border-color: var(--ink); background: var(--cell); }
-  .drop b { font-size: 17px; }
-  .drop span { font-size: 13px; color: var(--muted); }
-  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .upload-error { margin: 0; color: var(--danger); font-size: 14px; }
   .upload-error:empty { display: none; }
   .recent { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -231,6 +225,7 @@
 
 <script src="filler.js?v=f7bf33bddc"></script>
 <script src="importers.js?v=8e00e4e98c"></script>
+<script src="solvefiles.js?v=24df47d3ae"></script>
 <script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=e777c17977"></script>
@@ -239,11 +234,7 @@
   const $ = (id) => document.getElementById(id);
   const id = new URLSearchParams(location.search).get("p") || "";            // a puzzle shared from fillmein
   const fileId = new URLSearchParams(location.search).get("f") || "";        // a file opened in this browser
-  const PROGRESS = fileId ? `fillmein:solve:file:${fileId}` : `fillmein:solve:${id}`;
-  // Files opened here: the puzzle under FILE + id, and a list of them, newest first, under FILES.
-  const FILES = "fillmein:solve:files";
-  const FILE = "fillmein:solve:file-puzzle:";
-  const FILES_MOST = 40;
+  const PROGRESS = fileId ? window.SolveFiles.progressKey(fileId) : `fillmein:solve:${id}`;
 
   let puzzle = null;      // what was published
   let slots = [];         // entries, from filler.js
@@ -689,53 +680,11 @@
   // "by Someone", unless the file's author line already starts that way.
   const byline = (author) => (!author ? "" : /^by\s/i.test(author.trim()) ? author.trim() : `by ${author.trim()}`);
 
-  /* The files opened in this browser, newest first: [{id, title, author, width, height, opened}]. */
-  const readFiles = () => {
-    try { return JSON.parse(localStorage.getItem(FILES)) || []; } catch (error) { return []; }
-  };
-  const writeFiles = (list) => {
-    try { localStorage.setItem(FILES, JSON.stringify(list.slice(0, FILES_MOST))); } catch (error) { /* storage full or off */ }
-  };
-  // The same file opened twice is the same puzzle, progress and all: its id comes from its bytes.
-  const fileHash = (bytes) => {
-    let h = 2166136261;
-    for (let i = 0; i < bytes.length; i++) h = Math.imul(h ^ bytes[i], 16777619);
-    return (h >>> 0).toString(36) + bytes.length.toString(36);
-  };
-
-  /* A file read by importers.js, as the solve page holds a puzzle: cells a character a square ("#" a
-     block, the answer's letter, "." where the file gave none) and known when every answer is there. */
-  function fromFile(read) {
-    const cells = read.cells.map((cell) => (cell === "#" ? "#" : cell || ".")).join("");
-    const rebus = {};
-    for (const [key, text] of Object.entries(read.rebus || {})) if (/^[A-Z]{2,12}$/.test(text) && cells[Number(key)] === text[0]) rebus[key] = text;
-    return {
-      title: read.title || "Untitled puzzle",
-      author: read.author || "",
-      width: read.width,
-      height: read.height,
-      cells,
-      clues: read.clues || {},
-      rebus,
-      known: !read.locked && !cells.includes("."),
-    };
-  }
-
+  // Files opened here are kept by solvefiles.js (window.SolveFiles), shared with the home page.
   async function openFile(file) {
     $("upload-note").textContent = "";
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const read = window.GridImport.read(file.name, bytes, { allowLocked: true });
-      const pid = fileHash(bytes);
-      const stored = fromFile(read);
-      try {
-        localStorage.setItem(FILE + pid, JSON.stringify(stored));
-      } catch (error) {
-        throw new Error("This browser has no room to keep the puzzle. Remove a puzzle from the list and try again.");
-      }
-      writeFiles([{ id: pid, title: stored.title, author: stored.author, width: stored.width, height: stored.height, opened: Date.now() },
-        ...readFiles().filter((entry) => entry.id !== pid)]);
-      location.href = `solve?f=${encodeURIComponent(pid)}`;
+      location.href = `solve?f=${encodeURIComponent(await window.SolveFiles.open(file))}`;
     } catch (error) {
       $("upload-note").textContent = error.message || "That file couldn't be opened.";
     }
@@ -745,28 +694,19 @@
     $("loading").hidden = true;
     $("upload").hidden = false;
     $("upload-note").textContent = note;
-    const list = readFiles();
+    const list = window.SolveFiles.list();
     $("recent-box").hidden = !list.length;
     $("recent").replaceChildren(...list.map((entry) => {
       const li = document.createElement("li");
       const link = Object.assign(document.createElement("a"), { href: `solve?f=${encodeURIComponent(entry.id)}`, textContent: entry.title || "Untitled puzzle" });
-      let progress = "";
-      try {
-        const saved = JSON.parse(localStorage.getItem(`fillmein:solve:file:${entry.id}`));
-        if (saved && saved.done) progress = "solved";
-        else if (saved && Array.isArray(saved.letters)) progress = `${saved.letters.filter(Boolean).length} squares filled`;
-      } catch (error) { /* nothing saved yet */ }
+      const progress = window.SolveFiles.progress(entry.id);
       const meta = Object.assign(document.createElement("span"), {
         className: "meta",
         textContent: [byline(entry.author), `${entry.width}×${entry.height}`, progress || "not started"].filter(Boolean).join(" · "),
       });
       const drop = Object.assign(document.createElement("button"), { type: "button", textContent: "Remove" });
       drop.addEventListener("click", () => {
-        try {
-          localStorage.removeItem(FILE + entry.id);
-          localStorage.removeItem(`fillmein:solve:file:${entry.id}`);
-        } catch (error) { /* already gone */ }
-        writeFiles(readFiles().filter((other) => other.id !== entry.id));
+        window.SolveFiles.remove(entry.id);
         showUpload();
       });
       li.append(link, meta, drop);
@@ -798,17 +738,12 @@
       return;
     }
     if (fileId) {
-      try {
-        puzzle = JSON.parse(localStorage.getItem(FILE + fileId));
-      } catch (error) {
-        puzzle = null;
-      }
-      if (!puzzle || !(puzzle.width > 0 && puzzle.height > 0) || typeof puzzle.cells !== "string" || puzzle.cells.length !== puzzle.width * puzzle.height) {
+      puzzle = window.SolveFiles.load(fileId);
+      if (!puzzle) {
         showUpload("That puzzle isn't in this browser any more. Open its file again to solve it.");
         return;
       }
-      writeFiles([{ ...(readFiles().find((entry) => entry.id === fileId) || { id: fileId, title: puzzle.title, author: puzzle.author, width: puzzle.width, height: puzzle.height }), opened: Date.now() },
-        ...readFiles().filter((entry) => entry.id !== fileId)]);
+      window.SolveFiles.touch(fileId, puzzle);
     }
     else try {
       const fs = await window.Fillmein.loadFirestore();

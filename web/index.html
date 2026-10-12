@@ -48,6 +48,8 @@
   .choice h2 { margin: 0; font: 600 25px / 1.2 var(--serif); }
   .choice p { margin: 0; max-width: 46ch; color: var(--muted); text-wrap: pretty; }
   .choice .btn { justify-self: start; }
+  .choice .sub-head { margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); font: 600 18px / 1.2 var(--serif); }
+  .list-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
   .note { font-size: 13px; }
   .soon {
     justify-self: start;
@@ -142,15 +144,24 @@
   </header>
 
   <main class="choices">
-    <section class="choice" aria-labelledby="new-title">
-      <div class="choice-head"><span class="choice-num">1</span><h2 id="new-title">{{home.new.heading|line}}</h2></div>
-      <p>{{home.new.body|line}}</p>
-      <button type="button" id="start-new" class="btn primary">Start a puzzle</button>
-      <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
+    <section class="choice" aria-labelledby="solve-title">
+      <div class="choice-head"><span class="choice-num">1</span><h2 id="solve-title">{{home.solve.heading|line}}</h2></div>
+      <p>{{home.solve.body|line}}</p>
+      <label class="drop" id="solve-drop">
+        <b>Choose a puzzle file</b>
+        <span>or drop it here · .puz, .ipuz or .jpz</span>
+        <input type="file" id="solve-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
+      </label>
+      <p id="solve-note" class="quick-message" role="alert"></p>
+      <a id="solve-recent" class="note" href="solve" hidden></a>
     </section>
 
-    <section class="choice keep" aria-labelledby="keep-title">
-      <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">{{home.keep.heading|line}}</h2></div>
+    <section class="choice keep" aria-labelledby="new-title">
+      <div class="choice-head"><span class="choice-num">2</span><h2 id="new-title">{{home.new.heading|line}}</h2></div>
+      <p>{{home.new.body|line}}</p>
+      <button type="button" id="start-new" class="btn primary">Start a new puzzle</button>
+      <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
+      <h3 id="keep-title" class="sub-head">{{home.keep.heading|line}}</h3>
       <p id="no-puzzles">{{home.keep.empty|line}}</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
       <a id="manage-link" class="btn quiet" href="puzzles" hidden>Manage puzzles and folders</a>
@@ -172,18 +183,15 @@
         <p id="quick-first" class="note" hidden>{{home.quick.first|line}}</p>
         <p id="quick-message" class="quick-message" role="alert"></p>
         <div id="quick-recent" class="quick-recent" hidden></div>
-        <p class="note"><a href="lists">{{home.quick.editor|line}}</a></p>
       </form>
-    </section>
-
-    <section class="choice" aria-labelledby="solve-title">
-      <div class="choice-head"><span class="choice-num">4</span><h2 id="solve-title">{{home.solve.heading|line}}</h2></div>
-      <p>{{home.solve.body|line}}</p>
-      <a class="btn" href="solve">Solve a puzzle</a>
+      <div class="list-buttons">
+        <a class="btn" href="lists">Edit a list</a>
+        <a class="btn" href="train">Train a list</a>
+      </div>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
-      <div class="choice-head"><span class="choice-num">5</span><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
+      <div class="choice-head"><span class="choice-num">4</span><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
       <p>{{home.guide.body|line}}</p>
       <a class="btn" href="guide">Read the guide</a>
     </section>
@@ -201,6 +209,7 @@
 
 <script src="filler.js"></script>
 <script src="importers.js"></script>
+<script src="solvefiles.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
 <script src="lists.js"></script>
@@ -285,6 +294,36 @@
       item.append(thumb, text);
       list.append(item);
     }
+  }
+
+  // Solve a puzzle: a file chosen or dropped opens on the solve page, kept in this browser.
+  async function solveFile(file) {
+    $("solve-note").textContent = "";
+    try {
+      location.href = `solve?f=${encodeURIComponent(await window.SolveFiles.open(file))}`;
+    } catch (error) {
+      $("solve-note").textContent = error.message || "That file couldn't be opened.";
+    }
+  }
+  $("solve-file").addEventListener("change", (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (file) solveFile(file);
+  });
+  for (const type of ["dragenter", "dragover"]) $("solve-drop").addEventListener(type, (event) => {
+    event.preventDefault();
+    $("solve-drop").classList.add("over");
+  });
+  for (const type of ["dragleave", "drop"]) $("solve-drop").addEventListener(type, (event) => {
+    event.preventDefault();
+    $("solve-drop").classList.remove("over");
+    if (type === "drop" && event.dataTransfer && event.dataTransfer.files[0]) solveFile(event.dataTransfer.files[0]);
+  });
+  {
+    const inProgress = window.SolveFiles.list();
+    $("solve-recent").hidden = !inProgress.length;
+    $("solve-recent").textContent = inProgress.length === 1 ? `Carry on with ${inProgress[0].title || "your puzzle"}` : `Your ${inProgress.length} puzzles in progress`;
+    if (inProgress.length === 1) $("solve-recent").href = `solve?f=${encodeURIComponent(inProgress[0].id)}`;
   }
 
   $("start-new").addEventListener("click", () => {
