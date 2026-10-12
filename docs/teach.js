@@ -249,7 +249,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
         system,
         messages: [{ role: "user", content: `Judge each of these words.\n\n${batch.map(facts).join("\n")}` }],
         schema: GUESS_SCHEMA,
-        maxTokens: 2000,
+        maxTokens: 4000,
       });
       return answer.verdicts || [];
     }), WIDTH, onProgress);
@@ -382,7 +382,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
       `<p class="chose">${!guess ? "" : touched
         ? `Yours: <b>${you.verdict === "cut" ? "cut" : you.score}</b>. Next keeps it.`
         : `Next agrees with the answer above: <b>${guess.verdict === "cut" ? "cut" : guess.score}</b>.`}</p>` +
-      `<input class="note" id="card-note" type="text" placeholder="why, if it matters" value="${safe(you && you.note)}" aria-label="Why, for ${safe(row.word)}">` +
+      `<input class="note" id="card-note" type="text" placeholder="why, if it matters" value="${safe(you && you.note)}" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Why, for ${safe(row.word)}">` +
       `<div class="doing">` +
       `<button type="button" class="btn quiet" data-go="back"${at ? "" : " disabled"}>← Back</button>` +
       `<button type="button" class="btn agree${touched ? " faded" : ""}" data-go="agree"${guess ? "" : " disabled"}` +
@@ -580,7 +580,7 @@ Also return "learned": a few short lines saying what you changed and why, addres
             `The hundred words, with what the rules said and what they said:\n\n${decided}`,
         }],
         schema: TRAIN_SCHEMA,
-        maxTokens: 8000,
+        maxTokens: 32000,
         effort: "high", // the one call worth thinking about
         cache: false,   // these instructions are sent once a round, so caching buys nothing
       });
@@ -601,7 +601,18 @@ Also return "learned": a few short lines saying what you changed and why, addres
       drawResult();
       show("result");
     } catch (error) {
-      $("training-note").textContent = `That didn't work: ${error.message}`;
+      // The hundred words are still in hand, so nothing is lost: offer the two ways on.
+      $("training-note").innerHTML = `That didn't work: ${safe(error.message)}. Your hundred words are still here. ` +
+        '<button type="button" class="btn" id="train-retry">Try again</button> ' +
+        '<button type="button" class="btn quiet" id="train-back">Back to the words</button>';
+      const again = $("train-retry");
+      const back = $("train-back");
+      if (again) again.addEventListener("click", () => $("train").click());
+      if (back) back.addEventListener("click", () => {
+        round.at = Math.max(0, round.items.length - 1);
+        show("teach");
+        drawCard();
+      });
     }
   });
 

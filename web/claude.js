@@ -33,6 +33,7 @@
     "claude-opus-5-5": { name: "Opus 5.5 - best", in: 4, out: 20, cacheRead: 0.2, cacheWrite: 5 },
   };
   const DEFAULT_MODEL = "claude-haiku-5-5";
+  const MOST_TOKENS = 128000; // the models' limit on one reply, and so the ceiling on asking again
   const listeners = new Set();
 
   const api = {
@@ -54,7 +55,7 @@
        the API enforce the answer's shape, so the reply parses or the request fails. Thinking is on by
        default and counts against maxTokens, so leave it room. Returns the parsed JSON when a schema
        was given, otherwise the text. */
-    async call({ system, messages, schema = null, maxTokens = 1024, effort = "low", cache = true }) {
+    async call({ system, messages, schema = null, maxTokens = 1024, effort = "low", cache = true, room = 1 }) {
       const key = api.key();
       if (!key) throw new Error("no API key: add one at the top of the page");
       const model = api.model();
@@ -90,8 +91,13 @@
       if (!schema) return text;
       const json = text.match(/\{[\s\S]*\}/);
       if (!json) {
+        // Thinking counts against max_tokens, so a hard question can use the whole budget before a
+        // word of the answer. Ask again with room to spare rather than handing back a failure.
+        if (message.stop_reason === "max_tokens" && maxTokens < MOST_TOKENS && room < 3) {
+          return api.call({ system, messages, schema, maxTokens: Math.min(maxTokens * 4, MOST_TOKENS), effort, cache, room: room + 1 });
+        }
         throw new Error(message.stop_reason === "max_tokens"
-          ? "ran out of room before answering"
+          ? `ran out of room before answering, even with ${maxTokens.toLocaleString()} tokens`
           : `no answer in the reply (stop reason: ${message.stop_reason || "?"})`);
       }
       return JSON.parse(json[0]);
