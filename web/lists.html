@@ -307,7 +307,7 @@
   <div class="filters" role="group" aria-label="Filters">
     <input id="pattern" type="text" placeholder="Letters, ? or *" autocomplete="off" spellcheck="false" aria-label="Pattern: letters the word contains, or a pattern with ? for one letter and * for any">
     <span class="field"><b>Length</b> <input id="len-min" type="number" min="3" max="25" aria-label="Shortest"> <span class="dash">–</span> <input id="len-max" type="number" min="3" max="25" aria-label="Longest"></span>
-    <span class="field"><b>Score</b> <input id="score-min" type="number" min="0" max="100" aria-label="Lowest score"> <span class="dash">–</span> <input id="score-max" type="number" min="0" max="100" aria-label="Highest score"></span>
+    <span class="field"><b>Score</b> <input id="score-min" type="number" min="0" max="10" aria-label="Lowest score"> <span class="dash">–</span> <input id="score-max" type="number" min="0" max="10" aria-label="Highest score"></span>
     <span class="field" title="Published crossword answers, 2000 to 2023"><b>NYT uses</b> <input id="uses-min" type="number" min="0" aria-label="Fewest uses"> <span class="dash">–</span> <input id="uses-max" type="number" min="0" aria-label="Most uses"></span>
     <span class="field" title="How familiar the word is in everyday English, 0 to 100"><b>Everyday</b> <input id="ev-min" type="number" min="0" max="100" aria-label="Least everyday"> <span class="dash">–</span> <input id="ev-max" type="number" min="0" max="100" aria-label="Most everyday"></span>
     <span class="field" title="Times Google's web corpus has the word (a phrase: its rarest word pair)"><b>Google</b> <input id="g-min" type="number" min="0" aria-label="Fewest Google hits"> <span class="dash">–</span> <input id="g-max" type="number" min="0" aria-label="Most Google hits"></span>
@@ -426,7 +426,7 @@
   <div class="bulk">
     <span id="count" class="count"></span>
     <span class="spacer"></span>
-    <label class="field">Score all shown to <input id="bulk-score" type="number" min="0" max="100" value="50" aria-label="Score to give every word shown"></label>
+    <label class="field">Score all shown to <input id="bulk-score" type="number" min="1" max="10" value="5" aria-label="Score to give every word shown"></label>
     <button type="button" id="bulk-rescore" class="btn quiet small">Apply</button>
     <button type="button" id="bulk-keep" class="btn quiet small">Confirm all shown</button>
     <button type="button" id="bulk-remove" class="btn quiet small">Remove all shown</button>

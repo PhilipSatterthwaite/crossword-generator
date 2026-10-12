@@ -23,7 +23,7 @@
   const $ = (id) => document.getElementById(id);
   const ROW = 34;
   const BUILT_INS = { "built-in": "Built-in list", nyt: "NYT answers" };
-  const NYT_UNVETTED = 50; // the NYT answers list scores its unvetted answers this (as the Grid page does)
+  const NYT_UNVETTED = 5; // the NYT answers list scores its unvetted answers this (as the Grid page does)
 
   let listId = "built-in";
   let state = { lists: [], edits: { scores: {}, removed: [] }, byList: {} };
@@ -626,11 +626,11 @@
       `<div class="scorer"><p class="big-score" id="score-big">${row.score}</p>` +
       (TRAIN && model
         ? `<p class="guess keep">Model's guess: <b>${guessFor(row).score}</b></p>` +
-          `<div class="range-wrap"><input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">` +
-          `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(guessFor(row).score - 1) / 99})" title="Model's guess"></i></div>`
-        : `<input type="range" id="score-range" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score">`) +
+          `<div class="range-wrap"><input type="range" id="score-range" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score">` +
+          `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(guessFor(row).score - 1) / 9})" title="Model's guess"></i></div>`
+        : `<input type="range" id="score-range" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score">`) +
       `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
-      `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="100" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter or →</div>` +
+      `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter or →</div>` +
       `<div class="decide"><button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button>` +
       `<button type="button" class="btn primary" data-decide="score-done"><kbd>⏎</kbd>Keep</button></div></div>`;
     const show = (n) => {
@@ -639,14 +639,14 @@
       if (document.activeElement !== $("score-box")) $("score-box").value = n;
     };
     $("score-range").addEventListener("input", () => show(Number($("score-range").value)));
-    $("score-box").addEventListener("input", () => { const n = Number($("score-box").value); if (n >= 1 && n <= 100) show(n); });
+    $("score-box").addEventListener("input", () => { const n = Number($("score-box").value); if (n >= 1 && n <= 10) show(n); });
     if (!matchMedia("(pointer: coarse)").matches) {
       // Selecting the box lets a typed score replace it.
       $("score-box").focus({ preventScroll: true });
       $("score-box").select();
     }
   }
-  const scoreChosen = () => Math.max(1, Math.min(100, Math.round(Number($("score-box").value) || Number($("score-range").value) || 50)));
+  const scoreChosen = () => Math.max(1, Math.min(10, Math.round(Number($("score-box").value) || Number($("score-range").value) || 5)));
 
   async function decide(keep) {
     if (at >= shown.length) return;
@@ -686,7 +686,7 @@
     if (at >= shown.length || !Number.isFinite(value)) return;
     if (!(await guard())) return;
     const row = shown[at];
-    const score = Math.max(0, Math.min(100, Math.round(value)));
+    const score = Math.max(0, Math.min(10, Math.round(value)));
     history.push({ index: at, wasRemoved: row.removed, wasOwn: row.own, wasScore: row.score, wasKept: row.kept });
     await LISTS.setScore(listId, row.word, score);
     await LISTS.keepWord(listId, row.word);
@@ -754,7 +754,7 @@
       focusReview();
     } else if (scoring && (event.key === "ArrowUp" || event.key === "ArrowDown") && event.target.id === "score-box") {
       event.preventDefault();
-      const n = Math.max(1, Math.min(100, Number($("score-box").value) + (event.key === "ArrowUp" ? 5 : -5)));
+      const n = Math.max(1, Math.min(10, Number($("score-box").value) + (event.key === "ArrowUp" ? 1 : -1)));
       $("score-box").value = n;
       $("score-box").dispatchEvent(new Event("input"));
     }
@@ -866,7 +866,7 @@
     if (row.popular) tags.push('<span class="tag" title="Everyday enough to be allowed under the minimum score">popular</span>');
     const can = editable();
     return `<span class="word">${row.word}</span><span class="num">${row.len}</span>` +
-      `<input class="score num${row.own ? " own" : ""}" type="number" min="0" max="100" value="${row.score}" aria-label="Score for ${row.word}"${can ? "" : " disabled"}>` +
+      `<input class="score num${row.own ? " own" : ""}" type="number" min="0" max="10" value="${row.score}" aria-label="Score for ${row.word}"${can ? "" : " disabled"}>` +
       `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num goog" title="${row.books.toLocaleString()}">${compact(row.books)}</span><span class="num goog" title="${row.papers.toLocaleString()}">${compact(row.papers)}</span><span class="num vow">${row.year || "–"}</span>` +
       `<span class="flags">${tags.join("")}</span>` +
       (can ? `<button type="button" class="act${row.removed ? "" : " drop"}" data-act="${row.removed ? "restore" : "remove"}">${row.removed ? "Put back" : "Remove"}</button>` : "<span></span>");
@@ -948,7 +948,7 @@
     const el = input.closest(".row");
     const i = Number(el.dataset.i);
     const row = shown[i];
-    const value = Math.max(0, Math.min(100, Math.round(Number(input.value))));
+    const value = Math.max(0, Math.min(10, Math.round(Number(input.value))));
     if (!Number.isFinite(value) || value === row.score) {
       input.value = row.score;
       return;
@@ -987,7 +987,7 @@
     if (TRAIN || !which.length) return;
     if (!(await guard())) return;
     const n = which.length;
-    const value = Math.max(0, Math.min(100, Math.round(Number($("bulk-score").value)) || 0));
+    const value = Math.max(0, Math.min(10, Math.round(Number($("bulk-score").value)) || 0));
     const count = `${n.toLocaleString()} ${n === 1 ? "word" : "words"} ${why}`;
     const what = kind === "remove" ? `Remove ${count}?` : kind === "restore" ? `Put back ${count}?` : kind === "keep" ? `Keep ${count}?` : `Score ${count} ${value}?`;
     const sure = await window.fillmeinConfirm({
@@ -1079,7 +1079,7 @@
     const w = row.word;
     const parts = readingOf(row).split(" ");
     return [
-      row.len / 15, parts.length / 4, row.base / 100, row.broda < 0 ? 0.5 : row.broda / 100, row.broda < 0 ? 1 : 0,
+      row.len / 15, parts.length / 4, row.base / 10, row.broda < 0 ? 0.5 : row.broda / 10, row.broda < 0 ? 1 : 0,
       Math.log10(row.uses + 1) / 3, row.uses ? 0 : 1, row.year ? (2024 - row.year) / 25 : 1, row.everyday / 100, row.zipf / 7,
       Math.log10(row.google + 1) / 10, row.google ? 0 : 1, Math.log10(row.books + 1) / 8, row.books ? 0 : 1,
       row.vowels / 100, [...w].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0) / row.len / 10, (w.match(/[JQXZ]/g) || []).length / 3, (w.match(/([A-Z])\1/g) || []).length / 2,
@@ -1281,7 +1281,7 @@
       trainN++;
       if ((sigmoid(out[0]) >= 0.5 ? 1 : 0) === Y[i][0]) trainRight++;
       if (Y[i][1] >= 0) {
-        const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
+        const off = Math.abs(out[1] * 10 - Y[i][1] * 10);
         trainScoreErr += off;
         trainScoreMax = Math.max(trainScoreMax, off);
         trainScoreN++;
@@ -1299,7 +1299,7 @@
       else missed.add(i);
       if ((keptShare >= 0.5 ? 1 : 0) === Y[i][0]) baseRight++;
       if (Y[i][1] >= 0) {
-        const off = Math.abs(out[1] * 100 - Y[i][1] * 100);
+        const off = Math.abs(out[1] * 10 - Y[i][1] * 10);
         scoreErr += off;
         testScoreMax = Math.max(testScoreMax, off);
         scoreN++;
@@ -1414,7 +1414,7 @@
   // What the model learns from a decision: keep or remove, your score when you gave one, and how much
   // it counts (words of 3 to 10 letters fully, longer ones a third as much).
   function targetOf(row) {
-    return [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 100 : -1, isCore(row) ? 1 : 0.35];
+    return [row.removed ? 0 : 1, row.removed ? -1 : row.own ? row.score / 10 : -1, isCore(row) ? 1 : 0.35];
   }
 
   /* The model's guess for a word right now, {p: how likely you'd keep it, score}: worked out when
@@ -1427,7 +1427,7 @@
     let guess = model.guesses.get(row);
     if (!guess) {
       const out = forward(model.net, standardize(model.net, [featuresOf(row)])[0]);
-      guess = { p: sigmoid(out[0]), score: Math.max(1, Math.min(100, Math.round(out[1] * 100))) };
+      guess = { p: sigmoid(out[0]), score: Math.max(1, Math.min(10, Math.round(out[1] * 10))) };
       model.guesses.set(row, guess);
     }
     return guess;
@@ -1572,7 +1572,7 @@
       dense(B, h1, h2, true);
       dense(C, h2, out, false);
       pKeep[i] = sigmoid(out[0]);
-      score[i] = Math.max(1, Math.min(100, Math.round(out[1] * 100)));
+      score[i] = Math.max(1, Math.min(10, Math.round(out[1] * 10)));
     }
     model.undecided = undecided;
     model.pOf = new Map();
@@ -1589,12 +1589,12 @@
      over the verdicts already made, so the box can be changed freely. */
   /* Words too plainly good to leave to the model: a list it makes keeps them unless you removed them
      yourself. A dictionary word common in everyday English (one in 30,000 words or commoner), an
-     answer the Times has run five times or more, or a word scored 70 or more. Partial phrases (A PET,
+     answer the Times has run five times or more, or a word scored 7 or more. Partial phrases (A PET,
      ITS A) aren't protected: whether to use them is a taste, and the model can learn it. A word the
      dictionary lists is no partial, however it reads (ALEE, ABOIL, ATILT). */
   const PROTECT_ZIPF = 3.5;
   const PROTECT_USES = 5;
-  const PROTECT_SCORE = 70;
+  const PROTECT_SCORE = 7;
   const PARTIAL_START = new Set(["A", "AN", "THE"]);
   const PARTIAL_END = new Set(["A", "AN", "THE", "OF", "TO"]);
   function isPartial(row) {

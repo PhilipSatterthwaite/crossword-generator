@@ -20,7 +20,12 @@
   const TOMBSTONES = "tombstones"; // lists deleted here, still to be deleted in the account
   const MIN_LENGTH = 2;
   const MAX_LENGTH = 25;
-  const DEFAULT_SCORE = 50;
+  const DEFAULT_SCORE = 5;
+  const TOP_SCORE = 10;
+  /* The site scored words 0-100 until October 2026 and scores them 1-10 now. A score that can only
+     be an old one is brought over rather than refused: lists people uploaded, scores they set, and
+     puzzles they saved all predate the change. */
+  const onScale = (score) => (score > TOP_SCORE ? Math.max(1, Math.round(score / 10)) : score);
 
   const listeners = new Set();
   const announce = () => {
@@ -45,7 +50,8 @@
         continue;
       }
       const score = rawScore === undefined || rawScore.trim() === "" ? DEFAULT_SCORE : Number(rawScore.trim());
-      const clean = Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : DEFAULT_SCORE;
+      // A file written for the old scale is read as one: Peter Broda's lists and their like score out of 100.
+      const clean = Number.isFinite(score) ? onScale(Math.max(0, Math.min(100, Math.round(score)))) : DEFAULT_SCORE;
       words.set(word, Math.max(words.get(word) ?? -1, clean)); // a word listed twice keeps its best score
     }
     return { words: [...words].sort((a, b) => (a[0] < b[0] ? -1 : 1)), skipped };
@@ -286,7 +292,7 @@
 
   const setScore = (listId, word, score) =>
     change(listId, (edits) => {
-      edits.scores[word] = Math.max(0, Math.min(100, Math.round(score)));
+      edits.scores[word] = Math.max(0, Math.min(TOP_SCORE, Math.round(score)));
       edits.removed = edits.removed.filter((other) => other !== word);
       edits.recent = [word, ...edits.recent.filter((other) => other !== word)].slice(0, 20);
     });
@@ -352,12 +358,12 @@
   function merge(base, { use = "built-in", lists = [], edits = emptyEdits() } = {}) {
     const custom = new Map(); // word -> score
     if (use !== "built-in") {
-      for (const list of lists) for (const [word, score] of list.words) custom.set(word, score);
+      for (const list of lists) for (const [word, score] of list.words) custom.set(word, onScale(score));
     }
     const scores = edits.scores || {};
     const removed = new Set(edits.removed || []);
     // Each list keeps its own edits, so a score set on this list adds the word to it if it wasn't there.
-    for (const [word, score] of Object.entries(scores)) custom.set(word, score);
+    for (const [word, score] of Object.entries(scores)) custom.set(word, onScale(score));
 
     const touched = new Set();
     for (const word of custom.keys()) touched.add(word.length);

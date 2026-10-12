@@ -305,7 +305,7 @@
   <div class="filters" role="group" aria-label="Filters">
     <input id="pattern" type="text" placeholder="Letters, ? or *" autocomplete="off" spellcheck="false" aria-label="Pattern: letters the word contains, or a pattern with ? for one letter and * for any">
     <span class="field"><b>Length</b> <input id="len-min" type="number" min="3" max="25" aria-label="Shortest"> <span class="dash">–</span> <input id="len-max" type="number" min="3" max="25" aria-label="Longest"></span>
-    <span class="field"><b>Score</b> <input id="score-min" type="number" min="0" max="100" aria-label="Lowest score"> <span class="dash">–</span> <input id="score-max" type="number" min="0" max="100" aria-label="Highest score"></span>
+    <span class="field"><b>Score</b> <input id="score-min" type="number" min="0" max="10" aria-label="Lowest score"> <span class="dash">–</span> <input id="score-max" type="number" min="0" max="10" aria-label="Highest score"></span>
     <span class="field" title="Published crossword answers, 2000 to 2023"><b>NYT uses</b> <input id="uses-min" type="number" min="0" aria-label="Fewest uses"> <span class="dash">–</span> <input id="uses-max" type="number" min="0" aria-label="Most uses"></span>
     <span class="field" title="How familiar the word is in everyday English, 0 to 100"><b>Everyday</b> <input id="ev-min" type="number" min="0" max="100" aria-label="Least everyday"> <span class="dash">–</span> <input id="ev-max" type="number" min="0" max="100" aria-label="Most everyday"></span>
     <span class="field" title="Times Google's web corpus has the word (a phrase: its rarest word pair)"><b>Google</b> <input id="g-min" type="number" min="0" aria-label="Fewest Google hits"> <span class="dash">–</span> <input id="g-max" type="number" min="0" aria-label="Most Google hits"></span>
@@ -424,7 +424,7 @@
   <div class="bulk">
     <span id="count" class="count"></span>
     <span class="spacer"></span>
-    <label class="field">Score all shown to <input id="bulk-score" type="number" min="0" max="100" value="50" aria-label="Score to give every word shown"></label>
+    <label class="field">Score all shown to <input id="bulk-score" type="number" min="1" max="10" value="5" aria-label="Score to give every word shown"></label>
     <button type="button" id="bulk-rescore" class="btn quiet small">Apply</button>
     <button type="button" id="bulk-keep" class="btn quiet small">Confirm all shown</button>
     <button type="button" id="bulk-remove" class="btn quiet small">Remove all shown</button>
@@ -448,17 +448,17 @@
     <div id="spacer"><div id="rows"></div></div>
   </div>
   <p id="status" class="status" role="status"></p>
-  <p class="key">Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.</p>
+  <p class="key">Score: 1 to 10, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score on the same ten, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.</p>
 
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
-<script src="words.js?v=c65d859382"></script>
-<script src="wordstats.js?v=43ffde067f"></script>
-<script src="lists.js?v=9fd41995f3"></script>
+<script src="words.js?v=c030f0646d"></script>
+<script src="wordstats.js?v=7191747880"></script>
+<script src="lists.js?v=b34f3c2bbb"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
-<script src="listtool.js?v=3712347837"></script>
+<script src="listtool.js?v=a4d10f2072"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 """Flag words in web/words.js that look like garbage fill, for a person to review.
 
-Run: python web/find_bad_words.py [--min-score 40] [--stats]
+Run: python web/find_bad_words.py [--min-score 4] [--stats]
 Needs wordfreq (pip install wordfreq), like build_words.py.
 
 Writes compileWords/review-bad-words.txt: one line per suspect word, grouped by why it was
@@ -223,7 +223,7 @@ def flags(word, score, zipf, counts):
     if word in LETTER_NAMES:
         found.append(("names", "a letter's name"))
 
-    if score >= 50 and familiar_z == 0 and not counts.get(word):
+    if score >= 5 and familiar_z == 0 and not counts.get(word):
         found.append(("unknown", "no English reading"))
 
     # Spoken-style spellings (GONNA, HMM) and dropped g's (LOVIN for LOVING) are fine fill: only list
@@ -259,7 +259,7 @@ def read_seen():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--min-score", type=int, default=40, help="only check words scoring at least this (default 40)")
+    parser.add_argument("--min-score", type=int, default=4, help="only check words scoring at least this (default 4)")
     parser.add_argument("--stats", action="store_true", help="print counts and examples per group; write nothing")
     args = parser.parse_args()
 

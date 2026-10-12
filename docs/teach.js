@@ -52,20 +52,20 @@ Cut a word when it is:
 - crude, offensive or grim enough to fail the breakfast test
 
 What the scores mean:
-- 100: perfect, an exciting and highly relevant word that has not been used much in crosswords
-- 90: fantastic, a lively and evocative word that has not shown up frequently in crosswords
-- 80: excellent, an entry a constructor would build a grid around
-- 70: very good, lively and current
-- 60: good, solid fill anyone is pleased to see
-- 50: fine, unremarkable, no complaints
-- 40: dull but legitimate; it fills a hole without hurting
-- 30: weak; allowed only when a corner demands it
-- 20: slightly cringe-worthy, borderline allowable by the NYT
-- 10: very poor, almost never used but could include one of these if the rest is excellent
+- 10: perfect, an exciting and highly relevant word that has not been used much in crosswords
+- 9: fantastic, a lively and evocative word that has not shown up frequently in crosswords
+- 8: excellent, an entry a constructor would build a grid around
+- 7: very good, lively and current
+- 6: good, solid fill anyone is pleased to see
+- 5: fine, unremarkable, no complaints
+- 4: dull but legitimate; it fills a hole without hurting
+- 3: weak; allowed only when a corner demands it
+- 2: slightly cringe-worthy, borderline allowable by the NYT
+- 1: very poor, almost never used but could include one of these if the rest is excellent
 - 0: cut, not allowed in the list`,
     closing: `Judge the word itself, not how useful its letters are. The statistics are evidence, not the verdict: a
 word with no crossword history can still be excellent, and plenty of published answers are poor.
-Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason of at most twelve words.`,
+Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason of at most twelve words.`,
   };
 
   const rulesText = (rules) => [rules.intro, rules.rules, rules.closing].filter(Boolean).join("\n\n");
@@ -120,15 +120,15 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
      and the nasty ones alike. */
   const KINDS = [
     ["familiar and often published", (r) => r.everyday >= 60 && r.uses >= 3],
-    ["strong scores", (r) => r.score >= 70],
-    ["the lively band", (r) => r.score >= 60 && r.score < 70],
-    ["single words nobody has published", (r) => r.score >= 50 && r.score < 60 && !r.cuts && !r.uses && !r.papers],
-    ["phrases nobody has published", (r) => r.score >= 50 && r.score < 60 && r.cuts && !r.uses && !r.papers],
-    ["unknown to Wiktionary and Google", (r) => r.score >= 50 && !r.wikt && !r.google],
-    ["low scores, everyday words", (r) => r.score >= 40 && r.score < 50 && r.everyday >= 50],
-    ["proper nouns", (r) => r.score >= 50 && flag(r, "proper") && r.everyday < 40],
-    ["abbreviations, dated and rare", (r) => r.score >= 50 && (flag(r, "abbreviation") || flag(r, "dated") || flag(r, "rare"))],
-    ["inflections", (r) => r.score >= 50 && r.score < 60 && /(?:S|ED|ING)$/.test(r.word) && !r.uses],
+    ["strong scores", (r) => r.score >= 7],
+    ["the lively band", (r) => r.score === 6],
+    ["single words nobody has published", (r) => r.score === 5 && !r.cuts && !r.uses && !r.papers],
+    ["phrases nobody has published", (r) => r.score === 5 && r.cuts && !r.uses && !r.papers],
+    ["unknown to Wiktionary and Google", (r) => r.score >= 5 && !r.wikt && !r.google],
+    ["low scores, everyday words", (r) => r.score === 4 && r.everyday >= 50],
+    ["proper nouns", (r) => r.score >= 5 && flag(r, "proper") && r.everyday < 40],
+    ["abbreviations, dated and rare", (r) => r.score >= 5 && (flag(r, "abbreviation") || flag(r, "dated") || flag(r, "rare"))],
+    ["inflections", (r) => r.score === 5 && /(?:S|ED|ING)$/.test(r.word) && !r.uses],
   ];
 
   function pick(count) {
@@ -169,7 +169,7 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     return [
       `${row.word} (${row.len} letters)`,
       row.cuts ? `reads as a phrase, split ${row.cuts}` : "one word",
-      `list score ${row.score}${row.broda >= 0 ? `, hand-scored ${row.broda}` : ", never hand-scored"}`,
+      `list score ${row.score} out of 10${row.broda >= 0 ? `, hand-scored ${row.broda}` : ", never hand-scored"}`,
       `NYT uses ${row.uses}${row.year ? ` (last ${row.year})` : ""}, other outlets ${row.papers}`,
       `everyday familiarity ${row.everyday}/100, Zipf ${row.zipf ? (row.zipf / 10).toFixed(1) : "none"}`,
       `Google ${row.google}, Books ${row.books}, Wikipedia ${row.wiki ? "yes" : "no"}`,
@@ -187,7 +187,7 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
           properties: {
             word: { type: "string" },
             verdict: { type: "string", enum: ["keep", "cut"] },
-            score: { type: "integer", description: "1-100 when keeping, 0 when cutting" },
+            score: { type: "integer", description: "1-10 when keeping, 0 when cutting" },
             why: { type: "string", description: "at most 12 words" },
           },
           required: ["word", "verdict", "score", "why"],
@@ -202,12 +202,12 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
   /* What a stand-in says about a word while the models are off: the list's own score, rounded to a
      band and nudged down for a word no crossword has printed, with a reason that never pretends. */
   function standIn(row) {
-    const band = Math.max(0, Math.min(100, Math.round(row.score / 10) * 10));
-    const score = row.uses || row.papers ? band : Math.max(0, band - 10);
+    const band = Math.max(0, Math.min(10, row.score));
+    const score = row.uses || row.papers ? band : Math.max(0, band - 1);
     return {
       word: row.word,
-      verdict: score <= 10 ? "cut" : "keep",
-      score: score <= 10 ? 0 : score,
+      verdict: score <= 1 ? "cut" : "keep",
+      score: score <= 1 ? 0 : score,
       why: "stand-in answer, the model is off",
     };
   }
@@ -295,7 +295,7 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
   const definitionOf = (word) => fileFor("defs", word, window.FILLMEIN_DEFS_VERSION).then((file) => file[word] || "");
   const cluesFor = (word) => fileFor("pastclues", word, window.FILLMEIN_PAST_VERSION).then((file) => file[word] || []);
 
-  const BANDS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]; // cut on the left, the best on the right
+  const BANDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // cut on the left, the best on the right
 
   /* The word in front of you: what it is, what the rules made of it, and the bands to put it in.
      0 means cut, so one click settles a word either way. */
@@ -441,7 +441,7 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
       const guess = byWord.get(item.row.word);
       if (guess) item.guess = { verdict: guess.verdict, score: Number(guess.score) || 0, why: guess.why };
     }
-    for (const item of round.items) if (!item.guess) item.guess = { verdict: "keep", score: 50, why: "(no answer)" };
+    for (const item of round.items) if (!item.guess) item.guess = { verdict: "keep", score: 5, why: "(no answer)" };
     if (error) $("teach-note").textContent = `Some came back empty: ${safe(error.message)}`;
     $("start").disabled = false;
     drawCard();

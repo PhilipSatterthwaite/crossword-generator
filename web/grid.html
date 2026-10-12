@@ -461,8 +461,8 @@
           <button type="button" id="clear" class="btn quiet">Clear letters</button>
         </div>
         <div class="control-group fill-settings">
-          <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
-          <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
+          <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="1" max="9" step="1" value="5"> <output id="min-score-value" for="min-score">5</output></label>
+          <label class="check" title="Everyday words that score at least 4, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
           <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer."><input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric" aria-label="Seconds to search"> s</label>
         </div>
       </section>
@@ -557,7 +557,7 @@
         <button type="button" id="clone-list" class="btn quiet">Clone the list in use</button>
       </div>
       <p class="lists-note" id="lists-note"></p>
-      <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;60</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
+      <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;6</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
     </section>
 
     <section>
@@ -689,7 +689,7 @@
   }
 
   // Red only for a word under your minimum score; above it, green from 60 and plain between.
-  const band = (score) => (score === null ? "none" : score >= Math.max(60, minScore()) ? "hi" : score >= minScore() ? "mid" : "lo");
+  const band = (score) => (score === null ? "none" : score >= Math.max(7, minScore()) ? "hi" : score >= minScore() ? "mid" : "lo");
   const scoreChip = (score) =>
     score === null
       ? '<span class="score" data-band="none" title="Not in the word list">—</span>'
@@ -1353,10 +1353,10 @@
     button.className = "btn quiet small";
     if (score === null) {
       button.textContent = "Add to list";
-      button.title = `Add ${word} to the word list, scored 50`;
+      button.title = `Add ${word} to the word list, scored 5`;
       button.addEventListener("click", async () => {
         if (!(await ensureEditable())) return;
-        await LISTS.setScore(listChoice.id, word, 50);
+        await LISTS.setScore(listChoice.id, word, 5);
         await refreshWordList();
       });
       box.append(button);
@@ -2447,8 +2447,8 @@
   /* Fill the grid with words scoring at least the minimum. If the search proves nothing fits at
      that score, it says so and offers a button to go LOWER_STEP lower (down to LOWEST): words under
      the minimum go in only when asked for. Running out of time proves nothing, so it never offers. */
-  const LOWER_STEP = 10;
-  const LOWEST = 30;
+  const LOWER_STEP = 1;
+  const LOWEST = 3;
   function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
     const wanted = minScore();
@@ -3042,10 +3042,10 @@
     if (holder.querySelector("input")) return;
     const input = document.createElement("input");
     input.type = "number";
-    input.min = "0";
-    input.max = "100";
+    input.min = "1";
+    input.max = "10";
     input.className = "option-score-input";
-    input.value = String(scoreOf(word) ?? 50);
+    input.value = String(scoreOf(word) ?? 5);
     input.setAttribute("aria-label", `Score for ${word}`);
     const previous = [...holder.children];
     holder.replaceChildren(input);
@@ -3142,7 +3142,8 @@
     dir = data.dir === "down" ? "down" : "across";
     symmetryEl.checked = data.symmetry !== false;
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
-    if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
+    // Puzzles saved when scores ran 0-100 hold a minimum like 50; the scale is 1-10 now.
+    if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore > 10 ? Math.max(1, Math.round(data.minScore / 10)) : data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
     if (Number.isFinite(data.timeLimit)) timeLimitEl.value = data.timeLimit;
     if (data.lists && typeof data.lists === "object") {

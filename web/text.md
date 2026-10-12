@@ -177,7 +177,7 @@ fillmein keeps the letters you chose apart from the letters it suggested. Letter
 
 Press **Fill grid** and the solver looks for a complete fill. **Another fill** searches again from a different starting point, which is how you shop for a version you like. After you change a letter or a block, **Fill grid** keeps as much of the fill already there as still works. Three settings steer it:
 
-- **Min. score** is the floor. Scores run 0 to 100: 50 is ordinary fill, 60 and up is lively, and below 50 is weak. Start at 50 and raise it as far as the grid allows.
+- **Min. score** is the floor. Scores run 1 to 10: 5 is ordinary fill, 7 and up is lively, and below 5 is weak. Start at 5 and raise it as far as the grid allows.
 - **Allow popular below it** lets in everyday words that score under your floor. It helps a stubborn grid close.
 - The box next to them sets how many **seconds** the search may take before it gives up. A tight grid may need a minute.
 
@@ -195,7 +195,7 @@ A complete grid isn't a finished puzzle. What separates a good crossword from a 
 - **The breakfast test.** Nothing gross, offensive or grim that a solver wouldn't want to meet over their morning coffee.
 - **Repeats.** The same word, or the same root, shouldn't appear twice in one puzzle.
 
-fillmein points you at all of these. **Weakest entry** in the tally names the worst word in your grid and its score, so if you fix one thing, fix that. Tick **Tint weak words** and any entry scoring under 50 is shaded on the grid, so bad corners are visible at a glance. An entry that repeats a word used elsewhere is flagged **also at** on the grid and in the entry list.
+fillmein points you at all of these. **Weakest entry** in the tally names the worst word in your grid and its score, so if you fix one thing, fix that. Tick **Tint weak words** and any entry scoring under your minimum is shaded on the grid, so bad corners are visible at a glance. An entry that repeats a word used elsewhere is flagged **also at** on the grid and in the entry list.
 
 ## 6. Write the clues
 
@@ -383,7 +383,7 @@ Design blocks
 Lay out the black squares: the designer tries hundreds of symmetric patterns, many of them taken from real New York Times grids the theme entries fit, filling each one to see how it holds up, and keeps the one that fills the most different ways. It never uses a cluster of blocks the Times almost never prints, or a section hanging off the rest by just one or two squares. The blocks and inked words already on the grid stay where they are, and theme entries are built into the pattern.
 
 [grid.scores]
-Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 50.
+Word scores run 1 to 10: 5 is ordinary fill, 7 and up is lively, and under 5 is weak. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, which scores out of a hundred; his scores are nudged by popularity first, up a tenth of the scale for words everyone knows and down a fifth for words almost nobody uses, and the result is rounded onto the site's ten. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 4 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 4, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 5.
 
 
 // ============================================================ the word lists page
@@ -435,7 +435,7 @@ Swipe left (or press ←) to remove a word, right (or press →) to keep it and 
 Edit a list
 
 [lists.key]
-Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
+Score: 1 to 10, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score on the same ten, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
 
 // ============================================================ the clues page
 

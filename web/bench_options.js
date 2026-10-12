@@ -17,7 +17,7 @@ const option = (name, fallback) => {
 const solverPath = path.resolve(option("solver", path.join(__dirname, "filler.js")));
 const gridName = option("grid", "themed15");
 const slotName = option("slot", "8-Across");
-const minScore = Number(option("min", 50));
+const minScore = Number(option("min", 5));
 const cap = Number(option("cap", 40));
 const every = Number(option("every", 1));
 const per = option("per", undefined);

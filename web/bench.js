@@ -45,15 +45,15 @@ const GRIDS = {
 
 // [grid, minimum word score]
 const CASES = [
-  ["themeless15a", 50],
-  ["themed15", 50],
-  ["triple15", 40],
-  ["triple15", 50],
-  ["triple15", 60],
-  ["open6", 50],
+  ["themeless15a", 5],
+  ["themed15", 5],
+  ["triple15", 4],
+  ["triple15", 5],
+  ["triple15", 6],
+  ["open6", 5],
   ["open7", 0],
-  ["sunday21", 50],
-  ["sunday21", 60],
+  ["sunday21", 5],
+  ["sunday21", 6],
 ];
 
 /* Scores of the entries the solver filled (given entries don't count). */

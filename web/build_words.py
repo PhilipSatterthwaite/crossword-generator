@@ -1,4 +1,4 @@
-"""Build web/words.js: every word the site can use, with a 0-100 score.
+"""Build web/words.js: every word the site can use, with a score from 1 to 10.
 
 Run: python web/build_words.py [--samples]
 Needs wordfreq for everyday-English word frequencies: pip install wordfreq
@@ -29,7 +29,8 @@ per length, comma lists in the same word order of
   the unigram and bigram counts from the Google Web Trillion Word Corpus as Peter Norvig publishes
   them at norvig.com/ngrams; a phrase counts as the rarest of its word pairs, unseen counts 0);
 - year: the last year it was a published answer (0 if never);
-- broda: Broda's own score before the popularity nudge ("" for words his list lacks);
+- broda: Broda's own score, on the site's 1-10 scale, before the popularity nudge ("" for words his
+  list lacks);
 - zipf: the Zipf frequency of its most familiar reading, times ten (see reading);
 - cuts: where that reading splits it into words, as letter counts ("5.8" for ASKED|FOR|THEMOON's
   first two cuts; "" for a single word);
@@ -48,7 +49,7 @@ the review card to fetch as it needs them. A word that means something else agai
 both, as [plain, name]: MINECRAFT is a minelayer in the dictionary and a game to everyone else.
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
-(they're all the same length), best score first; their scores as a comma list; and three base64
+(they're all the same length), best score first; their scores (1 to 10) as a comma list; and three base64
 bitsets: which of them are popular (see popularity), which have appeared in published
 crosswords, and which of those Broda's list lacks. The site's NYT answers list is the published
 words, with the unvetted ones scored NYT_UNVETTED_SCORE instead of their estimate.
@@ -377,13 +378,13 @@ def print_popular(scores, popular, minimum):
 
 def print_samples(scores, broda):
     rng = random.Random(7)
-    kept = sum(1 for w, s in broda.items() if s >= 50)
-    now = sum(1 for w, s in scores.items() if w in broda and s >= 50)
-    print(f"Broda words scoring 50+: {kept} before popularity, {now} after")
-    flat = [w for w, s in broda.items() if s == 50]
-    for low, high in ((0, 39), (40, 49), (50, 54), (55, 60)):
-        band = [w for w in flat if low <= scores[w] <= high]
-        print(f"Broda 50 now {low}-{high} ({len(band)} words): " + ", ".join(rng.sample(band, min(14, len(band)))))
+    kept = sum(1 for w, s in broda.items() if s >= 5)
+    now = sum(1 for w, s in scores.items() if w in broda and s >= 5)
+    print(f"Broda words scoring 5+: {kept} before popularity, {now} after")
+    flat = [w for w, s in broda.items() if s == 5]
+    for band_score in (3, 4, 5, 6):
+        band = [w for w in flat if scores[w] == band_score]
+        print(f"Broda 5 now {band_score} ({len(band)} words): " + ", ".join(rng.sample(band, min(14, len(band)))))
     print("probes: " + ", ".join(f"{w} {broda.get(w, '-')}->{scores[w]}" for w in PROBES if w in scores))
 
 
@@ -433,6 +434,12 @@ def main():
         del scores[word]
         popular.discard(word)
     print(f"blocked {len(blocked)} offensive words and phrases")
+
+    # The site scores words 1 to 10. Everything above works in 0-100, where Broda's scores and the
+    # popularity nudges are tuned, so the two scales meet here: a hundredth part rounds to a tenth,
+    # and a word in the list is never worth less than 1, since 0 is what a word that is out gets.
+    scores = {word: max(1, round(score / 10)) for word, score in scores.items()}
+    broda = {word: round(score / 10) for word, score in broda.items()}
 
     by_length = {}
     for word in scores:

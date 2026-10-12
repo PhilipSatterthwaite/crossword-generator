@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bapJ5sgsP1EiaXc4e298ceE3ffZ8qTIYaZurPtkJvqU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-VTpvBxsLWsinGjLzEedN+oTsmfL87e53Mfu6NOPOaFU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -24,7 +24,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" href="words.js?v=c65d859382" as="script">
+<link rel="preload" href="words.js?v=c030f0646d" as="script">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <link rel="stylesheet" href="theme.css?v=fc32323e81">
 <style>
@@ -478,8 +478,8 @@
           <button type="button" id="clear" class="btn quiet">Clear letters</button>
         </div>
         <div class="control-group fill-settings">
-          <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="0" max="90" step="5" value="50"> <output id="min-score-value" for="min-score">50</output></label>
-          <label class="check" title="Everyday words that score at least 40, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
+          <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="1" max="9" step="1" value="5"> <output id="min-score-value" for="min-score">5</output></label>
+          <label class="check" title="Everyday words that score at least 4, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
           <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer."><input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric" aria-label="Seconds to search"> s</label>
         </div>
       </section>
@@ -552,7 +552,7 @@
     <div><h2>Down</h2><ol id="down"></ol></div>
   </section>
 
-  <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 50.</p>
+  <p class="note">Word scores run 1 to 10: 5 is ordinary fill, 7 and up is lively, and under 5 is weak. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, which scores out of a hundred; his scores are nudged by popularity first, up a tenth of the scale for words everyone knows and down a fifth for words almost nobody uses, and the result is rounded onto the site's ten. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 4 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 4, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 5.</p>
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
@@ -574,7 +574,7 @@
         <button type="button" id="clone-list" class="btn quiet">Clone the list in use</button>
       </div>
       <p class="lists-note" id="lists-note"></p>
-      <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;60</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
+      <p class="lists-note">One word per line, with an optional score after a semicolon, comma or tab: <code>WORD;6</code>. Files from Crossfire, Crossword Compiler and plain word lists all work.</p>
     </section>
 
     <section>
@@ -595,12 +595,12 @@
   </div>
 </dialog>
 
-<script src="words.js?v=c65d859382"></script>
-<script src="filler.js?v=f7bf33bddc"></script>
+<script src="words.js?v=c030f0646d"></script>
+<script src="filler.js?v=5ddb571549"></script>
 <script src="designer.js?v=eb12a1ed71"></script>
 <script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
-<script src="lists.js?v=9fd41995f3"></script>
+<script src="lists.js?v=b34f3c2bbb"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>
@@ -706,7 +706,7 @@
   }
 
   // Red only for a word under your minimum score; above it, green from 60 and plain between.
-  const band = (score) => (score === null ? "none" : score >= Math.max(60, minScore()) ? "hi" : score >= minScore() ? "mid" : "lo");
+  const band = (score) => (score === null ? "none" : score >= Math.max(7, minScore()) ? "hi" : score >= minScore() ? "mid" : "lo");
   const scoreChip = (score) =>
     score === null
       ? '<span class="score" data-band="none" title="Not in the word list">—</span>'
@@ -1370,10 +1370,10 @@
     button.className = "btn quiet small";
     if (score === null) {
       button.textContent = "Add to list";
-      button.title = `Add ${word} to the word list, scored 50`;
+      button.title = `Add ${word} to the word list, scored 5`;
       button.addEventListener("click", async () => {
         if (!(await ensureEditable())) return;
-        await LISTS.setScore(listChoice.id, word, 50);
+        await LISTS.setScore(listChoice.id, word, 5);
         await refreshWordList();
       });
       box.append(button);
@@ -2195,7 +2195,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=8c1c5947f1");
+          worker = new Worker("worker.js?v=033ae186fc");
         } catch (error) {
           useInline();
           return;
@@ -2256,7 +2256,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=8c1c5947f1");
+          worker = new Worker("worker.js?v=033ae186fc");
         } catch (error) {
           return;
         }
@@ -2464,8 +2464,8 @@
   /* Fill the grid with words scoring at least the minimum. If the search proves nothing fits at
      that score, it says so and offers a button to go LOWER_STEP lower (down to LOWEST): words under
      the minimum go in only when asked for. Running out of time proves nothing, so it never offers. */
-  const LOWER_STEP = 10;
-  const LOWEST = 30;
+  const LOWER_STEP = 1;
+  const LOWEST = 3;
   function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
     const wanted = minScore();
@@ -3059,10 +3059,10 @@
     if (holder.querySelector("input")) return;
     const input = document.createElement("input");
     input.type = "number";
-    input.min = "0";
-    input.max = "100";
+    input.min = "1";
+    input.max = "10";
     input.className = "option-score-input";
-    input.value = String(scoreOf(word) ?? 50);
+    input.value = String(scoreOf(word) ?? 5);
     input.setAttribute("aria-label", `Score for ${word}`);
     const previous = [...holder.children];
     holder.replaceChildren(input);
@@ -3159,7 +3159,8 @@
     dir = data.dir === "down" ? "down" : "across";
     symmetryEl.checked = data.symmetry !== false;
     if (typeof data.tint === "boolean") tintEl.checked = data.tint;
-    if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore;
+    // Puzzles saved when scores ran 0-100 hold a minimum like 50; the scale is 1-10 now.
+    if (Number.isFinite(data.minScore)) minScoreEl.value = data.minScore > 10 ? Math.max(1, Math.round(data.minScore / 10)) : data.minScore;
     if (typeof data.allowPopular === "boolean") allowPopularEl.checked = data.allowPopular;
     if (Number.isFinite(data.timeLimit)) timeLimitEl.value = data.timeLimit;
     if (data.lists && typeof data.lists === "object") {

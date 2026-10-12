@@ -41,8 +41,8 @@
      each further letter asking LONG_STEP more, up to LONG_MOST above the minimum. A length with too
      few words left to work with (LONG_ENOUGH) keeps the plain minimum instead. */
   const LONG_FROM = 6;
-  const LONG_STEP = 4;
-  const LONG_MOST = 30;
+  const LONG_STEP = 0.4;
+  const LONG_MOST = 3;
   const LONG_ENOUGH = 400;
   const GRACE_FACTOR = 3;    // with a plain fill in hand, the strict search may take this many times the plain one's time
   const GRACE_LEAST = 1.5;   // and never less than this many seconds
@@ -125,7 +125,7 @@
             index[p][l][i >>> 5] |= bit;
           }
         }
-        // Word scores run 0-100, and build_words.py sorts each length best first.
+        // Word scores run 1 to 10, and build_words.py sorts each length best first.
         const scoreValues = scoreText.split(",");
         const scores = new Float64Array(n);
         for (let i = 0; i < n; i++) scores[i] = Number(scoreValues[i]);
@@ -882,7 +882,7 @@
        higher score than the grid's minimum — unless that leaves them too little to work with. */
     cutFor(words, length, minScore, allowPopular) {
       const over = Math.max(0, length - LONG_FROM);
-      const raised = Math.min(100, minScore + Math.min(LONG_MOST, this.longStep * over));
+      const raised = Math.min(10, minScore + Math.min(LONG_MOST, this.longStep * over));
       if (raised > minScore) {
         const strict = words.atLeast(length, raised, allowPopular);
         if (strict.count >= LONG_ENOUGH) {
@@ -1079,7 +1079,7 @@
 
   /* Set up a search over grid and propagate the given letters. Returns {search}, or
      {error} (with the search when it was built) if the grid can't be filled as drawn.
-     options: minScore (0-100), allowPopular (also allow popular words scoring under
+     options: minScore (1-10), allowPopular (also allow popular words scoring under
      minScore), qualityWeight, lengthSlope (how much more a good word counts per letter over five;
      0 weighs every length the same), longStep (how much higher the score floor climbs per letter
      past six; 0 holds every length to the same floor), seed, variety (shuffle from the start for
@@ -1088,7 +1088,7 @@
      deep the scan looks) and scanSample (most words per slot the scan samples; a smaller sample
      still spots a clearly better grid, which is what the designer screens patterns with). */
   function prepare(grid, words, options = {}) {
-    const { minScore = 0, allowPopular = false, qualityWeight = 0.035, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1, scanSample = SCAN_SAMPLE } = options;
+    const { minScore = 0, allowPopular = false, qualityWeight = 0.35, lengthSlope = LENGTH_SLOPE, longStep = LONG_STEP, seed = 1, variety = false, heuristic = "wdeg", lookahead = 1, layers = 1, scanSample = SCAN_SAMPLE } = options;
     let search;
     try {
       search = new Search(grid, words, heuristic, minScore, allowPopular, longStep, options.rebus || null);
