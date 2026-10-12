@@ -70,6 +70,23 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   const rulesText = (rules) => [rules.intro, rules.rules, rules.closing].filter(Boolean).join("\n\n");
 
+  /* Rules written before October 2026 talk in hundredths, because the site scored words out of a
+     hundred then. They are yours, so they are not rewritten behind your back: the page notices and
+     offers to move the numbers across. A ladder line like "- 90:" becomes "- 9:", and a text that
+     does not look like the old scale is left alone, so running it twice changes nothing. */
+  const OLD_LADDER = /(^|\n)\s*-\s*(100|90|80|70|60|50|40|30|20)\s*:/;
+  const looksOldScale = (rules) => {
+    const text = rulesText(rules);
+    return OLD_LADDER.test(text) || /\b[01]\s*-\s*100\b|\b[01] to 100\b/.test(text);
+  };
+  const ontoTen = (text) => {
+    const ladder = OLD_LADDER.test(text)
+      ? text.replace(/(^|\n)(\s*-\s*)(\d{2,3})(\s*:)/g, (all, start, dash, number, colon) =>
+          (Number(number) >= 10 && Number(number) % 10 === 0 ? `${start}${dash}${Number(number) / 10}${colon}` : all))
+      : text;
+    return ladder.replace(/\b([01])\s*-\s*100\b/g, "$1-10").replace(/\b([01]) to 100\b/g, "$1 to 10");
+  };
+
   // --- state ---
 
   let state = { rules: { ...EXAMPLE }, used: [], rounds: [], learned: [], sample: [] };
@@ -270,6 +287,24 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     $("intro").value = state.rules.intro;
     $("rules").value = state.rules.rules;
     $("closing").value = state.rules.closing;
+    noticeScale();
+  }
+
+  /* Says so when the rules in the boxes are written for the old hundred, and offers to move them. */
+  function noticeScale() {
+    if (!looksOldScale(state.rules)) return;
+    $("rules-note").innerHTML = "These rules score words out of a hundred, and words are scored 1 to 10 now. " +
+      '<button type="button" class="btn quiet" id="onto-ten">Put my rules on the 1-10 scale</button>';
+    const button = $("onto-ten");
+    if (!button) return;
+    button.addEventListener("click", () => {
+      state.rules = { intro: ontoTen(state.rules.intro), rules: ontoTen(state.rules.rules), closing: ontoTen(state.rules.closing) };
+      save();
+      drawRules();
+      $("rules-note").textContent = looksOldScale(state.rules)
+        ? "Moved what I could. Look for any hundreds left in your own wording."
+        : "Your rules talk in 1 to 10 now.";
+    });
   }
 
   function readRules() {
