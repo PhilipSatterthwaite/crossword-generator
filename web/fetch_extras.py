@@ -14,7 +14,8 @@ that the source has, for build_words.py to fold into web/wordstats.js:
 - spoken.tsv        Spoken English: SUBTLEX-US (film and TV subtitles, Brysbaert and New) and the
                     OpenSubtitles 2018 frequency list (hermitdave/FrequencyWords): counts per word.
 - wiktionary.tsv    The English Wiktionary, as extracted by kaikki.org (about 3.3 GB, never saved):
-                    per word, a bitset of what it is (see FLAGS) and its first definition.
+                    per word, a bitset of what it is (see FLAGS), its first definition, and what it
+                    means as a name when that is something else.
 """
 import csv
 import io
@@ -154,6 +155,7 @@ def do_wiktionary(words):
     log("wiktionary: streaming the kaikki.org English extract")
     flags = {}
     gloss = {}
+    names = {}  # what a capitalised entry means, kept beside the plain reading
     lines = 0
     bit = {name: 1 << i for i, name in enumerate(FLAGS)}
     pos_bits = {"noun": "noun", "verb": "verb", "adj": "adjective", "adv": "adverb", "name": "proper",
@@ -211,7 +213,14 @@ def do_wiktionary(words):
             # The definition shown is the plainest reading's: the lowercase word (oreo), then a name
             # (Erie), then a phrase, then an abbreviation (ELI); the first found of the best kind.
             if first:
-                if " " in stripped or "-" in stripped:
+                clean = re.sub(r"\s+", " ", first).strip()[:120]
+                # A name's own sense is worth keeping even when a plainer reading wins: MINECRAFT is a
+                # sandbox game as well as a minelayer, and the game is what a solver means by it.
+                if pos == "name" and word not in names:
+                    names[word] = clean
+                if "'" in stripped or "\u2019" in stripped:
+                    rank = 4  # she'll is not SHELL, and it's is not ITS
+                elif " " in stripped or "-" in stripped:
                     rank = 2
                 elif stripped.islower():
                     rank = 0
@@ -220,9 +229,13 @@ def do_wiktionary(words):
                 else:
                     rank = 3
                 if word not in gloss or rank < gloss[word][0]:
-                    gloss[word] = (rank, re.sub(r"\s+", " ", first).strip()[:120])
-    rows = [[w, flags[w], gloss[w][1].replace("\t", " ") if w in gloss else ""] for w in sorted(flags)]
-    write("wiktionary.tsv", ["word", "flags", "gloss"], rows)
+                    gloss[word] = (rank, clean)
+    rows = []
+    for w in sorted(flags):
+        plain = gloss[w][1].replace("\t", " ") if w in gloss else ""
+        name = names.get(w, "").replace("\t", " ")
+        rows.append([w, flags[w], plain, "" if name == plain else name])
+    write("wiktionary.tsv", ["word", "flags", "gloss", "name_gloss"], rows)
     log(f"wiktionary: done, {lines:,} entries read")
 
 

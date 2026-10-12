@@ -44,7 +44,8 @@ per length, comma lists in the same word order of
 - subtlex, opensubs: its count in SUBTLEX-US and in the OpenSubtitles 2018 list (spoken.tsv);
 - wikt: its Wiktionary flags, a bitset (wiktionary.tsv; the bits are listed in fetch_extras.FLAGS).
 And web/defs/XX.json holds each word's first Wiktionary definition, by its first two letters, for
-the review card to fetch as it needs them.
+the review card to fetch as it needs them. A word that means something else again as a name holds
+both, as [plain, name]: MINECRAFT is a minelayer in the dictionary and a game to everyone else.
 
 Each length becomes [letters, scores, popular, published, unvetted]: the words run together
 (they're all the same length), best score first; their scores as a comma list; and three base64
@@ -478,8 +479,9 @@ def main():
         shelves = {}
         for word, (flags, *rest) in wikt.items():
             gloss = rest[0] if rest else ""
-            if gloss and word in scores:
-                shelves.setdefault(word[:2], {})[word] = gloss
+            name = rest[1] if len(rest) > 1 else ""  # what it means as a name, when that is something else
+            if (gloss or name) and word in scores:
+                shelves.setdefault(word[:2], {})[word] = [gloss, name] if name else gloss
         for prefix, shelf in sorted(shelves.items()):
             (defs_dir / f"{prefix}.json").write_text(json.dumps(dict(sorted(shelf.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"wrote {defs_dir}: {sum(len(s) for s in shelves.values())} definitions in {len(shelves)} files")

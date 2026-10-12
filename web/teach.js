@@ -355,15 +355,23 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     }
   }
 
-  /* The definition and a clue the word has had, dropped in when they arrive. */
+  /* The definition and the clues the word has had, dropped in when they arrive. The dictionary knows
+     a word in its plainest reading, which is not always the one anyone means: MINECRAFT is a warship
+     to Wiktionary. So a word that means something else as a name shows both, and the clues, which
+     settle it better than any definition, run two deep. */
+  const CLUES_SHOWN = 2;
   async function describe(row) {
     const [definition, clues] = await Promise.all([definitionOf(row.word), cluesFor(row.word)]);
     const box = $("card-about");
     if (!box || !round.items[round.at] || round.items[round.at].row.word !== row.word) return; // moved on
-    const clue = clues.length ? clues[0] : null;
-    box.innerHTML = `<p class="definition">${definition ? safe(definition) : "No dictionary definition for it."}</p>` +
-      (clue ? `<p class="clue">Clued once as “${safe(clue[0])}”${clue[2] ? ` (${clue[2]})` : ""}</p>` : "") +
-      `<p class="seen">${row.year ? `Last in a New York Times puzzle in ${row.year}` : "Never used in a New York Times puzzle"}</p>`;
+    const [plain, asName] = Array.isArray(definition) ? definition : [definition, ""];
+    box.innerHTML =
+      `<p class="definition">${plain ? safe(plain) : asName ? safe(asName) : "No dictionary definition for it."}</p>` +
+      (asName && plain ? `<p class="definition">As a name: ${safe(asName)}</p>` : "") +
+      clues.slice(0, CLUES_SHOWN).map((clue) =>
+        `<p class="clue">Clued as “${safe(clue[0])}”${clue[2] ? ` (${clue[2]})` : ""}</p>`).join("") +
+      `<p class="seen">${row.year ? `Last in a New York Times puzzle in ${row.year}` : "Never used in a New York Times puzzle"}` +
+      `${row.wiki ? ", and Wikipedia has an article by that name" : ""}</p>`;
   }
 
   const noteNow = () => ($("card-note") ? $("card-note").value.trim() : "");
