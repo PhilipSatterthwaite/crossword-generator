@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=07714ffb96">
+<link rel="stylesheet" href="theme.css?v=1f48b3361d">
 <style>
   body { margin: 0; }
   .home-title { margin: 0; line-height: 0; }
@@ -34,21 +34,26 @@
     padding-top: 24px;
     border-top: 1.5px solid var(--ink);
   }
-  .choices { align-items: start; }
+  /* Shut, the four boxes are one size: equal rows, each box filled by its lid. Once one is open the
+     grid goes back to natural heights, so an open box doesn't drag its neighbour down with it. */
+  .choices { align-items: stretch; grid-auto-rows: 1fr; }
+  .choices:has(.choice[open]) { align-items: start; grid-auto-rows: auto; }
+  .choice { display: flex; flex-direction: column; }
+  .choice:not([open]) > summary { flex: 1; }
   /* A shut box is a lid: its heading, a line saying what is inside, and a chevron. */
   .choice > summary { display: flex; align-items: center; gap: 14px; padding: 20px 22px; cursor: pointer; list-style: none; border-radius: inherit; }
   .choice > summary::-webkit-details-marker { display: none; }
-  .choice > summary > div { flex: 1; display: grid; gap: 6px; }
+  /* Every lid is the same size whether its line wraps once or twice, so the four boxes match. */
+  .choice > summary > div { flex: 1; display: grid; gap: 6px; align-content: center; }
   .choice > summary:hover h2 { text-decoration: underline; text-underline-offset: 3px; }
   .choice > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
-  .choice .choice-line { font-size: 14.5px; line-height: 1.45; }
+  .choice .choice-line { font-size: 14.5px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; } /* two lines at most, so no box is taller for its words */
   .choice .chevron { flex: none; color: var(--muted); transition: transform .15s ease; }
   .choice[open] > summary { border-bottom: 1px solid var(--line-soft); }
   .choice[open] > summary .chevron { transform: rotate(180deg); }
-  .choice[open] > summary h2 { font-size: 22px; }
   .choice-body { display: grid; align-content: start; gap: 14px; padding: 18px 22px 22px; }
   .choice {
-    display: block;
     padding: 0;
     background: var(--surface);
     border: 1px solid var(--rule);

@@ -3,6 +3,7 @@
 :root {
   --ground: #EBEFEE;
   --surface: #F6F8F7;
+  --check: rgb(20 23 28 / 0.035);
   --cell: #FFFFFF;
   --ink: #14171C;
   --block: #14171C;
@@ -34,6 +35,7 @@
   :root:not([data-theme="light"]) {
     --ground: #111418;
     --surface: #181C21;
+    --check: rgb(231 234 238 / 0.04);
     --cell: #1F242B;
     --ink: #E7EAEE;
     --block: #06080A;
@@ -63,6 +65,7 @@
 :root[data-theme="dark"] {
   --ground: #111418;
   --surface: #181C21;
+  --check: rgb(231 234 238 / 0.04);
   --cell: #1F242B;
   --ink: #E7EAEE;
   --block: #06080A;
@@ -99,6 +102,23 @@ body {
   padding-inline: 20px;
   padding-block: 28px 56px;
 }
+/* A crossword behind everything: big squares, barely a shade apart, blurred so the eye reads texture
+   rather than a grid, drifting up slowly. It sits above the page's background colour and below all of
+   its content, and holds still for anyone who asks for less motion. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -120px;
+  z-index: -1;
+  pointer-events: none;
+  background-image: conic-gradient(var(--check) 0 25%, transparent 0 50%, var(--check) 0 75%, transparent 0);
+  background-size: 180px 180px;
+  filter: blur(7px);
+  animation: crossword-drift 90s linear infinite;
+}
+@keyframes crossword-drift { to { background-position: 0 -180px; } }
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+
 .page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
