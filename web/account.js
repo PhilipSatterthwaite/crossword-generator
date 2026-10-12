@@ -678,3 +678,11 @@ function buildDialog() {
   });
   return box;
 }
+
+/* The crossword drifting behind the page holds still until everything has loaded: animating a
+   full-window blur while scripts and the word list are still arriving made the page stutter. */
+{
+  const start = () => document.documentElement.classList.add("ready");
+  if (document.readyState === "complete") start();
+  else addEventListener("load", start, { once: true });
+}

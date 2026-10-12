@@ -109,16 +109,26 @@ body {
 body::before {
   content: "";
   position: fixed;
-  inset: -120px;
+  left: -120px;
+  right: -120px;
+  top: -120px;
+  /* A grid taller than the window, so sliding it up by exactly one grid repeats seamlessly. */
+  height: calc(100vh + 1590px);
   z-index: -1;
   pointer-events: none;
   background-image: var(--check-grid);
   background-size: 1350px 1350px; /* fifteen 90px squares: one real grid */
   opacity: .055; /* the whole strength of it: the blocks are a twentieth of the ink */
   filter: blur(6px);
+  /* Moved by transform rather than by background-position: the browser slides the finished, blurred
+     layer instead of painting it again every frame. It also waits: animating a full-window blur while
+     the page is still loading made everything stutter, so it starts once the page has finished. */
+  will-change: transform;
   animation: crossword-drift 60s linear infinite;
+  animation-play-state: paused;
 }
-@keyframes crossword-drift { to { background-position: 0 -1350px; } }
+html.ready body::before { animation-play-state: running; }
+@keyframes crossword-drift { to { transform: translate3d(0, -1350px, 0); } }
 @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
 
 .page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
