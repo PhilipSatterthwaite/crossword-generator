@@ -28,7 +28,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
           "designer.js", "nytpatterns.js",
-          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "social.png",
+          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "judge.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
@@ -42,7 +42,9 @@ CSP = (
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src https://fonts.gstatic.com; "
     "img-src 'self' data:{counting_img}; "
-    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com{counting_connect}; "
+    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com"
+    " https://api.anthropic.com{counting_connect}; "  # judge.js, with a key you paste yourself
+
     "frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; "
     "worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
 )

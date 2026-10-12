@@ -503,11 +503,13 @@
       `<span title="${row.wiki ? `${row.wiki} Wikipedia article title${row.wiki === 1 ? "" : "s"}` : "No Wikipedia article by that name"}">Wikipedia <b>${row.wiki ? "yes" : "no"}</b></span>` +
       `${wiktTags(row)}${tags.join("")}</div>` +
       `<p class="definition" id="definition-box"></p>` +
-      `<div id="clues-box"></div>` +
+      `<div id="clues-box"></div><div id="judge-box"></div>` +
       `<div class="decide"><button type="button" class="btn danger" data-decide="remove"><kbd>←</kbd>Remove</button><button type="button" class="btn" data-decide="keep"><kbd>→</kbd>Keep</button>` +
       `<button type="button" class="btn quiet" data-decide="undo"${history.length ? "" : " disabled"}><kbd>⌫</kbd>Undo</button></div>` +
       (verdicts || `<p class="verdicts">${row.removed ? "This word is already removed; Keep puts it back." : ""}</p>`);
     showClues(row);
+    // A second opinion, when judge.js is switched on (?ai=1); the next cards are judged ahead.
+    if (window.FillmeinJudge) window.FillmeinJudge.onCard(row, readingOf(row), shown.slice(at + 1, at + 3));
     if (at + 1 < n) pastFor(shown[at + 1].word); // the next word's file, fetched ahead
   }
 
