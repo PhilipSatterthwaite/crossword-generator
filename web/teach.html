@@ -61,6 +61,8 @@
   .sample { display: grid; gap: 6px; margin: 10px 0 16px; }
   .sample .one { display: grid; grid-template-columns: 150px 90px 1fr; gap: 10px; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 8px; font-size: 14px; }
   .sample .one .w { font-weight: 600; letter-spacing: .04em; }
+  .preview-note { margin: 0 0 14px; padding: 9px 13px; border: 1px dashed var(--rule); border-radius: 999px;
+    color: var(--muted); font-size: 13px; }
   .gate .how { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 6px; line-height: 1.5; }
   .gate .price { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; }
   .gate .price .amount { margin: 0 0 4px; font: 600 17px var(--sans); }
@@ -106,16 +108,19 @@
       <li><b>Then it judges words you have not seen</b>, the same way you would. Another hundred sharpens it.</li>
     </ol>
     <div class="price">
-      <p class="amount">Paid feature</p>
-      <p class="muted">Payment isn't switched on yet, so it's open while we see how it feels. While it is, it runs on an
-        API key of your own, and what you spend goes to Anthropic rather than to us. A round of a hundred words costs
-        well under a penny on the cheapest model.</p>
+      <p class="amount">A paid feature, free while we test it</p>
+      <p class="muted">All of it is paid: teaching it your rules, and setting it loose on your list. Payment isn't
+        switched on yet, so for now it opens on a click and runs on an API key of your own, with what you spend going to
+        Anthropic rather than to us. A round of a hundred words costs well under a penny on the cheapest model.</p>
     </div>
     <div class="row">
       <button type="button" class="btn" id="unlock">Start</button>
       <p class="muted">No card, nothing to cancel.</p>
     </div>
   </section>
+
+  <p class="preview-note" id="preview-note" hidden>Preview of a paid feature. Payment isn't switched on, so this is
+    free for now and runs on your own API key.</p>
 
   <div class="setup" id="setup" hidden>
     <label class="field key"><span class="caption">Your API key</span>

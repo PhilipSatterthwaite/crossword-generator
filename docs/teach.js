@@ -218,6 +218,7 @@ Answer with a verdict, a score (40-90 when keeping, 0 when cutting) and a reason
   const show = (name) => {
     for (const step of ["gate", "rules", "teach", "training", "result"]) $(`step-${step}`).hidden = step !== name;
     $("setup").hidden = name === "gate";
+    $("preview-note").hidden = name === "gate";
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 

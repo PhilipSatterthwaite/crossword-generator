@@ -33,11 +33,22 @@
     padding-top: 24px;
     border-top: 1.5px solid var(--ink);
   }
+  .choices { align-items: start; }
+  /* A shut box is a lid: its heading, a line saying what is inside, and a chevron. */
+  .choice > summary { display: flex; align-items: center; gap: 14px; padding: 20px 22px; cursor: pointer; list-style: none; border-radius: inherit; }
+  .choice > summary::-webkit-details-marker { display: none; }
+  .choice > summary > div { flex: 1; display: grid; gap: 6px; }
+  .choice > summary:hover h2 { text-decoration: underline; text-underline-offset: 3px; }
+  .choice > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .choice .choice-line { font-size: 14.5px; line-height: 1.45; }
+  .choice .chevron { flex: none; color: var(--muted); transition: transform .15s ease; }
+  .choice[open] > summary { border-bottom: 1px solid var(--line-soft); }
+  .choice[open] > summary .chevron { transform: rotate(180deg); }
+  .choice[open] > summary h2 { font-size: 22px; }
+  .choice-body { display: grid; align-content: start; gap: 14px; padding: 18px 22px 22px; }
   .choice {
-    display: grid;
-    align-content: start;
-    gap: 14px;
-    padding: 20px 22px 22px;
+    display: block;
+    padding: 0;
     background: var(--surface);
     border: 1px solid var(--rule);
     border-radius: 3px;
@@ -61,6 +72,10 @@
     min-height: 52px; padding: 10px 22px; font-size: 17px; font-weight: 700; text-align: center; }
   .list-buttons.big .btn.train { background: var(--pencil); border-color: var(--pencil); color: #fff; }
   .list-buttons.big .btn.train:hover { filter: brightness(1.1); }
+  /* The AI filtering is a paid feature in waiting, so it looks like an offer rather than a tool. */
+  .list-buttons.big .btn.ai { border-style: dashed; }
+  .list-buttons.big .btn.ai::after { content: "preview"; margin-left: 7px; padding: 2px 6px; border-radius: 999px;
+    background: var(--line-soft); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .02em; }
   /* The cards' buttons stand up a little: a heavier border and a hard shadow under it, pressed flat when clicked. */
   .choice .btn { border-width: 2px; box-shadow: 0 3px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
   .choice .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
@@ -154,8 +169,9 @@
   </header>
 
   <main class="choices">
-    <section class="choice" aria-labelledby="solve-title">
-      <div class="choice-head"><h2 id="solve-title">{{home.solve.heading|line}}</h2></div>
+    <details class="choice" data-box="solve">
+      <summary class="choice-head"><div><h2 id="solve-title">{{home.solve.heading|line}}</h2><p class="choice-line">{{home.solve.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="choice-body">
       <label class="drop blue" id="solve-drop" title=".puz, .ipuz or .jpz">
         <svg class="drop-icon" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <b>Choose or drop a puzzle file</b>
@@ -163,10 +179,12 @@
       </label>
       <p id="solve-note" class="quick-message" role="alert"></p>
       <a id="solve-recent" class="note" href="solve" hidden></a>
-    </section>
+      </div>
+    </details>
 
-    <section class="choice keep" aria-labelledby="new-title">
-      <div class="choice-head"><h2 id="new-title">{{home.new.heading|line}}</h2></div>
+    <details class="choice keep" data-box="new">
+      <summary class="choice-head"><div><h2 id="new-title">{{home.new.heading|line}}</h2><p class="choice-line">{{home.new.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="choice-body">
       <div class="list-buttons">
         <button type="button" id="start-new" class="btn primary">Start a new puzzle</button>
         <label class="btn file-link" title="Carry on with a .puz, .ipuz or .jpz made elsewhere">Open a puzzle file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label>
@@ -175,10 +193,12 @@
       <ul id="puzzles" class="puzzles" hidden></ul>
       <a id="manage-link" class="btn quiet" href="puzzles" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
-    </section>
+      </div>
+    </details>
 
-    <section class="choice" aria-labelledby="quick-title">
-      <div class="choice-head"><h2 id="quick-title">{{home.quick.heading|line}}</h2></div>
+    <details class="choice" data-box="quick">
+      <summary class="choice-head"><div><h2 id="quick-title">{{home.quick.heading|line}}</h2><p class="choice-line">{{home.quick.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="choice-body">
       <form id="quick-add" class="quick" novalidate>
         <div class="quick-row">
           <input id="quick-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Word" aria-label="Word to add">
@@ -191,14 +211,18 @@
       <div class="list-buttons big">
         <a class="btn primary" href="lists">Edit a list</a>
         <a class="btn train" href="train">Train a list</a>
+        <a class="btn ai" href="teach">Filter with AI</a>
       </div>
       <a class="btn manage" href="wordlists">Manage lists</a>
-    </section>
+      </div>
+    </details>
 
-    <section class="choice" aria-labelledby="guide-title">
-      <div class="choice-head"><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
+    <details class="choice" data-box="guide">
+      <summary class="choice-head"><div><h2 id="guide-title">{{home.guide.heading|line}}</h2><p class="choice-line">{{home.guide.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="choice-body">
       <a class="btn" href="guide">Read the guide</a>
-    </section>
+      </div>
+    </details>
   </main>
 
   <section class="welcome" aria-labelledby="welcome-title">
@@ -223,6 +247,18 @@
   "use strict";
   const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
+
+  // Which boxes are open is remembered, so the part of the site you use opens itself next time.
+  const OPEN = "fillmein:home:open";
+  let opened = [];
+  try { opened = JSON.parse(localStorage.getItem(OPEN) || "[]") || []; } catch (error) { /* all shut, then */ }
+  for (const box of document.querySelectorAll(".choice[data-box]")) {
+    box.open = opened.includes(box.dataset.box);
+    box.addEventListener("toggle", () => {
+      const names = [...document.querySelectorAll(".choice[data-box]")].filter((one) => one.open).map((one) => one.dataset.box);
+      try { localStorage.setItem(OPEN, JSON.stringify(names)); } catch (error) { /* this visit only */ }
+    });
+  }
   const SVG = "http://www.w3.org/2000/svg";
   const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
   const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];

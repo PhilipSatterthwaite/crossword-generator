@@ -32,6 +32,9 @@ Build crosswords with a scored word list and an autofill that knows real crosswo
 [home.new.heading]
 Create
 
+[home.new.line]
+Start a grid, open one you made elsewhere, or pick up where you left off.
+
 [home.keep.heading]
 Keep working
 
@@ -49,11 +52,20 @@ Keep working
 [home.quick.heading]
 Word lists
 
+[home.quick.line]
+Add words, edit a list, and teach it which words you would use.
+
 [home.solve.heading]
 Solve a puzzle
 
+[home.solve.line]
+Open a puzzle file and solve it here, with nothing to install.
+
 [home.guide.heading]
 How to make a crossword
+
+[home.guide.line]
+From an empty grid to a puzzle an editor would read: themes, grids, fill, clues and submitting.
 
 [home.welcome.heading]
 Welcome to *fillmein*
