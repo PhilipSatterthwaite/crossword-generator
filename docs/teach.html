@@ -64,6 +64,12 @@
   .card .note { width: min(360px, 100%); padding: 7px 10px; border: 1px solid var(--rule); border-radius: 8px;
     background: var(--ground); color: inherit; font: 14px var(--sans); }
   .card .doing { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  /* Agree is the quick way through, so it is the green one in the middle. Once you have given the word
+     a score of your own it fades, since Next is then what you want -- but it still works, and putting
+     it back is how you undo a change you did not mean. */
+  .card .doing .agree { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .card .doing .agree:hover:not(:disabled) { filter: brightness(1.08); }
+  .card .doing .agree.faded { opacity: .32; }
   .card .done-note { font-size: 15px; }
   .words { display: grid; gap: 8px; margin: 14px 0; }
   .wordrow { display: grid; grid-template-columns: 170px 1fr auto; gap: 12px; align-items: center;
@@ -228,6 +234,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="claude.js?v=d634e36077"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
-<script src="teach.js?v=7196123020"></script>
+<script src="teach.js?v=cff5f7655d"></script>
 </body>
 </html>

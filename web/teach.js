@@ -319,6 +319,9 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     }
     const { row, guess, you } = round.items[at];
     const chosen = you ? (you.verdict === "cut" ? 0 : you.score) : null;
+    // Agreeing is not changing: a word you simply waved through still offers Agree, unfaded.
+    const touched = Boolean(you && guess && (you.verdict !== guess.verdict ||
+      (you.verdict === "keep" && you.score !== guess.score) || you.note));
     $("card").innerHTML =
       `<p class="word">${safe(row.word)}</p>` +
       (row.cuts ? `<p class="reading">reads as a phrase</p>` : "") +
@@ -333,12 +336,15 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
         return `<button type="button" data-band="${band}" class="${band === 0 ? "cut " : ""}${isGuess ? "guessed" : ""}"` +
           `${picked ? ' aria-pressed="true"' : ""}>${band === 0 ? "cut" : band}</button>`;
       }).join("")}</div>` +
-      `<p class="chose">${!guess ? "" : you
+      `<p class="chose">${!guess ? "" : touched
         ? `Yours: <b>${you.verdict === "cut" ? "cut" : you.score}</b>. Next keeps it.`
         : `Next agrees with the answer above: <b>${guess.verdict === "cut" ? "cut" : guess.score}</b>.`}</p>` +
       `<input class="note" id="card-note" type="text" placeholder="why, if it matters" value="${safe(you && you.note)}" aria-label="Why, for ${safe(row.word)}">` +
       `<div class="doing">` +
       `<button type="button" class="btn quiet" data-go="back"${at ? "" : " disabled"}>← Back</button>` +
+      `<button type="button" class="btn agree${touched ? " faded" : ""}" data-go="agree"${guess ? "" : " disabled"}` +
+      `${touched ? ' title="Takes the answer above after all, in place of yours"' : ""}>` +
+      `Agree${guess ? ` — ${guess.verdict === "cut" ? "cut" : guess.score}` : ""}</button>` +
       `<button type="button" class="btn primary" data-go="next"${guess ? "" : " disabled"}>Next →</button>` +
       `</div>`;
     describe(row);
@@ -442,7 +448,12 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     }
     const go = event.target.closest("button[data-go]");
     if (!go) return;
-    if (go.dataset.go === "next") advance();
+    if (go.dataset.go === "agree") {
+      const item = round.items[round.at];
+      if (!item || !item.guess) return;
+      item.you = null; // back to the answer on the card, whatever was picked
+      advance();
+    } else if (go.dataset.go === "next") advance();
     else if (round.at > 0) {
       const item = round.items[round.at];
       if (item && item.you) item.you.note = noteNow(); // keep what was typed before stepping away
