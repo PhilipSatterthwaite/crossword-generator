@@ -3,7 +3,7 @@
 :root {
   --ground: #EBEFEE;
   --surface: #F6F8F7;
-  --check: rgb(20 23 28 / 0.035);
+  --check-grid: url("data:image/svg+xml,<svg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2015%2015%27><g%20fill=%27%252314171C%27><rect%20x=%278%27%20y=%270%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%271%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%270%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%271%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%272%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%277%27%20y=%277%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2712%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2713%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2714%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2713%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2714%27%20width=%271%27%20height=%271%27/></g><g%20fill=%27none%27%20stroke=%27%252314171C%27%20stroke-width=%27.05%27%20opacity=%27.55%27><path%20d=%27M0%200V15M0%200H15%27/><path%20d=%27M1%200V15M0%201H15%27/><path%20d=%27M2%200V15M0%202H15%27/><path%20d=%27M3%200V15M0%203H15%27/><path%20d=%27M4%200V15M0%204H15%27/><path%20d=%27M5%200V15M0%205H15%27/><path%20d=%27M6%200V15M0%206H15%27/><path%20d=%27M7%200V15M0%207H15%27/><path%20d=%27M8%200V15M0%208H15%27/><path%20d=%27M9%200V15M0%209H15%27/><path%20d=%27M10%200V15M0%2010H15%27/><path%20d=%27M11%200V15M0%2011H15%27/><path%20d=%27M12%200V15M0%2012H15%27/><path%20d=%27M13%200V15M0%2013H15%27/><path%20d=%27M14%200V15M0%2014H15%27/><path%20d=%27M15%200V15M0%2015H15%27/></g></svg>");
   --cell: #FFFFFF;
   --ink: #14171C;
   --block: #14171C;
@@ -35,7 +35,7 @@
   :root:not([data-theme="light"]) {
     --ground: #111418;
     --surface: #181C21;
-    --check: rgb(231 234 238 / 0.04);
+    --check-grid: url("data:image/svg+xml,<svg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2015%2015%27><g%20fill=%27%2523E7EAEE%27><rect%20x=%278%27%20y=%270%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%271%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%270%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%271%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%272%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%277%27%20y=%277%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2712%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2713%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2714%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2713%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2714%27%20width=%271%27%20height=%271%27/></g><g%20fill=%27none%27%20stroke=%27%2523E7EAEE%27%20stroke-width=%27.05%27%20opacity=%27.55%27><path%20d=%27M0%200V15M0%200H15%27/><path%20d=%27M1%200V15M0%201H15%27/><path%20d=%27M2%200V15M0%202H15%27/><path%20d=%27M3%200V15M0%203H15%27/><path%20d=%27M4%200V15M0%204H15%27/><path%20d=%27M5%200V15M0%205H15%27/><path%20d=%27M6%200V15M0%206H15%27/><path%20d=%27M7%200V15M0%207H15%27/><path%20d=%27M8%200V15M0%208H15%27/><path%20d=%27M9%200V15M0%209H15%27/><path%20d=%27M10%200V15M0%2010H15%27/><path%20d=%27M11%200V15M0%2011H15%27/><path%20d=%27M12%200V15M0%2012H15%27/><path%20d=%27M13%200V15M0%2013H15%27/><path%20d=%27M14%200V15M0%2014H15%27/><path%20d=%27M15%200V15M0%2015H15%27/></g></svg>");
     --cell: #1F242B;
     --ink: #E7EAEE;
     --block: #06080A;
@@ -65,7 +65,7 @@
 :root[data-theme="dark"] {
   --ground: #111418;
   --surface: #181C21;
-  --check: rgb(231 234 238 / 0.04);
+  --check-grid: url("data:image/svg+xml,<svg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2015%2015%27><g%20fill=%27%2523E7EAEE%27><rect%20x=%278%27%20y=%270%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%271%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%273%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%274%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%275%27%20width=%271%27%20height=%271%27/><rect%20x=%270%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%271%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%272%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%276%27%20width=%271%27%20height=%271%27/><rect%20x=%277%27%20y=%277%27%20width=%271%27%20height=%271%27/><rect%20x=%273%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%278%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2712%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2713%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%2714%27%20y=%278%27%20width=%271%27%20height=%271%27/><rect%20x=%274%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%279%27%20y=%279%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%2710%27%20y=%2710%27%20width=%271%27%20height=%271%27/><rect%20x=%275%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%2711%27%20y=%2711%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2713%27%20width=%271%27%20height=%271%27/><rect%20x=%276%27%20y=%2714%27%20width=%271%27%20height=%271%27/></g><g%20fill=%27none%27%20stroke=%27%2523E7EAEE%27%20stroke-width=%27.05%27%20opacity=%27.55%27><path%20d=%27M0%200V15M0%200H15%27/><path%20d=%27M1%200V15M0%201H15%27/><path%20d=%27M2%200V15M0%202H15%27/><path%20d=%27M3%200V15M0%203H15%27/><path%20d=%27M4%200V15M0%204H15%27/><path%20d=%27M5%200V15M0%205H15%27/><path%20d=%27M6%200V15M0%206H15%27/><path%20d=%27M7%200V15M0%207H15%27/><path%20d=%27M8%200V15M0%208H15%27/><path%20d=%27M9%200V15M0%209H15%27/><path%20d=%27M10%200V15M0%2010H15%27/><path%20d=%27M11%200V15M0%2011H15%27/><path%20d=%27M12%200V15M0%2012H15%27/><path%20d=%27M13%200V15M0%2013H15%27/><path%20d=%27M14%200V15M0%2014H15%27/><path%20d=%27M15%200V15M0%2015H15%27/></g></svg>");
   --cell: #1F242B;
   --ink: #E7EAEE;
   --block: #06080A;
@@ -102,21 +102,23 @@ body {
   padding-inline: 20px;
   padding-block: 28px 56px;
 }
-/* A crossword behind everything: big squares, barely a shade apart, blurred so the eye reads texture
-   rather than a grid, drifting up slowly. It sits above the page's background colour and below all of
-   its content, and holds still for anyone who asks for less motion. */
+/* A crossword behind everything: a real 15x15 block pattern, not a checkerboard, at 90px a square and
+   barely a shade of the ink, blurred so the eye reads texture rather than something to solve. It drifts
+   a grid upwards every minute, sits above the page's background colour and below all of its content,
+   ignores the pointer, and holds still for anyone who asks for less motion. */
 body::before {
   content: "";
   position: fixed;
   inset: -120px;
   z-index: -1;
   pointer-events: none;
-  background-image: conic-gradient(var(--check) 0 25%, transparent 0 50%, var(--check) 0 75%, transparent 0);
-  background-size: 180px 180px;
-  filter: blur(7px);
-  animation: crossword-drift 90s linear infinite;
+  background-image: var(--check-grid);
+  background-size: 1350px 1350px; /* fifteen 90px squares: one real grid */
+  opacity: .055; /* the whole strength of it: the blocks are a twentieth of the ink */
+  filter: blur(6px);
+  animation: crossword-drift 60s linear infinite;
 }
-@keyframes crossword-drift { to { background-position: 0 -180px; } }
+@keyframes crossword-drift { to { background-position: 0 -1350px; } }
 @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
 
 .page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
