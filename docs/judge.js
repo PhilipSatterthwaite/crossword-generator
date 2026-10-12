@@ -78,8 +78,21 @@ Judge the word itself, not how useful its letters are. The statistics are eviden
 a word with no crossword history can still be excellent, and plenty of published answers are poor.
 Wiktionary tags are hints only.
 
-Answer with one JSON object and nothing else:
-{"verdict": "keep" | "cut", "score": <40-90, omit when cutting>, "why": "<at most 12 words>"}`;
+Answer with the verdict, a score (40-90 when keeping, 0 when cutting) and a reason of at most twelve
+words. Say what is wrong with the word, not what the numbers say.`;
+
+  /* The answer's shape, enforced by the API rather than asked for in words. Every field is required
+     and nothing else is allowed, so score comes back even on a cut, where it means nothing. */
+  const VERDICT_SCHEMA = {
+    type: "object",
+    properties: {
+      verdict: { type: "string", enum: ["keep", "cut"] },
+      score: { type: "integer", description: "40 to 90 when keeping; 0 when cutting" },
+      why: { type: "string", description: "at most 12 words" },
+    },
+    required: ["verdict", "score", "why"],
+    additionalProperties: false,
+  };
 
   const WIKT = ["listed", "noun", "verb", "adjective", "adverb", "proper", "phrase", "abbreviation", "dated", "informal", "offensive", "rare", "inflection"];
   const PAPERS = ["lat", "wsj", "usa", "tny", "up", "nw", "other"];
@@ -216,10 +229,16 @@ Answer with one JSON object and nothing else:
       },
       body: JSON.stringify({
         model,
-        max_tokens: 200,
+        // Thinking is on by default and counts against max_tokens, so leave it room: too small a
+        // budget is spent thinking and the reply comes back with no text at all.
+        max_tokens: 1024,
         // The rules are the same every time, so they are cached: after the first call they cost a tenth.
         system: [{ type: "text", text: $("judge-rubric").value, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: await factsFor(row, reading) }],
+        output_config: {
+          effort: "low", // a one-word judgement doesn't need deep thought, and this keeps it quick and cheap
+          format: { type: "json_schema", schema: VERDICT_SCHEMA }, // the shape is enforced, not hoped for
+        },
       }),
     });
     if (!response.ok) throw new Error(`${response.status}: ${(await response.text()).slice(0, 160)}`);
@@ -231,8 +250,12 @@ Answer with one JSON object and nothing else:
     set(SPENT, String(spent));
     showSpent();
     const text = (message.content || []).filter((part) => part.type === "text").map((part) => part.text).join("");
-    const json = text.match(/\{[\s\S]*\}/);
-    if (!json) throw new Error("no verdict in the reply");
+    const json = text.match(/\{[\s\S]*\}/); // the schema makes this the whole reply, but a stray word around it is survivable
+    if (!json) {
+      // Worth saying which, since the cures differ: more room, or a prompt the model would rather refuse.
+      say(`No verdict. stop_reason: ${message.stop_reason || "?"}. Reply began: ${text.slice(0, 200) || "(nothing)"}`);
+      throw new Error(message.stop_reason === "max_tokens" ? "ran out of room before answering" : "no verdict in the reply");
+    }
     const verdict = JSON.parse(json[0]);
     return {
       verdict: verdict.verdict === "cut" ? "cut" : "keep",
