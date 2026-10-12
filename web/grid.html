@@ -1129,7 +1129,6 @@
     const word = themeText(parts);
     const unit = isRebusTheme(word) ? "squares" : "letters";
     if (!word) message.textContent = "Type a word to add.";
-    else if (kind === "rec" && isRebusTheme(word)) message.textContent = "A rebus entry has to have its square chosen, so it goes in Theme entries.";
     else if (parts.length < 3) message.textContent = `Entries need at least 3 ${unit}.`;
     else if (parts.length > Math.max(W, H)) message.textContent = `${word} takes ${parts.length} ${unit}, more than the grid is wide.`;
     else if (theme.includes(word)) message.textContent = `${word} is already a theme entry.`;
@@ -2379,12 +2378,6 @@
   const LOWEST = 30;
   function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
-    // Autofill places plain theme entries itself, but not a rebus one: that needs its square chosen.
-    const loose = theme.filter((word) => isRebusTheme(word) && !slots.some((slot) => holdsRebus(slot, themeParts(word), false)));
-    if (loose.length) {
-      setStatus("error", `Put ${loose.join(" and ")} in the grid first: select an entry with ${themeParts(loose[0]).length} squares and use Put in, or press Design blocks to build the grid around ${loose.length === 1 ? "it" : "them"}.`);
-      return;
-    }
     const wanted = minScore();
     const rows = solverRows();
     // Filling again over a fill already on the grid starts from that fill, so after a small change
@@ -2445,6 +2438,7 @@
         if (result.success) {
           render();
           void gridEl.offsetWidth;
+          for (const placed of result.inked || []) placed.cells.forEach((i, p) => { ink[i] = placed.squares[p]; pencil[i] = ""; });
           applyRows(result.grid, true);
           const lowered = floor < wanted ? ` It used words down to ${floor}, as asked${tintEl.checked ? `; those under ${wanted} are tinted` : ""}.` : "";
           const fitted = recs.filter((word) => kept.includes(word));
@@ -3085,7 +3079,7 @@
       listChoice = { id: id || "built-in" };
     }
     theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 2).slice(0, THEME_MOST) : [];
-    recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^[A-Z]{3,}$/.test(word) && !theme.includes(word)).slice(0, THEME_MOST) : [];
+    recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 3 && !theme.includes(word)).slice(0, THEME_MOST) : [];
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();

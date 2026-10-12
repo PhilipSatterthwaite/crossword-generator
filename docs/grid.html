@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-p/GjeGOFsUZ4Bk9l8Ty/C8DHJBw4CpV7ODesdWE/Njc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-cMrfJ06+bDJw1kwVXn817w8yeBjfVLOLeaBLJi73b+0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -512,7 +512,7 @@
   <section class="theme" aria-labelledby="theme-title">
     <div class="theme-head">
       <h2 id="theme-title">Theme entries</h2>
-      <p class="theme-note">Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Design blocks builds the grid around it, with crossing words that run through the rebus.</p>
+      <p class="theme-note">Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Fill and Design blocks put it in with crossing words that run through the rebus, and a rebus entry Fill places is inked so its square stays put.</p>
     </div>
     <form id="theme-form" class="theme-form" novalidate>
       <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
@@ -594,7 +594,7 @@
 </dialog>
 
 <script src="words.js?v=c65d859382"></script>
-<script src="filler.js?v=653e783aef"></script>
+<script src="filler.js?v=f7bf33bddc"></script>
 <script src="designer.js?v=eb12a1ed71"></script>
 <script src="store.js?v=bdd69993da"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
@@ -1145,7 +1145,6 @@
     const word = themeText(parts);
     const unit = isRebusTheme(word) ? "squares" : "letters";
     if (!word) message.textContent = "Type a word to add.";
-    else if (kind === "rec" && isRebusTheme(word)) message.textContent = "A rebus entry has to have its square chosen, so it goes in Theme entries.";
     else if (parts.length < 3) message.textContent = `Entries need at least 3 ${unit}.`;
     else if (parts.length > Math.max(W, H)) message.textContent = `${word} takes ${parts.length} ${unit}, more than the grid is wide.`;
     else if (theme.includes(word)) message.textContent = `${word} is already a theme entry.`;
@@ -2122,7 +2121,7 @@
         };
         const timer = setTimeout(useInline, 15000);
         try {
-          worker = new Worker("worker.js?v=867f661e0a");
+          worker = new Worker("worker.js?v=8c1c5947f1");
         } catch (error) {
           useInline();
           return;
@@ -2183,7 +2182,7 @@
       for (let k = 0; k < count; k++) {
         let worker;
         try {
-          worker = new Worker("worker.js?v=867f661e0a");
+          worker = new Worker("worker.js?v=8c1c5947f1");
         } catch (error) {
           return;
         }
@@ -2395,12 +2394,6 @@
   const LOWEST = 30;
   function runFill(variety, floor = minScore()) {
     if (running || !ready) return;
-    // Autofill places plain theme entries itself, but not a rebus one: that needs its square chosen.
-    const loose = theme.filter((word) => isRebusTheme(word) && !slots.some((slot) => holdsRebus(slot, themeParts(word), false)));
-    if (loose.length) {
-      setStatus("error", `Put ${loose.join(" and ")} in the grid first: select an entry with ${themeParts(loose[0]).length} squares and use Put in, or press Design blocks to build the grid around ${loose.length === 1 ? "it" : "them"}.`);
-      return;
-    }
     const wanted = minScore();
     const rows = solverRows();
     // Filling again over a fill already on the grid starts from that fill, so after a small change
@@ -2461,6 +2454,7 @@
         if (result.success) {
           render();
           void gridEl.offsetWidth;
+          for (const placed of result.inked || []) placed.cells.forEach((i, p) => { ink[i] = placed.squares[p]; pencil[i] = ""; });
           applyRows(result.grid, true);
           const lowered = floor < wanted ? ` It used words down to ${floor}, as asked${tintEl.checked ? `; those under ${wanted} are tinted` : ""}.` : "";
           const fitted = recs.filter((word) => kept.includes(word));
@@ -3101,7 +3095,7 @@
       listChoice = { id: id || "built-in" };
     }
     theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 2).slice(0, THEME_MOST) : [];
-    recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^[A-Z]{3,}$/.test(word) && !theme.includes(word)).slice(0, THEME_MOST) : [];
+    recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 3 && !theme.includes(word)).slice(0, THEME_MOST) : [];
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();

@@ -1133,6 +1133,7 @@
      fill of this grid: each entry tries the word it held there first, so a fill redone after a small
      change keeps most of what was there). */
   function fill(grid, words, options = {}) {
+    if (options.required && options.required.some((word) => /[[{(]/.test(String(word)))) return fillWithRebus(grid, words, options);
     if (options.required && options.required.length) return fillWithTheme(grid, words, options);
     const { timeLimit = 30, onProgress = null, progressInterval = 0.25, longStep = LONG_STEP, guide = null } = options;
     const started = now();
@@ -1204,6 +1205,77 @@
     if (!held) return { success: false, grid: null, reason: `No fill found within ${timeLimit} seconds. Try moving a block, or run it again.`, stats: totals(), timedOut: true };
     held.stats = totals();
     return held;
+  }
+
+  /* fill() with a theme word that holds a rebus, "BIG[STAR]FISH": it goes in an entry with as many
+     squares as it has, its bracketed letters sharing one square. Each entry it fits (letters already
+     there agreeing) is tried in turn with a share of the time, the rest of options.required placed and
+     filled around it as usual, and the first that fills wins. result.inked lists the rebus words
+     placed, as {cells, squares}, so the page can ink them: their rebus square has to stay put. */
+  function fillWithRebus(grid, words, options) {
+    const { timeLimit = 30, variety = false, seed = 1, onProgress = null } = options;
+    const started = now();
+    const deadline = started + timeLimit * 1000;
+    const fail = (reason) => ({ success: false, grid: null, reason, stats: {} });
+    const required = options.required.map(String);
+    const k = required.findIndex((word) => /[[{(]/.test(word));
+    const word = required[k];
+    const others = required.filter((_, j) => j !== k);
+    const squares = themeSquares(word);
+    let parsed;
+    try {
+      parsed = parseGrid(grid); // squares as they are, a rebus square still one square
+    } catch (error) {
+      if (error instanceof GridError) return fail(error.message);
+      throw error;
+    }
+    const { cells, slots, width } = parsed;
+    const rebus = options.rebus || {};
+    const holds = (i) => (rebus[i] ? String(rebus[i]).toUpperCase() : cells[i]);
+    const shown = squares.map((square) => (square.length > 1 ? `[${square}]` : square)).join("");
+    // Already there, square for square: nothing to place.
+    if (slots.some((slot) => slot.cells.length === squares.length && slot.cells.every((i, p) => holds(i) === squares[p]))) {
+      return fill(grid, words, { ...options, required: others });
+    }
+    const candidates = slots.filter((slot) => slot.cells.length === squares.length && slot.cells.every((i, p) => !holds(i) || holds(i) === squares[p]));
+    if (!candidates.length) return fail(`No entry with ${squares.length} squares can take ${shown}.`);
+    if (variety) {
+      const random = mulberry32(seed);
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+    } else {
+      candidates.sort((a, b) => (a.direction === b.direction ? 0 : a.direction === "across" ? -1 : 1));
+    }
+    const rows = Array.from(grid, (row) => Array.from(row));
+    let last = null;
+    for (let c = 0; c < candidates.length; c++) {
+      const left = (deadline - now()) / 1000;
+      if (left <= 0) break;
+      const slot = candidates[c];
+      const tryRows = rows.map((row) => row.slice());
+      const tryRebus = { ...rebus };
+      slot.cells.forEach((i, p) => {
+        tryRows[Math.floor(i / width)][i % width] = squares[p][0];
+        if (squares[p].length > 1) tryRebus[i] = squares[p];
+      });
+      const result = fill(tryRows, words, {
+        ...options,
+        required: others,
+        rebus: tryRebus,
+        timeLimit: Math.max(0.5, left / (candidates.length - c)),
+        onProgress: onProgress && ((partial, progress) => onProgress(partial, { ...progress, seconds: (now() - started) / 1000 })),
+      });
+      if (result.success) {
+        result.inked = [...(result.inked || []), { cells: slot.cells, squares }];
+        if (result.stats) result.stats.seconds = (now() - started) / 1000;
+        return result;
+      }
+      last = result;
+    }
+    if (now() >= deadline && last && last.timedOut) return { ...last, reason: `No fill with ${shown} found within ${timeLimit} seconds. Try a longer search, or put it in yourself.` };
+    return { ...(last || fail("")), success: false, reason: `${shown} can't go in any entry with ${squares.length} squares and leave a fill. Move a block, clear some letters or lower the minimum score.` };
   }
 
   /* fill() for a grid that must also hold some theme words (options.required), wherever they fit.

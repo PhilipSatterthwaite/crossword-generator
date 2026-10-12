@@ -388,7 +388,7 @@ Recommended entries
 Words you'd like in the puzzle if they fit. Fill tries them in, top of the list first, and leaves out any that won't fit rather than failing. Design blocks tries them in its fill too.
 
 [grid.theme.note]
-Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Design blocks builds the grid around it, with crossing words that run through the rebus.
+Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Fill and Design blocks put it in with crossing words that run through the rebus, and a rebus entry Fill places is inked so its square stays put.
 
 [grid.design]
 Design blocks
