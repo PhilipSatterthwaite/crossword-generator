@@ -139,17 +139,14 @@
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </h1>
-    <p class="lede">{{home.lede|line}}</p>
     <div class="account" data-account></div>
   </header>
 
   <main class="choices">
     <section class="choice" aria-labelledby="solve-title">
-      <div class="choice-head"><span class="choice-num">1</span><h2 id="solve-title">{{home.solve.heading|line}}</h2></div>
-      <p>{{home.solve.body|line}}</p>
-      <label class="drop" id="solve-drop">
-        <b>Choose a puzzle file</b>
-        <span>or drop it here · .puz, .ipuz or .jpz</span>
+      <div class="choice-head"><h2 id="solve-title">{{home.solve.heading|line}}</h2></div>
+      <label class="drop" id="solve-drop" title=".puz, .ipuz or .jpz">
+        <b>Choose or drop a puzzle file</b>
         <input type="file" id="solve-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
       </label>
       <p id="solve-note" class="quick-message" role="alert"></p>
@@ -157,22 +154,19 @@
     </section>
 
     <section class="choice keep" aria-labelledby="new-title">
-      <div class="choice-head"><span class="choice-num">2</span><h2 id="new-title">{{home.new.heading|line}}</h2></div>
-      <p>{{home.new.body|line}}</p>
-      <button type="button" id="start-new" class="btn primary">Start a new puzzle</button>
-      <p class="note">Made one elsewhere? <label class="link-button file-link">Open a .puz, .ipuz or .jpz file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label> and carry on here.</p>
-      <h3 id="keep-title" class="sub-head">{{home.keep.heading|line}}</h3>
-      <p id="no-puzzles">{{home.keep.empty|line}}</p>
+      <div class="choice-head"><h2 id="new-title">{{home.new.heading|line}}</h2></div>
+      <div class="list-buttons">
+        <button type="button" id="start-new" class="btn primary">Start a new puzzle</button>
+        <label class="btn file-link" title="Carry on with a .puz, .ipuz or .jpz made elsewhere">Open a puzzle file<input type="file" id="open-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml"></label>
+      </div>
+      <h3 id="keep-title" class="sub-head" hidden>{{home.keep.heading|line}}</h3>
       <ul id="puzzles" class="puzzles" hidden></ul>
       <a id="manage-link" class="btn quiet" href="puzzles" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
-      <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> {{home.keep.signedout|line}}</p>
-      <p class="note" data-signed-in hidden>{{home.keep.signedin|line}}</p>
     </section>
 
     <section class="choice" aria-labelledby="quick-title">
-      <div class="choice-head"><span class="choice-num">3</span><h2 id="quick-title">{{home.quick.heading|line}}</h2></div>
-      <p>{{home.quick.body|line}}</p>
+      <div class="choice-head"><h2 id="quick-title">{{home.quick.heading|line}}</h2></div>
       <form id="quick-add" class="quick" novalidate>
         <div class="quick-row">
           <input id="quick-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Word" aria-label="Word to add">
@@ -180,7 +174,6 @@
           <button type="submit" class="btn">Add</button>
         </div>
         <label class="field">Add to <select id="quick-list"></select></label>
-        <p id="quick-first" class="note" hidden>{{home.quick.first|line}}</p>
         <p id="quick-message" class="quick-message" role="alert"></p>
         <div id="quick-recent" class="quick-recent" hidden></div>
       </form>
@@ -191,8 +184,7 @@
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
-      <div class="choice-head"><span class="choice-num">4</span><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
-      <p>{{home.guide.body|line}}</p>
+      <div class="choice-head"><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
       <a class="btn" href="guide">Read the guide</a>
     </section>
   </main>
@@ -273,7 +265,7 @@
     const list = $("puzzles");
     list.replaceChildren();
     list.hidden = !puzzles.length;
-    $("no-puzzles").hidden = puzzles.length > 0;
+    $("keep-title").hidden = puzzles.length === 0; // "Keep working" shows once there's something to keep working on
     $("manage-link").hidden = !total;
     $("manage-link").textContent = total > RECENT ? `Manage all ${total} puzzles and folders` : "Manage puzzles and folders";
     for (const puzzle of puzzles) {
@@ -393,7 +385,6 @@
     select.replaceChildren(...lists.map((list) => new Option(list.name, list.id)));
     if (!lists.length) select.append(new Option("A new list of my own", NEW_LIST));
     select.value = lists.some((list) => list.id === keep) ? keep : select.options[0].value;
-    $("quick-first").hidden = lists.length > 0;
     await renderRecent();
   }
 
