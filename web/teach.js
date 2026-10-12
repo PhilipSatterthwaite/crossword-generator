@@ -9,6 +9,11 @@
   const C = window.FillmeinClaude;
   const STATE = "fillmein:teach";
   const JUDGE_RUBRIC = "fillmein:ai:rubric"; // what judge.js reads on the Train page
+  /* The models are switched off while the look of this page is being settled: nothing is sent to
+     Claude, no key is needed, and the answers are stand-ins worked out from the figures the site
+     already holds. Set this to false to let it think for itself again. */
+  const MODELS_OFF = true;
+
   const PER_ROUND = 100;
   const SAMPLE = 10;
   const BATCH = 10; // words per request
@@ -195,8 +200,31 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     additionalProperties: false,
   };
 
+  /* What a stand-in says about a word while the models are off: the list's own score, rounded to a
+     band and nudged down for a word no crossword has printed, with a reason that never pretends. */
+  function standIn(row) {
+    const band = Math.max(0, Math.min(100, Math.round(row.score / 10) * 10));
+    const score = row.uses || row.papers ? band : Math.max(0, band - 10);
+    return {
+      word: row.word,
+      verdict: score <= 10 ? "cut" : "keep",
+      score: score <= 10 ? 0 : score,
+      why: "stand-in answer, the model is off",
+    };
+  }
+
   /* Claude's first pass over a set of words, in batches. */
   async function guessAll(rows, onProgress) {
+    if (MODELS_OFF) {
+      const byWord = new Map();
+      const batches = Math.ceil(rows.length / BATCH);
+      for (let i = 0; i < batches; i++) {
+        for (const row of rows.slice(i * BATCH, (i + 1) * BATCH)) byWord.set(row.word, standIn(row));
+        await new Promise((resolve) => setTimeout(resolve, 50)); // so the line underneath has something to say
+        if (onProgress) onProgress(i + 1, batches);
+      }
+      return { byWord, error: null };
+    }
     const system = rulesText(state.rules);
     const batches = [];
     for (let i = 0; i < rows.length; i += BATCH) batches.push(rows.slice(i, i + BATCH));
@@ -222,8 +250,12 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
 
   const show = (name) => {
     for (const step of ["gate", "rules", "teach", "training", "result"]) $(`step-${step}`).hidden = step !== name;
-    $("setup").hidden = name === "gate";
+    $("setup").hidden = name === "gate" || MODELS_OFF;
     $("preview-note").hidden = name === "gate";
+    if (MODELS_OFF) {
+      $("preview-note").textContent = "The models are off while this page's look is being settled. Everything works, but the " +
+        "answers are stand-ins worked out from the word list's own figures, and nothing is sent to Claude.";
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -246,40 +278,68 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     save();
   }
 
-  function rowHtml(item, i) {
-    const { row, guess, you } = item;
-    const verdict = you ? you.verdict : guess ? guess.verdict : "";
-    return `<div class="wordrow${item.changed ? " changed" : ""}" data-i="${i}">
-      <div><div class="word">${safe(row.word)}</div><div class="facts">score ${row.score} · NYT ${row.uses} · everyday ${row.everyday}${row.cuts ? " · phrase" : ""}</div></div>
-      <div class="guess${guess ? "" : " pending"}">${guess
-        ? `<b>${guess.verdict === "cut" ? "cut" : `keep at ${guess.score}`}</b> <span class="why">${safe(guess.why)}</span>`
-        : "thinking…"}</div>
-      <div class="controls">
-        <div class="verdictset" role="group" aria-label="Your verdict for ${safe(row.word)}">
-          <button type="button" data-set="keep" aria-pressed="${verdict === "keep"}">keep</button>
-          <button type="button" data-set="cut" aria-pressed="${verdict === "cut"}">cut</button>
-        </div>
-        <input class="score" type="number" min="0" max="100" step="5" value="${you ? you.score : guess ? guess.score : ""}" aria-label="Your score for ${safe(row.word)}">
-        <input class="score note" type="text" style="width:150px" placeholder="why, if it matters" value="${safe(you && you.note)}" aria-label="Why, for ${safe(row.word)}">
-      </div>
-    </div>`;
-  }
+  const BANDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
 
-  function drawWords() {
-    $("words").innerHTML = round.items.map(rowHtml).join("");
-    countChanges();
-  }
-
-  function countChanges() {
-    const done = round.items.filter((item) => item.guess).length;
+  /* The word in front of you: what it is, what the rules made of it, and the bands to put it in.
+     0 means cut, so one click settles a word either way. */
+  function drawCard() {
+    const total = round.items.length;
+    const at = round.at;
+    const decided = round.items.filter((item) => item.you).length;
     const changed = round.items.filter((item) => item.changed).length;
-    $("teach-note").textContent = `${changed} correction${changed === 1 ? "" : "s"} of ${done} judged`;
-    $("train").disabled = done < round.items.length;
+    $("guess-bar").style.width = `${Math.round((100 * decided) / total)}%`;
+    $("guess-note").textContent = at < total
+      ? `Word ${at + 1} of ${total}${changed ? `, ${changed} corrected so far` : ""}`
+      : `All ${total} decided, ${changed} of them corrected.`;
+    $("teach-note").textContent = at < total ? "Enter agrees. ← goes back." : "";
+    $("train").hidden = at < total;
+
+    if (at >= total) {
+      $("card").innerHTML = `<p class="done-note">That's the hundred. Train on them and Claude rewrites your rules to match.</p>` +
+        `<div class="doing"><button type="button" class="btn quiet" data-go="back">← Look at the last one again</button></div>`;
+      return;
+    }
+    const { row, guess, you } = round.items[at];
+    const chosen = you ? (you.verdict === "cut" ? 0 : you.score) : null;
+    $("card").innerHTML =
+      `<p class="word">${safe(row.word)}</p>` +
+      (row.cuts ? `<p class="reading">reads as a phrase</p>` : "") +
+      `<div class="facts"><span>list score ${row.score}</span><span>NYT ${row.uses}${row.year ? ` (last ${row.year})` : ""}</span>` +
+      `<span>other papers ${row.papers}</span><span>everyday ${row.everyday}/100</span>` +
+      `<span>${row.wikt ? "in Wiktionary" : "not in Wiktionary"}</span>${row.wiki ? "<span>has a Wikipedia article</span>" : ""}</div>` +
+      `<p class="says${guess ? "" : " pending"}">${guess
+        ? `Claude says <b>${guess.verdict === "cut" ? "cut" : `keep at ${guess.score}`}</b> <span class="why">${safe(guess.why)}</span>`
+        : "Claude is still looking at this one…"}</p>` +
+      `<div class="bands" role="group" aria-label="Your score for ${safe(row.word)}">${BANDS.map((band) => {
+        const isGuess = guess && (guess.verdict === "cut" ? band === 0 : band === guess.score);
+        const picked = chosen === band;
+        return `<button type="button" data-band="${band}" class="${band === 0 ? "cut " : ""}${isGuess ? "guessed" : ""}"` +
+          `${picked ? ' aria-pressed="true"' : ""}>${band === 0 ? "cut" : band}</button>`;
+      }).join("")}</div>` +
+      `<input class="note" id="card-note" type="text" placeholder="why, if it matters" value="${safe(you && you.note)}" aria-label="Why, for ${safe(row.word)}">` +
+      `<div class="doing">` +
+      `<button type="button" class="btn primary" data-go="agree"${guess ? "" : " disabled"}>Agree${guess ? ` — ${guess.verdict === "cut" ? "cut" : guess.score}` : ""}</button>` +
+      `<button type="button" class="btn quiet" data-go="back"${at ? "" : " disabled"}>← Back</button>` +
+      `</div>`;
+  }
+
+  /* Settle the word on screen and move on. A score of 0 is a cut; anything else keeps it. */
+  function settle(score) {
+    const item = round.items[round.at];
+    if (!item || !item.guess) return;
+    const note = $("card-note") ? $("card-note").value.trim() : "";
+    const verdict = score === 0 ? "cut" : "keep";
+    item.you = { verdict, score, note };
+    item.changed = verdict !== item.guess.verdict ||
+      (verdict === "keep" && score !== item.guess.score) || Boolean(note);
+    round.at++;
+    drawCard();
   }
 
   // --- step 1: the rules ---
 
   drawRules();
+
   /* Resetting throws away everything written here, including whatever Claude learned, so it asks. */
   $("reset-rules").addEventListener("click", async () => {
     const rounds = state.rounds.length;
@@ -299,66 +359,61 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
 
   $("start").addEventListener("click", async () => {
     readRules();
-    if (!C.key()) {
+    if (!MODELS_OFF && !C.key()) {
       $("rules-note").textContent = "Add your API key at the top first.";
       return;
     }
     $("start").disabled = true;
     $("rules-note").textContent = "Choosing a hundred words…";
     const rows = pick(PER_ROUND);
-    round = { items: rows.map((row) => ({ row, guess: null, you: null, changed: false })) };
+    round = { at: 0, items: rows.map((row) => ({ row, guess: null, you: null, changed: false })) };
     show("teach");
-    drawWords();
-    $("guess-note").textContent = "Claude is judging them…";
+    drawCard();
+    $("guess-note").textContent = MODELS_OFF ? "Working them out…" : "Claude is judging them…";
     const { byWord, error } = await guessAll(rows, (done, total) => {
-      $("guess-bar").style.width = `${Math.round((100 * done) / total)}%`;
-      $("guess-note").textContent = `Claude has judged ${Math.min(done * BATCH, rows.length)} of ${rows.length}…`;
+      $("guess-note").textContent = `${Math.min(done * BATCH, rows.length)} of ${rows.length} judged…`;
+      if (done === 1) drawCard(); // the first batch is in, so the first card can be answered
     });
     for (const item of round.items) {
       const guess = byWord.get(item.row.word);
       if (guess) item.guess = { verdict: guess.verdict, score: Number(guess.score) || 0, why: guess.why };
     }
-    const missing = round.items.filter((item) => !item.guess).length;
-    $("guess-note").textContent = error
-      ? `Some words came back empty: ${safe(error.message)}`
-      : missing ? `${missing} words came back empty; correct the rest and train anyway.` : "Change the ones it got wrong, then train.";
     for (const item of round.items) if (!item.guess) item.guess = { verdict: "keep", score: 50, why: "(no answer)" };
+    if (error) $("teach-note").textContent = `Some came back empty: ${safe(error.message)}`;
     $("start").disabled = false;
-    drawWords();
-    $("guess-bar").style.width = "100%";
+    drawCard();
   });
 
-  // --- step 2: corrections ---
-
-  $("words").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-set]");
-    if (!button || !round) return;
-    const wrap = button.closest(".wordrow");
-    const item = round.items[Number(wrap.dataset.i)];
-    const verdict = button.dataset.set;
-    const score = verdict === "cut" ? 0 : Number(wrap.querySelector(".score").value) || item.guess.score || 50;
-    item.you = { verdict, score, note: wrap.querySelector(".note").value };
-    item.changed = item.you.verdict !== item.guess.verdict || (verdict === "keep" && item.you.score !== item.guess.score);
-    wrap.classList.toggle("changed", item.changed);
-    for (const other of wrap.querySelectorAll("button[data-set]")) other.setAttribute("aria-pressed", String(other === button));
-    wrap.querySelector(".score").value = score;
-    countChanges();
+  $("card").addEventListener("click", (event) => {
+    const band = event.target.closest("button[data-band]");
+    if (band) {
+      settle(Number(band.dataset.band));
+      return;
+    }
+    const go = event.target.closest("button[data-go]");
+    if (!go) return;
+    if (go.dataset.go === "agree") {
+      const guess = round.items[round.at].guess;
+      settle(guess.verdict === "cut" ? 0 : guess.score);
+    } else if (round.at > 0) {
+      round.at--;
+      drawCard();
+    }
   });
 
-  $("words").addEventListener("change", (event) => {
-    const input = event.target.closest("input");
-    if (!input || !round) return;
-    const wrap = input.closest(".wordrow");
-    const item = round.items[Number(wrap.dataset.i)];
-    const verdict = wrap.querySelector('button[aria-pressed="true"]');
-    item.you = {
-      verdict: verdict ? verdict.dataset.set : item.guess.verdict,
-      score: Number(wrap.querySelector(".score").value) || 0,
-      note: wrap.querySelector(".note").value,
-    };
-    item.changed = item.you.verdict !== item.guess.verdict || (item.you.verdict === "keep" && item.you.score !== item.guess.score) || Boolean(item.you.note);
-    wrap.classList.toggle("changed", item.changed);
-    countChanges();
+  document.addEventListener("keydown", (event) => {
+    if ($("step-teach").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+    const typing = event.target instanceof Element && event.target.matches("input, textarea, select");
+    if (event.key === "Enter" && round && round.at < round.items.length) {
+      const guess = round.items[round.at].guess;
+      if (!guess) return;
+      event.preventDefault();
+      settle(guess.verdict === "cut" ? 0 : guess.score);
+    } else if (event.key === "ArrowLeft" && !typing && round && round.at > 0) {
+      event.preventDefault();
+      round.at--;
+      drawCard();
+    }
   });
 
   $("back-to-rules").addEventListener("click", () => show("rules"));
@@ -402,7 +457,11 @@ Also return "learned": a few short lines saying what you changed and why, addres
     }).join("\n");
     const agreed = round.items.filter((item) => !item.changed).length;
     try {
-      const answer = await C.call({
+      const answer = MODELS_OFF ? {
+        ...state.rules,
+        learned: [`The models are off, so your rules are unchanged. ${agreed} of ${round.items.length} stand-in answers matched you.`,
+          "Turn MODELS_OFF off in teach.js to have Claude rewrite the rules from these corrections."],
+      } : await C.call({
         system: TRAINER,
         messages: [{
           role: "user",

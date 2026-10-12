@@ -37,6 +37,26 @@
   .setup .field { margin: 0; }
   .setup .field.key { flex: 1 1 260px; }
 
+  /* One word at a time: the word, what the rules made of it, and a band to put it in. */
+  .card { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px 18px 18px;
+    border: 1px solid var(--rule); border-radius: 12px; margin: 14px 0; }
+  .card .word { font: 700 38px / 1.1 var(--sans); letter-spacing: .06em; }
+  .card .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
+  .card .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 12.5px; color: var(--muted); }
+  .card .says { margin: 2px 0; font-size: 15px; }
+  .card .says b { font-weight: 600; }
+  .card .says .why { color: var(--muted); }
+  .card .says.pending { opacity: .55; }
+  .card .bands { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 2px; }
+  .card .bands button { font: 600 13px/1 var(--sans); min-width: 46px; padding: 9px 8px; border: 1px solid var(--rule);
+    border-radius: 8px; background: var(--ground); color: var(--ink); cursor: pointer; }
+  .card .bands button:hover { border-color: var(--ink); }
+  .card .bands button.guessed { border-color: var(--ink); border-width: 2px; }
+  .card .bands button.cut { color: var(--danger); }
+  .card .note { width: min(360px, 100%); padding: 7px 10px; border: 1px solid var(--rule); border-radius: 8px;
+    background: var(--ground); color: inherit; font: 14px var(--sans); }
+  .card .doing { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .card .done-note { font-size: 15px; }
   .words { display: grid; gap: 8px; margin: 14px 0; }
   .wordrow { display: grid; grid-template-columns: 170px 1fr auto; gap: 12px; align-items: center;
     padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; }
@@ -70,7 +90,7 @@
   .gate .price .muted { margin: 0; line-height: 1.5; }
   .whole-list { border: 1px dashed var(--rule); border-radius: 10px; padding: 12px 14px; margin: 4px 0 14px; }
   .whole-list .muted { margin: 4px 0 10px; line-height: 1.5; }
-  .progress { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; margin: 10px 0; }
+  .progress { height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; margin: 10px 0; }
   .progress > span { display: block; height: 100%; background: var(--ink); width: 0; transition: width .2s; }
   .scoreline { font-size: 14px; }
   .scoreline b { font-size: 20px; }
@@ -152,14 +172,13 @@
 
   <section class="step" id="step-teach" hidden>
     <h2>2. Correct it</h2>
-    <p class="what">A hundred words from across the list: familiar and obscure, single words and phrases, published and never
-      published. Claude's guess is already filled in — change only the ones it got wrong, and say why in a few words when the
-      reason isn't obvious.</p>
+    <p class="what">A hundred words from across the list, one at a time: familiar and obscure, single words and phrases,
+      published and never published. Claude's answer is already there — agree with it, or give the word your own score.</p>
     <div class="progress"><span id="guess-bar"></span></div>
     <p class="muted" id="guess-note"></p>
-    <div class="words" id="words"></div>
+    <div class="card" id="card"></div>
     <div class="row">
-      <button type="button" class="btn" id="train">Train on these</button>
+      <button type="button" class="btn" id="train" hidden>Train on these</button>
       <button type="button" class="btn quiet" id="back-to-rules">Back to the rules</button>
       <div class="spacer"></div>
       <p class="muted" id="teach-note"></p>
@@ -200,6 +219,6 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="claude.js?v=d634e36077"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
-<script src="teach.js?v=6a0cea1283"></script>
+<script src="teach.js?v=3995f07893"></script>
 </body>
 </html>
