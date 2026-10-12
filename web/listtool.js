@@ -160,10 +160,14 @@
   /* The Train page's loading bar (see lists.html): it steps to a share of the way, then creeps on
      toward creepTo while the next stage works. The animation is a transform, which the browser runs
      even while this page is too busy to draw anything else. */
-  function loadingAt(share, creepTo = share) {
+  function loadingAt(share, creepTo = share, text = "") {
     const bar = $("page-loading");
     if (!bar || bar.hidden) return;
-    const fill = bar.firstChild;
+    if (text) {
+      $("page-loading-text").textContent = text;
+      bar.setAttribute("aria-label", text.replace(/…$/, ""));
+    }
+    const fill = bar.querySelector(".page-loading i");
     const from = new DOMMatrixReadOnly(getComputedStyle(fill).transform).a || 0;
     for (const running of fill.getAnimations()) running.cancel();
     fill.style.animation = "none";
@@ -177,7 +181,7 @@
   }
 
   async function loadList() {
-    loadingAt(0.5, 0.85); // building the rows is the long part
+    loadingAt(0.5, 0.85, "Loading the word list…"); // building the rows is the long part
     state = await LISTS.state(listId, { everywhere: TRAIN });
     const list = chosen();
     if (!list && !isBuiltIn(listId)) listId = "built-in";
@@ -192,7 +196,7 @@
       row.spoken = spokenOf(row);
       row.scrabble = Math.round((10 * [...row.word].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0)) / row.len) / 10;
     }
-    loadingAt(0.85, 0.95);
+    loadingAt(0.85, 0.95, "Applying your edits…");
     wordsLoaded = true;
     applyEdits();
     renderWhich();
@@ -1244,6 +1248,13 @@
     const progress = (share, what) => {
       $("train-bar").style.width = `${Math.round(100 * share)}%`;
       $("train-note").textContent = what;
+      // Training as the page opens: the loading bar follows it.
+      const bar = $("page-loading");
+      if (bar && !bar.hidden) {
+        const fill = bar.querySelector(".page-loading i");
+        for (const running of fill.getAnimations()) running.cancel();
+        fill.style.transform = `scaleX(${share})`;
+      }
     };
     const tick = (_bar, epoch, total) => progress(((epoch + 1) / total) * 0.7, epoch + 1 <= total / 2 ? "Training…" : "Training…");
     progress(0, "Training…");
@@ -1748,15 +1759,21 @@
   // on the very first card.
   loadList().then(async () => {
     if (!TRAIN) return;
-    // The card shows now: the bar is done (a model still training on its own shows on Results).
-    setTimeout(() => loadingAt(1), 0);
+    // The card shows now; the bar stays for the model: the saved one loaded and its ranking made,
+    // or a first one trained, the bar starting over to follow that.
     if (restoreModel()) {
+      loadingAt(0.96, 0.99, "Ranking the words…");
       // Opened with the model as it was left; the full ranking follows in the background, and only
       // reorders the feed if no word has been decided meanwhile.
       await refreshVerdicts("Checking every word…");
       if (!history.length) refilter();
+      loadingAt(1);
     } else if (!$("train").disabled) {
-      train(true);
+      loadingAt(0, 0, "Training a baseline model…");
+      await train(true);
+      loadingAt(1);
+    } else {
+      loadingAt(1);
     }
   });
 })();
