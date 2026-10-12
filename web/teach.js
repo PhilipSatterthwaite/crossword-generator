@@ -48,6 +48,7 @@ Cut a word when it is:
 - crude, offensive or grim enough to fail the breakfast test
 
 What the scores mean:
+- 100: perfect, an exciting and highly relevant word that has not been used much in crosswords
 - 90: fantastic, a lively and evocative word that has not shown up frequently in crosswords
 - 80: excellent, an entry a constructor would build a grid around
 - 70: very good, lively and current
@@ -279,11 +280,21 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
   // --- step 1: the rules ---
 
   drawRules();
-  $("reset-rules").addEventListener("click", () => {
+  /* Resetting throws away everything written here, including whatever Claude learned, so it asks. */
+  $("reset-rules").addEventListener("click", async () => {
+    const rounds = state.rounds.length;
+    const ok = await window.fillmeinConfirm({
+      title: "Reset to the baseline prompt?",
+      text: "Every change to these three boxes goes, and the prompt returns to the one the page starts with." +
+        (rounds ? ` That includes what Claude wrote from your ${rounds === 1 ? "round" : `${rounds} rounds`} of corrections.` : "") +
+        " The words you have already judged are still remembered, so another hundred will be fresh ones.",
+      confirm: "Reset the prompt",
+    });
+    if (!ok) return;
     state.rules = { ...EXAMPLE };
     drawRules();
     save();
-    $("rules-note").textContent = "Back to the example.";
+    $("rules-note").textContent = "Back to the baseline prompt.";
   });
 
   $("start").addEventListener("click", async () => {
