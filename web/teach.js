@@ -44,19 +44,23 @@ Cut a word when it is:
 - scientific taxonomy, an obscure genus or species (GORGONACEA)
 - an obscure person, place or brand only a specialist would know
 - a fragment or partial phrase that is not a thing on its own (ATO, INAN)
-- crosswordese, kept alive only by other crosswords
+- outdated crosswordese that hasn't been used in the last 5 years in NYT crosswords
 - crude, offensive or grim enough to fail the breakfast test
 
 What the scores mean:
-- 90: sparkling, an entry a constructor would build a grid around
-- 80: very good, lively and current
-- 70: good, solid fill anyone is pleased to see
-- 60: fine, unremarkable, no complaints
-- 50: dull but legitimate; it fills a hole without hurting
-- 40: weak; allowed only when a corner demands it`,
+- 90: fantastic, a lively and evocative word that has not shown up frequently in crosswords
+- 80: excellent, an entry a constructor would build a grid around
+- 70: very good, lively and current
+- 60: good, solid fill anyone is pleased to see
+- 50: fine, unremarkable, no complaints
+- 40: dull but legitimate; it fills a hole without hurting
+- 30: weak; allowed only when a corner demands it
+- 20: slightly cringe-worthy, borderline allowable by the NYT
+- 10: very poor, almost never used but could include one of these if the rest is excellent
+- 0: cut, not allowed in the list`,
     closing: `Judge the word itself, not how useful its letters are. The statistics are evidence, not the verdict: a
 word with no crossword history can still be excellent, and plenty of published answers are poor.
-Answer with a verdict, a score (40-90 when keeping, 0 when cutting) and a reason of at most twelve words.`,
+Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason of at most twelve words.`,
   };
 
   const rulesText = (rules) => [rules.intro, rules.rules, rules.closing].filter(Boolean).join("\n\n");
@@ -178,7 +182,7 @@ Answer with a verdict, a score (40-90 when keeping, 0 when cutting) and a reason
           properties: {
             word: { type: "string" },
             verdict: { type: "string", enum: ["keep", "cut"] },
-            score: { type: "integer", description: "40-90 when keeping, 0 when cutting" },
+            score: { type: "integer", description: "1-100 when keeping, 0 when cutting" },
             why: { type: "string", description: "at most 12 words" },
           },
           required: ["word", "verdict", "score", "why"],
