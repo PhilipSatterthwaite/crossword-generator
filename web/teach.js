@@ -9,10 +9,9 @@
   const C = window.FillmeinClaude;
   const STATE = "fillmein:teach";
   const JUDGE_RUBRIC = "fillmein:ai:rubric"; // what judge.js reads on the Train page
-  /* The models are switched off while the look of this page is being settled: nothing is sent to
-     Claude, no key is needed, and the answers are stand-ins worked out from the figures the site
-     already holds. Set this to false to let it think for itself again. */
-  const MODELS_OFF = true;
+  /* True while the look of this page is being settled: nothing is sent to Claude, no key is needed,
+     and the answers are stand-ins worked out from the figures the site already holds. */
+  const MODELS_OFF = false;
 
   const PER_ROUND = 100;
   const SAMPLE = 10;
