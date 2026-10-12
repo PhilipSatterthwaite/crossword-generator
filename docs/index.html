@@ -51,6 +51,12 @@
   .choice .btn { justify-self: start; }
   .choice .sub-head { margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); font: 600 18px / 1.2 var(--serif); }
   .list-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  /* Word lists' two ways in, big enough to find at a glance. */
+  .list-buttons.big { gap: 12px; margin-top: 4px; }
+  .list-buttons.big .btn { flex: 1 1 10em; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+    min-height: 52px; padding: 10px 22px; font-size: 17px; font-weight: 700; text-align: center; }
+  .list-buttons.big .btn.train { background: var(--pencil); border-color: var(--pencil); color: #fff; }
+  .list-buttons.big .btn.train:hover { filter: brightness(1.1); }
   .note { font-size: 13px; }
   .soon {
     justify-self: start;
@@ -173,9 +179,9 @@
         <label class="field">Add to <select id="quick-list"></select></label>
         <p id="quick-message" class="quick-message" role="alert"></p>
       </form>
-      <div class="list-buttons">
-        <a class="btn" href="lists">Edit a list</a>
-        <a class="btn" href="train">Train a list</a>
+      <div class="list-buttons big">
+        <a class="btn primary" href="lists">Edit a list</a>
+        <a class="btn train" href="train">Train a list</a>
       </div>
     </section>
 
