@@ -97,12 +97,8 @@
   .quick .field select { max-width: 100%; }
   .quick-message { margin: 0; font-size: 13px; color: var(--danger); }
   .quick-message:empty { display: none; }
+  .quick-message.ok { color: var(--muted); }
   /* The words added to this list lately, each with a way to take it back out. */
-  .quick-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-  .quick-recent .chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px 2px 8px; border-radius: 999px; background: var(--chip); color: var(--ink); font-weight: 600; letter-spacing: 0.04em; }
-  .quick-recent .chip b { margin-left: 4px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
-  .quick-recent button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
-  .quick-recent button:hover { background: var(--hover); color: var(--ink); }
 
   .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
   .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
@@ -175,7 +171,6 @@
         </div>
         <label class="field">Add to <select id="quick-list"></select></label>
         <p id="quick-message" class="quick-message" role="alert"></p>
-        <div id="quick-recent" class="quick-recent" hidden></div>
       </form>
       <div class="list-buttons">
         <a class="btn" href="lists">Edit a list</a>
@@ -357,8 +352,10 @@
   const LISTS = window.FillmeinLists;
   const CHOSEN = "fillmein:quick-add-list"; // the list last added to, so it comes up first next time
   const NEW_LIST = "__new";
-  const say = (text) => {
+  // A problem in red; a word added, quietly.
+  const say = (text, ok = false) => {
     $("quick-message").textContent = text;
+    $("quick-message").classList.toggle("ok", ok);
   };
   const chosen = () => {
     try { return localStorage.getItem(CHOSEN); } catch (error) { return null; }
@@ -385,36 +382,6 @@
     select.replaceChildren(...lists.map((list) => new Option(list.name, list.id)));
     if (!lists.length) select.append(new Option("A new list of my own", NEW_LIST));
     select.value = lists.some((list) => list.id === keep) ? keep : select.options[0].value;
-    await renderRecent();
-  }
-
-  /* The last few words added to the chosen list, each with an undo. */
-  async function renderRecent() {
-    const box = $("quick-recent");
-    const id = $("quick-list").value;
-    const edits = id && id !== NEW_LIST ? await LISTS.editsFor(id) : null;
-    const words = edits ? edits.recent.filter((word) => word in edits.scores).slice(0, 6) : [];
-    box.replaceChildren();
-    box.hidden = !words.length;
-    if (!words.length) return;
-    box.append("Recent:");
-    for (const word of words) {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      const score = document.createElement("b");
-      score.textContent = edits.scores[word];
-      const undo = document.createElement("button");
-      undo.type = "button";
-      undo.textContent = "×";
-      undo.title = "Undo";
-      undo.setAttribute("aria-label", `Undo ${word}`);
-      undo.addEventListener("click", async () => {
-        await LISTS.restoreWord(id, word);
-        await renderRecent();
-      });
-      chip.append(word, score, undo);
-      box.append(chip);
-    }
   }
 
   $("quick-add").addEventListener("submit", async (event) => {
@@ -443,6 +410,7 @@
       choose(id);
       $("quick-word").value = "";
       await renderQuick();
+      say(`Added ${word}, scored ${score}.`, true);
       $("quick-word").focus();
     } catch (error) {
       say("That word couldn't be saved. Try again.");
@@ -450,7 +418,6 @@
   });
   $("quick-list").addEventListener("change", () => {
     if ($("quick-list").value !== NEW_LIST) choose($("quick-list").value);
-    renderRecent();
   });
   if (LISTS) LISTS.onChange(() => renderQuick());
 
