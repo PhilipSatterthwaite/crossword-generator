@@ -10,12 +10,9 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const KEY = "fillmein:ai:key";
   const ON = "fillmein:ai:on";
   const RUBRIC = "fillmein:ai:rubric";
-  const MODEL = "fillmein:ai:model";
   const AUTO = "fillmein:ai:auto";
-  const SPENT = "fillmein:ai:spent";
 
   const get = (name, fallback = "") => {
     try {
@@ -40,13 +37,7 @@
     return;
   }
 
-  // Dollars per million tokens, from the pricing page. Cache reads cost a tenth of input, or less.
-  const MODELS = {
-    "claude-haiku-5-5": { name: "Haiku 5.5 - cheapest", in: 0.1, out: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
-    "claude-sonnet-5-5": { name: "Sonnet 5.5 - balanced", in: 2, out: 10, cacheRead: 0.1, cacheWrite: 2.5 },
-    "claude-opus-5-5": { name: "Opus 5.5 - best", in: 4, out: 20, cacheRead: 0.2, cacheWrite: 5 },
-  };
-  const DEFAULT_MODEL = "claude-haiku-5-5";
+  const C = window.FillmeinClaude;
 
   /* The standing instructions, yours to edit in the panel. This default is only a starting point:
      every answer gets better the more of your own rules replace it. */
@@ -130,7 +121,7 @@ words. Say what is wrong with the word, not what the numbers say.`;
     '<button type="button" class="btn quiet" id="judge-toggle">Open</button></div>' +
     '<div class="body">' +
     '<label>API key<input type="password" id="judge-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"></label>' +
-    `<label>Model<select id="judge-model">${Object.entries(MODELS).map(([id, m]) => `<option value="${id}">${m.name}</option>`).join("")}</select></label>` +
+    `<label>Model<select id="judge-model">${Object.entries(C.MODELS).map(([id, m]) => `<option value="${id}">${m.name}</option>`).join("")}</select></label>` +
     '<label class="row"><input type="checkbox" id="judge-auto" style="width:auto"><span>Judge each word as it comes up</span></label>' +
     '<label>Your rules<textarea id="judge-rubric" spellcheck="false"></textarea></label>' +
     '<div class="row"><button type="button" class="btn quiet" id="judge-reset">Reset rules</button>' +
@@ -139,23 +130,23 @@ words. Say what is wrong with the word, not what the numbers say.`;
     "</div>";
   document.body.append(panel);
 
-  $("judge-key").value = get(KEY);
-  $("judge-model").value = MODELS[get(MODEL)] ? get(MODEL) : DEFAULT_MODEL;
+  $("judge-key").value = C.key();
+  $("judge-model").value = C.model();
   $("judge-rubric").value = get(RUBRIC) || DEFAULT_RUBRIC;
   $("judge-auto").checked = get(AUTO) === "1";
 
   const say = (text) => ($("judge-status").textContent = text);
-  let spent = Number(get(SPENT, "0")) || 0;
-  const showSpent = () => ($("judge-spent").textContent = spent ? `$${spent < 0.01 ? spent.toFixed(4) : spent.toFixed(2)}` : "");
+  const showSpent = () => ($("judge-spent").textContent = C.spent() ? C.money(C.spent()) : "");
+  C.onSpend(showSpent);
   showSpent();
 
   $("judge-toggle").addEventListener("click", () => {
     panel.classList.toggle("shut");
     $("judge-toggle").textContent = panel.classList.contains("shut") ? "Open" : "Close";
   });
-  $("judge-key").addEventListener("change", () => set(KEY, $("judge-key").value.trim()));
+  $("judge-key").addEventListener("change", () => C.setKey($("judge-key").value));
   $("judge-model").addEventListener("change", () => {
-    set(MODEL, $("judge-model").value);
+    C.setModel($("judge-model").value);
     cache.clear(); // another model may well say something else
   });
   $("judge-rubric").addEventListener("change", () => {
@@ -172,7 +163,7 @@ words. Say what is wrong with the word, not what the numbers say.`;
     cache.clear();
   });
   $("judge-forget").addEventListener("click", () => {
-    set(KEY, "");
+    C.setKey("");
     $("judge-key").value = "";
     say("Key forgotten.");
   });
@@ -216,47 +207,11 @@ words. Say what is wrong with the word, not what the numbers say.`;
   let current = null;
 
   async function ask(row, reading) {
-    const key = get(KEY).trim();
-    if (!key) throw new Error("no key");
-    const model = $("judge-model").value;
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model,
-        // Thinking is on by default and counts against max_tokens, so leave it room: too small a
-        // budget is spent thinking and the reply comes back with no text at all.
-        max_tokens: 1024,
-        // The rules are the same every time, so they are cached: after the first call they cost a tenth.
-        system: [{ type: "text", text: $("judge-rubric").value, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: await factsFor(row, reading) }],
-        output_config: {
-          effort: "low", // a one-word judgement doesn't need deep thought, and this keeps it quick and cheap
-          format: { type: "json_schema", schema: VERDICT_SCHEMA }, // the shape is enforced, not hoped for
-        },
-      }),
+    const verdict = await C.call({
+      system: $("judge-rubric").value,
+      messages: [{ role: "user", content: await factsFor(row, reading) }],
+      schema: VERDICT_SCHEMA,
     });
-    if (!response.ok) throw new Error(`${response.status}: ${(await response.text()).slice(0, 160)}`);
-    const message = await response.json();
-    const rates = MODELS[model];
-    const used = message.usage || {};
-    spent += ((used.input_tokens || 0) * rates.in + (used.output_tokens || 0) * rates.out +
-      (used.cache_read_input_tokens || 0) * rates.cacheRead + (used.cache_creation_input_tokens || 0) * rates.cacheWrite) / 1e6;
-    set(SPENT, String(spent));
-    showSpent();
-    const text = (message.content || []).filter((part) => part.type === "text").map((part) => part.text).join("");
-    const json = text.match(/\{[\s\S]*\}/); // the schema makes this the whole reply, but a stray word around it is survivable
-    if (!json) {
-      // Worth saying which, since the cures differ: more room, or a prompt the model would rather refuse.
-      say(`No verdict. stop_reason: ${message.stop_reason || "?"}. Reply began: ${text.slice(0, 200) || "(nothing)"}`);
-      throw new Error(message.stop_reason === "max_tokens" ? "ran out of room before answering" : "no verdict in the reply");
-    }
-    const verdict = JSON.parse(json[0]);
     return {
       verdict: verdict.verdict === "cut" ? "cut" : "keep",
       score: Number(verdict.score) || null,
@@ -283,7 +238,7 @@ words. Say what is wrong with the word, not what the numbers say.`;
 
   async function show(card) {
     const { row, reading } = card;
-    if (!get(KEY).trim()) {
+    if (!C.key()) {
       draw('<p class="verdict waiting">Claude: paste an API key in the panel for a second opinion.</p>');
       return;
     }
@@ -316,7 +271,7 @@ words. Say what is wrong with the word, not what the numbers say.`;
       if (!$("judge-box")) return;
       current = { row, reading };
       show(current);
-      if ($("judge-auto").checked && get(KEY).trim()) {
+      if ($("judge-auto").checked && C.key()) {
         for (const other of next.slice(0, 2)) judge(other, other.word).catch(() => {});
       }
     },
