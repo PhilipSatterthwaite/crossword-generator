@@ -1277,8 +1277,9 @@
   /* Order word options by what they leave the entries across them, not by their own score alone: a
      word's combination is the average of its score and, for each crossing entry not already all in
      ink, the best-scoring word (at the minimum or over) that still fits there with the letter it
-     gives. Pencil letters don't count, since a fill replaces them. A crossing nothing fits counts 0.
-     Ties keep the word's own score order. */
+     gives, each weighted by its length in letters, so a long crossing counts for more than a three.
+     Pencil letters don't count, since a fill replaces them. A crossing nothing fits counts 0. Ties
+     keep the word's own score order. */
   function rankByCrossings(slot, list) {
     if (!list.length) return;
     const crossings = [];
@@ -1296,17 +1297,18 @@
       }
       crossings.push({ p, pattern, at, fixed: Boolean(ink[i]), cache: new Map() });
     });
+    const weight = crossings.reduce((total, x) => total + x.pattern.length, 0);
     for (const option of list) {
       const parts = spread(slot, option.word);
-      let sum = option.score;
+      let sum = option.score * option.word.length;
       for (const x of crossings) {
         const pattern = x.pattern.slice();
         if (!x.fixed) pattern[x.at] = parts[x.p].charCodeAt(0);
         const key = pattern[x.at];
         if (!x.cache.has(key)) x.cache.set(key, bestFitScore(pattern));
-        sum += x.cache.get(key);
+        sum += x.cache.get(key) * pattern.length;
       }
-      option.combo = Math.round(sum / (1 + crossings.length));
+      option.combo = Math.round(sum / (option.word.length + weight));
     }
     list.sort((a, b) => b.combo - a.combo || b.score - a.score);
   }
@@ -1749,7 +1751,7 @@
     if (!row) {
       row = document.createElement("li");
       row.className = "option-row";
-      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}${option.combo !== undefined ? `<span class="option-combo" title="Average of ${option.word} and the best word that fits each entry crossing it">avg ${option.combo}</span>` : ""}<span class="option-mark" aria-hidden="true"></span></button>` +
+      row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}${option.combo !== undefined ? `<span class="option-combo" title="Average of ${option.word} and the best word that fits each entry crossing it, each counted by its length">avg ${option.combo}</span>` : ""}<span class="option-mark" aria-hidden="true"></span></button>` +
         `<span class="option-edit"><button type="button" data-word-action="score" data-word="${option.word}" title="Give ${option.word} your own score">Score</button><button type="button" class="drop" data-word-action="remove" data-word="${option.word}" title="Take ${option.word} out of your word list">Remove</button></span>`;
       optionRows.set(i, row);
     }
