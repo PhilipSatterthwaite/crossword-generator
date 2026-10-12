@@ -89,14 +89,37 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   // --- state ---
 
-  let state = { rules: { ...EXAMPLE }, used: [], rounds: [], learned: [], sample: [] };
+  let state = { rules: { ...EXAMPLE }, used: [], rounds: [], learned: [], sample: [], record: [], round: null };
   try {
     const saved = JSON.parse(get(STATE, "null"));
     if (saved && saved.rules) state = { ...state, ...saved };
   } catch (error) {
     /* start afresh */
   }
-  const save = () => set(STATE, JSON.stringify({ ...state, round: undefined }));
+  const save = () => set(STATE, JSON.stringify(state));
+
+  /* The hundred in progress, kept small enough to write after every answer: a word, what the rules
+     said about it, and what you said. Leaving the page and coming back carries on where you were. */
+  function saveRound() {
+    state.round = round && round.items.length
+      ? { at: round.at, items: round.items.map((item) => ({ w: item.row.word, g: item.guess, y: item.you, c: item.changed })) }
+      : null;
+    save();
+  }
+
+  /* The other way about, once the words are in hand again. */
+  function restoreRound() {
+    if (!state.round || !state.round.items || !state.round.items.length) return null;
+    const byWord = new Map(buildPool().map((row) => [row.word, row]));
+    const items = [];
+    for (const saved of state.round.items) {
+      const row = byWord.get(saved.w);
+      if (!row) continue; // the word list changed under it
+      items.push({ row, guess: saved.g || null, you: saved.y || null, changed: Boolean(saved.c) });
+    }
+    if (!items.length) return null;
+    return { at: Math.min(state.round.at || 0, items.length), items };
+  }
   let round = null; // the words being corrected now
 
   // --- the words ---
@@ -403,6 +426,25 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
      to Wiktionary. So a word that means something else as a name shows both, and the clues, which
      settle it better than any definition, run two deep. */
   const CLUES_SHOWN = 2;
+  const MOST_KEPT = 2000;        // judgements kept in this browser
+  const MOST_CORRECTIONS = 400;  // corrections sent to the agent, newest first
+  const MOST_AGREEMENTS = 150;   // and words it got right, as the other side of the picture
+
+  /* What the agent is given each round: not just the hundred just judged but everything judged so
+     far, written out once. Corrections lead, since a rule is wrong wherever one was needed; the
+     words left standing follow, so the rules are not rewritten against evidence that isn't there. */
+  function document_of(record) {
+    const line = (entry) => `${entry.word} [${entry.facts}]\n  rules said: ${entry.said}` +
+      `\n  they said: ${entry.yours}${entry.note ? ` - ${entry.note}` : ""}${entry.round ? `  (round ${entry.round})` : ""}`;
+    const corrections = record.filter((entry) => entry.changed).slice(-MOST_CORRECTIONS);
+    const agreements = record.filter((entry) => !entry.changed).slice(-MOST_AGREEMENTS);
+    const parts = [];
+    parts.push(`CORRECTIONS (${corrections.length} of ${record.filter((e) => e.changed).length}), where your rules were wrong:`);
+    parts.push(corrections.length ? corrections.map(line).join("\n") : "(none yet)");
+    parts.push(`\nLEFT STANDING (${agreements.length} of ${record.filter((e) => !e.changed).length}), where your rules were right:`);
+    parts.push(agreements.length ? agreements.map(line).join("\n") : "(none yet)");
+    return parts.join("\n");
+  }
   async function describe(row) {
     const [definition, clues] = await Promise.all([definitionOf(row.word), cluesFor(row.word)]);
     const box = $("card-about");
@@ -429,6 +471,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     if (!item || !item.guess) return;
     item.you = { verdict: score === 0 ? "cut" : "keep", score, note: noteNow() };
     mark(item);
+    saveRound();
     drawCard();
   }
 
@@ -440,6 +483,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     item.you.note = noteNow();
     mark(item);
     round.at++;
+    saveRound();
     drawCard();
   }
 
@@ -509,6 +553,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
       const item = round.items[round.at];
       if (item && item.you) item.you.note = noteNow(); // keep what was typed before stepping away
       round.at--;
+      saveRound();
       drawCard();
     }
   });
@@ -523,6 +568,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     } else if (event.key === "ArrowLeft" && !typing && round && round.at > 0) {
       event.preventDefault();
       round.at--;
+      saveRound();
       drawCard();
     }
   });
@@ -545,8 +591,11 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   const TRAINER = `You are improving the rules a crossword constructor uses to judge words for their word list.
 
-You are given their current rules, and a hundred words where their decision is the truth and the
-earlier guess was made by those rules. Where the two differ, the rules were wrong, not the person.
+You are given their current rules and every word they have judged, over one round or many: their
+decision is the truth, and the guess beside it was made by the rules as they stood at the time.
+Where the two differ, the rules were wrong, not the person. A correction from an early round counts
+as much as one from the latest, so rules that explained the old ones must survive this rewrite
+unless newer evidence contradicts them.
 
 Rewrite the rules so that, read cold, they would produce the person's decisions on these words and
 generalise to words like them. Work out what the corrections have in common and say that as a rule.
@@ -561,11 +610,22 @@ Also return "learned": a few short lines saying what you changed and why, addres
     if (!round) return;
     show("training");
     $("train-bar").style.width = "30%";
-    const decided = round.items.map((item) => {
+    const round_number = state.rounds.length + 1;
+    for (const item of round.items) {
       const you = item.you || item.guess;
-      return `${item.row.word} [${facts(item.row)}]\n  rules said: ${item.guess.verdict}${item.guess.verdict === "keep" ? ` ${item.guess.score}` : ""} (${item.guess.why})` +
-        `\n  they said: ${you.verdict}${you.verdict === "keep" ? ` ${you.score}` : ""}${you.note ? ` - ${you.note}` : ""}`;
-    }).join("\n");
+      state.record.push({
+        round: round_number,
+        word: item.row.word,
+        facts: facts(item.row),
+        said: `${item.guess.verdict}${item.guess.verdict === "keep" ? ` ${item.guess.score}` : ""}`,
+        yours: `${you.verdict}${you.verdict === "keep" ? ` ${you.score}` : ""}`,
+        note: you.note || "",
+        changed: Boolean(item.changed),
+      });
+    }
+    if (state.record.length > MOST_KEPT) state.record = state.record.slice(-MOST_KEPT);
+    save();
+    const decided = document_of(state.record);
     const agreed = round.items.filter((item) => !item.changed).length;
     try {
       const answer = MODELS_OFF ? {
@@ -577,7 +637,9 @@ Also return "learned": a few short lines saying what you changed and why, addres
         messages: [{
           role: "user",
           content: `Their current rules:\n\n<rules>\n${rulesText(state.rules)}\n</rules>\n\n` +
-            `The hundred words, with what the rules said and what they said:\n\n${decided}`,
+            `Every word they have judged, over ${round_number} round${round_number === 1 ? "" : "s"}. ` +
+            `The corrections come first, since those are where the rules were wrong; the words they let ` +
+            `stand follow, as the rules got those right. Account for all of it, not only the newest.\n\n${decided}`,
         }],
         schema: TRAIN_SCHEMA,
         maxTokens: 32000,
@@ -589,6 +651,8 @@ Also return "learned": a few short lines saying what you changed and why, addres
       state.learned = answer.learned || [];
       state.used = [...new Set([...state.used, ...round.items.map((item) => item.row.word)])];
       state.rounds.push({ at: Date.now(), agreed, of: round.items.length });
+      round = null;
+      state.round = null; // trained on, so no longer a round in progress
       save();
       drawRules();
       // A free sample, judged by the rules it just wrote.
@@ -655,6 +719,30 @@ Also return "learned": a few short lines saying what you changed and why, addres
   if (state.rounds.length) {
     drawResult();
     $("rules-note").textContent = `${state.rounds.length} round${state.rounds.length === 1 ? "" : "s"} done. Edit the rules, or take another hundred words.`;
+  }
+
+  /* A hundred left half-judged is waiting where you left it, so say so and offer to carry on. */
+  if (state.round && state.round.items && state.round.items.length) {
+    const left = state.round.items.length - Math.min(state.round.at || 0, state.round.items.length);
+    $("rules-note").innerHTML = `You left a hundred part-judged, ${left} still to go. ` +
+      '<button type="button" class="btn" id="carry-on">Carry on</button> ' +
+      '<button type="button" class="btn quiet" id="start-over">Start a fresh hundred</button>';
+    const carry = $("carry-on");
+    const fresh = $("start-over");
+    if (carry) carry.addEventListener("click", () => {
+      round = restoreRound();
+      if (!round) {
+        $("rules-note").textContent = "Those words have gone from the list. Take a fresh hundred.";
+        return;
+      }
+      show("teach");
+      drawCard();
+    });
+    if (fresh) fresh.addEventListener("click", () => {
+      state.round = null;
+      save();
+      $("rules-note").textContent = "Set aside. Show me a hundred when you're ready.";
+    });
   }
   show(get(UNLOCKED) || state.rounds.length ? "rules" : "gate");
 })();
