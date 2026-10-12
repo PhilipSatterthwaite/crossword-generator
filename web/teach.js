@@ -216,9 +216,18 @@ Answer with a verdict, a score (40-90 when keeping, 0 when cutting) and a reason
   // --- drawing ---
 
   const show = (name) => {
-    for (const step of ["rules", "teach", "training", "result"]) $(`step-${step}`).hidden = step !== name;
+    for (const step of ["gate", "rules", "teach", "training", "result"]) $(`step-${step}`).hidden = step !== name;
+    $("setup").hidden = name === "gate";
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  /* The paid gate, with payment switched off: it opens on a click and stays open. When there is
+     something to charge for, this is where it goes, and the key field below it goes away with it. */
+  const UNLOCKED = "fillmein:teach:unlocked";
+  $("unlock").addEventListener("click", () => {
+    set(UNLOCKED, "1");
+    show("rules");
+  });
 
   function drawRules() {
     $("intro").value = state.rules.intro;
@@ -450,4 +459,5 @@ Also return "learned": a few short lines saying what you changed and why, addres
     drawResult();
     $("rules-note").textContent = `${state.rounds.length} round${state.rounds.length === 1 ? "" : "s"} done. Edit the rules, or take another hundred words.`;
   }
+  show(get(UNLOCKED) || state.rounds.length ? "rules" : "gate");
 })();

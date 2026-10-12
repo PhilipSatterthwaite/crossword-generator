@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Teach the word judge · fillmein</title>
-<meta name="description" content="Write your own rules for which words belong in a crossword list, correct Claude on a hundred words, and have it rewrite the rules to match you.">
+<title>AI word filtering · fillmein</title>
+<meta name="description" content="Teach an AI how you judge crossword fill, and let it sift a word list the way you would: you write the rules, correct it on a hundred words, and it rewrites the rules to match you.">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=a5c7286c52">
@@ -62,6 +62,12 @@
   .sample { display: grid; gap: 6px; margin: 10px 0 16px; }
   .sample .one { display: grid; grid-template-columns: 150px 90px 1fr; gap: 10px; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 8px; font-size: 14px; }
   .sample .one .w { font-weight: 600; letter-spacing: .04em; }
+  .gate .how { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 6px; line-height: 1.5; }
+  .gate .price { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; }
+  .gate .price .amount { margin: 0 0 4px; font: 600 17px var(--sans); }
+  .gate .price .muted { margin: 0; line-height: 1.5; }
+  .whole-list { border: 1px dashed var(--rule); border-radius: 10px; padding: 12px 14px; margin: 4px 0 14px; }
+  .whole-list .muted { margin: 4px 0 10px; line-height: 1.5; }
   .progress { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; margin: 10px 0; }
   .progress > span { display: block; height: 100%; background: var(--ink); width: 0; transition: width .2s; }
   .scoreline { font-size: 14px; }
@@ -88,10 +94,32 @@
     <a class="back-link" href="/lists"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Word lists</a>
   </div>
 
-  <h1>Teach the word judge</h1>
-  <p class="lede">Write down how you decide whether a word belongs in a crossword list. Correct Claude on a hundred words. It rewrites your rules to match the decisions you actually made, and you keep what it wrote.</p>
+  <h1>AI word filtering</h1>
+  <p class="lede">A word list is only as good as the words you would actually use. This teaches an AI how you judge
+    fill — in your words, not ours — and then puts it to work on the rest of the list. It is separate from the
+    training on the Word lists page, which learns from your swipes and runs entirely on your own machine.</p>
 
-  <div class="setup">
+  <section class="step gate" id="step-gate" hidden>
+    <h2>What this does</h2>
+    <ol class="how">
+      <li><b>You write the rules.</b> What you keep, what you cut, what a score means. An example is there to edit or throw away.</li>
+      <li><b>You correct it on a hundred words</b>, spread across the whole list: familiar and obscure, single words and phrases, published and never published.</li>
+      <li><b>It rewrites your rules</b> to match the decisions you actually made, and shows you what it changed.</li>
+      <li><b>Then it judges words you have not seen</b>, the same way you would. Another hundred sharpens it.</li>
+    </ol>
+    <div class="price">
+      <p class="amount">Paid feature</p>
+      <p class="muted">Payment isn't switched on yet, so it's open while we see how it feels. While it is, it runs on an
+        API key of your own, and what you spend goes to Anthropic rather than to us. A round of a hundred words costs
+        well under a penny on the cheapest model.</p>
+    </div>
+    <div class="row">
+      <button type="button" class="btn" id="unlock">Start</button>
+      <p class="muted">No card, nothing to cancel.</p>
+    </div>
+  </section>
+
+  <div class="setup" id="setup" hidden>
     <label class="field key"><span class="caption">Your API key</span>
       <input type="password" id="key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"></label>
     <label class="field"><span class="caption">Model</span><select id="model" class="score"></select></label>
@@ -99,7 +127,7 @@
     <p class="muted" id="spent"></p>
   </div>
 
-  <section class="step" id="step-rules">
+  <section class="step" id="step-rules" hidden>
     <h2>1. Your rules</h2>
     <p class="what">This is what Claude is told before it sees a word. The middle box does the real work; the other two are
       the frame around it. What's here now is only a starting point — rewrite as much of it as you like, in your own words.</p>
@@ -145,6 +173,13 @@
     <div class="learned" id="learned"></div>
     <h3 style="margin:16px 0 8px;font:600 16px var(--sans)">A free sample, scored with the new rules</h3>
     <div class="sample" id="sample"></div>
+    <div class="whole-list">
+      <b>Next: the whole list</b>
+      <p class="muted">Once the rules agree with you often enough, the same judge runs over every word you have not seen —
+        527,000 of them — and hands back a list with its cuts marked and its scores set. That part isn't built yet, and is
+        what the paid version is for.</p>
+      <button type="button" class="btn" disabled>Filter all 527,000 words</button>
+    </div>
     <div class="row">
       <button type="button" class="btn" id="more">Train on 100 more</button>
       <button type="button" class="btn quiet" id="see-rules">See and edit the new rules</button>
@@ -159,6 +194,6 @@
 <script src="wordstats.js?v=43ffde067f"></script>
 <script src="claude.js?v=d634e36077"></script>
 <script type="module" src="account.js?v=e777c17977"></script>
-<script src="teach.js?v=66e54e0a68"></script>
+<script src="teach.js?v=d80d65310a"></script>
 </body>
 </html>
