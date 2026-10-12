@@ -309,7 +309,7 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     $("guess-note").textContent = at < total
       ? `Word ${at + 1} of ${total}${changed ? `, ${changed} corrected so far` : ""}`
       : `All ${total} decided, ${changed} of them corrected.`;
-    $("teach-note").textContent = at < total ? "Enter agrees. ← goes back." : "";
+    $("teach-note").textContent = at < total ? "Enter or → moves on. ← goes back." : "";
     $("train").hidden = at < total;
 
     if (at >= total) {
@@ -333,10 +333,13 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
         return `<button type="button" data-band="${band}" class="${band === 0 ? "cut " : ""}${isGuess ? "guessed" : ""}"` +
           `${picked ? ' aria-pressed="true"' : ""}>${band === 0 ? "cut" : band}</button>`;
       }).join("")}</div>` +
+      `<p class="chose">${!guess ? "" : you
+        ? `Yours: <b>${you.verdict === "cut" ? "cut" : you.score}</b>. Next keeps it.`
+        : `Next agrees with the answer above: <b>${guess.verdict === "cut" ? "cut" : guess.score}</b>.`}</p>` +
       `<input class="note" id="card-note" type="text" placeholder="why, if it matters" value="${safe(you && you.note)}" aria-label="Why, for ${safe(row.word)}">` +
       `<div class="doing">` +
-      `<button type="button" class="btn primary" data-go="agree"${guess ? "" : " disabled"}>Agree${guess ? ` — ${guess.verdict === "cut" ? "cut" : guess.score}` : ""}</button>` +
       `<button type="button" class="btn quiet" data-go="back"${at ? "" : " disabled"}>← Back</button>` +
+      `<button type="button" class="btn primary" data-go="next"${guess ? "" : " disabled"}>Next →</button>` +
       `</div>`;
     describe(row);
     const next = round.items[at + 1];
@@ -357,15 +360,28 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
       `<p class="seen">${row.year ? `Last in a New York Times puzzle in ${row.year}` : "Never used in a New York Times puzzle"}</p>`;
   }
 
-  /* Settle the word on screen and move on. A score of 0 is a cut; anything else keeps it. */
-  function settle(score) {
+  const noteNow = () => ($("card-note") ? $("card-note").value.trim() : "");
+  const mark = (item) => {
+    item.changed = item.you.verdict !== item.guess.verdict ||
+      (item.you.verdict === "keep" && item.you.score !== item.guess.score) || Boolean(item.you.note);
+  };
+
+  /* Picking a band records what you think and stays on the word. A score of 0 is a cut. */
+  function choose(score) {
     const item = round.items[round.at];
     if (!item || !item.guess) return;
-    const note = $("card-note") ? $("card-note").value.trim() : "";
-    const verdict = score === 0 ? "cut" : "keep";
-    item.you = { verdict, score, note };
-    item.changed = verdict !== item.guess.verdict ||
-      (verdict === "keep" && score !== item.guess.score) || Boolean(note);
+    item.you = { verdict: score === 0 ? "cut" : "keep", score, note: noteNow() };
+    mark(item);
+    drawCard();
+  }
+
+  /* Next moves on, taking what you picked, or the answer on the card if you picked nothing. */
+  function advance() {
+    const item = round.items[round.at];
+    if (!item || !item.guess) return;
+    if (!item.you) item.you = { verdict: item.guess.verdict, score: item.guess.verdict === "cut" ? 0 : item.guess.score, note: "" };
+    item.you.note = noteNow();
+    mark(item);
     round.at++;
     drawCard();
   }
@@ -421,15 +437,15 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
   $("card").addEventListener("click", (event) => {
     const band = event.target.closest("button[data-band]");
     if (band) {
-      settle(Number(band.dataset.band));
+      choose(Number(band.dataset.band));
       return;
     }
     const go = event.target.closest("button[data-go]");
     if (!go) return;
-    if (go.dataset.go === "agree") {
-      const guess = round.items[round.at].guess;
-      settle(guess.verdict === "cut" ? 0 : guess.score);
-    } else if (round.at > 0) {
+    if (go.dataset.go === "next") advance();
+    else if (round.at > 0) {
+      const item = round.items[round.at];
+      if (item && item.you) item.you.note = noteNow(); // keep what was typed before stepping away
       round.at--;
       drawCard();
     }
@@ -438,11 +454,10 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
   document.addEventListener("keydown", (event) => {
     if ($("step-teach").hidden || event.ctrlKey || event.metaKey || event.altKey) return;
     const typing = event.target instanceof Element && event.target.matches("input, textarea, select");
-    if (event.key === "Enter" && round && round.at < round.items.length) {
-      const guess = round.items[round.at].guess;
-      if (!guess) return;
+    if ((event.key === "Enter" || (event.key === "ArrowRight" && !typing)) && round && round.at < round.items.length) {
+      if (!round.items[round.at].guess) return;
       event.preventDefault();
-      settle(guess.verdict === "cut" ? 0 : guess.score);
+      advance();
     } else if (event.key === "ArrowLeft" && !typing && round && round.at > 0) {
       event.preventDefault();
       round.at--;

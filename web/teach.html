@@ -55,7 +55,10 @@
   .card .bands button { font: 600 13px/1 var(--sans); min-width: 46px; padding: 9px 8px; border: 1px solid var(--rule);
     border-radius: 8px; background: var(--ground); color: var(--ink); cursor: pointer; }
   .card .bands button:hover { border-color: var(--ink); }
-  .card .bands button.guessed { border-color: var(--ink); border-width: 2px; }
+  .card .bands button.guessed { border-color: var(--ink); border-width: 2px; } /* what the rules said */
+  .card .bands button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); } /* what you said */
+  .card .bands button[aria-pressed="true"].cut { background: var(--danger); border-color: var(--danger); color: var(--ground); }
+  .card .chose { margin: 0; font-size: 13.5px; color: var(--muted); }
   .card .bands button.cut { color: var(--danger); }
   .card .note { width: min(360px, 100%); padding: 7px 10px; border: 1px solid var(--rule); border-radius: 8px;
     background: var(--ground); color: inherit; font: 14px var(--sans); }
