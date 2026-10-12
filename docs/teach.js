@@ -256,7 +256,9 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     const byWord = new Map();
     for (const result of results) {
       if (!result || result.error) continue;
-      for (const verdict of result) byWord.set(String(verdict.word).toUpperCase(), verdict);
+      // Rules written for the old hundred draw answers in hundreds: a 40 means a 4 here. The page
+      // keeps one scale whatever the rules say, so the card and the Agree button never show a 40.
+      for (const verdict of result) byWord.set(String(verdict.word).toUpperCase(), { ...verdict, score: onTen(verdict.score) });
     }
     const failed = results.filter((result) => result && result.error);
     return { byWord, error: failed.length ? failed[0].error : null };
@@ -329,6 +331,13 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   }
   const definitionOf = (word) => fileFor("defs", word, window.FILLMEIN_DEFS_VERSION).then((file) => file[word] || "");
   const cluesFor = (word) => fileFor("pastclues", word, window.FILLMEIN_PAST_VERSION).then((file) => file[word] || []);
+
+  /* Any score onto the site's ten: a hundred-scale answer is divided, anything else is rounded and
+     held inside the scale. */
+  const onTen = (score) => {
+    const n = Number(score) || 0;
+    return n > 10 ? Math.max(1, Math.min(10, Math.round(n / 10))) : Math.max(0, Math.min(10, Math.round(n)));
+  };
 
   const BANDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // cut on the left, the best on the right
 
