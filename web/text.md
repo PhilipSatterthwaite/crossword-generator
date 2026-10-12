@@ -5,7 +5,7 @@
 //
 // How the text is written:
 //   A blank line starts a new paragraph.
-//   **bold**  and  [a link](privacy.html)  work anywhere.
+//   **bold**  and  [a link](privacy)  work anywhere.
 //   Lines starting with "- " become a bulleted list.
 //   "## " and "### " are headings. [[contents]] becomes a list of that block's ## headings.
 //   A paragraph starting with "<" is markup and is passed through untouched.
@@ -87,14 +87,14 @@ Welcome to *fillmein*
 [home.welcome.body]
 Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them still seems insurmountable to many. It's really freaking hard to fill a grid with diverse and interesting words. Even today with powerful computers at our fingertips, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made ***fillmein***, a completely free crossword constructing page that runs in your web browser!
 
-If you're new to this, check out the [How to make a crossword](guide.html) guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please [contact](contact.html) us. This website is still in its early test phase, and we'd love to make improvements that matter to you!
+If you're new to this, check out the [How to make a crossword](guide) guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please [contact](contact) us. This website is still in its early test phase, and we'd love to make improvements that matter to you!
 
 Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!
 
 
 // A short note under the welcome. The privacy page has the whole story; keep this one in step with it.
 [home.privacy]
-**Your privacy.** Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The [privacy page](privacy.html) has the rest.
+**Your privacy.** Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The [privacy page](privacy) has the rest.
 
 
 // ============================================================ the guide
@@ -310,7 +310,7 @@ to delete your account.
 Deleting the account removes it and everything stored in it, on every device, for good.
 
 [privacy.end]
-Questions about any of this go to our team on the [Contact](contact.html) page.
+Questions about any of this go to our team on the [Contact](contact) page.
 
 
 // ============================================================ the contact page
@@ -355,7 +355,7 @@ Not found · fillmein
 That page isn't here
 
 [notfound.body]
-The address may be mistyped, or the page may have moved. A puzzle shared with you opens from its own link, which starts with **fillmein.org/solve.html**.
+The address may be mistyped, or the page may have moved. A puzzle shared with you opens from its own link, which starts with **fillmein.org/solve**.
 
 
 // ============================================================ the grid page
@@ -424,7 +424,7 @@ Go through a list one word at a time: pick a length, and each word comes up with
 [lists.other]
 Train a model on your decisions →
 
-// ------------------------------------------------ the Train page (the build makes it from lists.html)
+// ------------------------------------------------ the Train page (the build makes it from lists)
 
 [train.title]
 Train a list · fillmein
@@ -475,7 +475,7 @@ Clues follow the grid you build on the Grid tab. Build or fill one there, then c
 Click a square to jump to its clue; click again for the other direction. Press Enter in a clue to move to the next one.
 
 [clues.note.next]
-When the clues are done, name and download the puzzle on the [Export](export.html) tab.
+When the clues are done, name and download the puzzle on the [Export](export) tab.
 
 [clues.note.past]
 A finished answer's box lists clues New York Times puzzles have used for it, most used first; type to narrow them, and pick one to start from. They come from Saul Pwanson's [xd crossword corpus](https://xd.saul.pw/).

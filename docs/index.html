@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-eqpqvKEN0fCFzeRuYxpjROvjP7lQqRpUVUs9I5Ydwts='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-3KwiL7FTKNb2td2lGa9vnfQAy32JOaZZRJuXjrd+D/A='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -154,7 +154,7 @@
       <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">Keep working</h2></div>
       <p id="no-puzzles">Puzzles you start show up here, so you can pick up where you left off.</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
-      <a id="manage-link" class="btn quiet" href="puzzles.html" hidden>Manage puzzles and folders</a>
+      <a id="manage-link" class="btn quiet" href="puzzles" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
       <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> to save your puzzles to your account and pick them up on any device. Until then they're saved in this browser.</p>
       <p class="note" data-signed-in hidden>Saved to your account, so they're here on every device you sign in on.</p>
@@ -173,35 +173,35 @@
         <p id="quick-first" class="note" hidden>You don't have a word list of your own yet, so the first word you add starts one: the built-in list plus the words you add. Pick it for a puzzle from the List menu on the Grid page.</p>
         <p id="quick-message" class="quick-message" role="alert"></p>
         <div id="quick-recent" class="quick-recent" hidden></div>
-        <p class="note"><a href="lists.html">Sort, filter and edit whole lists</a></p>
+        <p class="note"><a href="lists">Sort, filter and edit whole lists</a></p>
       </form>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
       <div class="choice-head"><span class="choice-num">4</span><h2 id="guide-title">How to make a crossword</h2></div>
       <p>New to constructing? Our step-by-step guide takes you from an empty grid to a finished puzzle.</p>
-      <a class="btn" href="guide.html">Read the guide</a>
+      <a class="btn" href="guide">Read the guide</a>
     </section>
   </main>
 
   <section class="welcome" aria-labelledby="welcome-title">
     <h2 id="welcome-title">Welcome to <i>fillmein</i></h2>
     <p>Crossword puzzles have existed for over 100 years, but the barrier to entry for creating them still seems insurmountable to many. It's really freaking hard to fill a grid with diverse and interesting words. Even today with powerful computers at our fingertips, grid-filling software programs are quirky and unreliable, and most importantly they sit behind a paywall. That's why we made <b><i>fillmein</i></b>, a completely free crossword constructing page that runs in your web browser!</p>
-    <p>If you're new to this, check out the <a href="guide.html">How to make a crossword</a> guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please <a href="contact.html">contact</a> us. This website is still in its early test phase, and we'd love to make improvements that matter to you!</p>
+    <p>If you're new to this, check out the <a href="guide">How to make a crossword</a> guide to walk you through the process and provide some helpful tips. We hope that veteran constructors will find everything they need on this page. If something isn't up to snuff or if you'd like to see some new features, please <a href="contact">contact</a> us. This website is still in its early test phase, and we'd love to make improvements that matter to you!</p>
     <p>Whether you're making something fun for your friends or looking to publish your puzzle in a newspaper, this site aims to make the process as fun and painless as possible. Happy puzzling!</p>
   </section>
 
-  <p class="privacy-note"><b>Your privacy.</b> Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The <a href="privacy.html">privacy page</a> has the rest.</p>
+  <p class="privacy-note"><b>Your privacy.</b> Your puzzles and word lists are yours and are not shared with anyone. We never sell your data. The only personal details we keep come from signing in: your email, and your name if you use Google. We also count visits with Google Analytics and log errors so we can fix them. The <a href="privacy">privacy page</a> has the rest.</p>
 
-  <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
+  <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
 <script src="filler.js?v=f7bf33bddc"></script>
 <script src="importers.js?v=9a8eef9d6b"></script>
-<script src="store.js?v=bdd69993da"></script>
+<script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=9fd41995f3"></script>
-<script type="module" src="account.js?v=55092d7575"></script>
+<script type="module" src="account.js?v=e777c17977"></script>
 <script>
 (() => {
   "use strict";
@@ -273,7 +273,7 @@
       if (grid) thumb.append(thumbnail(grid));
       const text = document.createElement("div");
       const link = document.createElement("a");
-      link.href = `grid.html?p=${encodeURIComponent(puzzle.id)}`;
+      link.href = `grid?p=${encodeURIComponent(puzzle.id)}`;
       link.textContent = title;
       const info = document.createElement("div");
       info.className = "meta";
@@ -285,7 +285,7 @@
   }
 
   $("start-new").addEventListener("click", () => {
-    location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+    location.href = `grid?p=${encodeURIComponent(S.create())}`;
   });
   $("open-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];
@@ -293,7 +293,7 @@
     if (!file) return;
     try {
       const puzzle = window.GridImport.read(file.name, await file.arrayBuffer());
-      location.href = `grid.html?p=${encodeURIComponent(S.importPuzzle(puzzle))}`;
+      location.href = `grid?p=${encodeURIComponent(S.importPuzzle(puzzle))}`;
     } catch (error) {
       $("home-status").textContent = error.message || "That file couldn't be opened.";
     }

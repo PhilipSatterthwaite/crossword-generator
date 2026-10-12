@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-SGkeGB543DCkm6rW19Z+cijx+E6FTtS1rf3lV51tXJs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-bapJ5sgsP1EiaXc4e298ceE3ffZ8qTIYaZurPtkJvqU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -389,18 +389,18 @@
 <body>
 <div class="page">
   <header class="topbar">
-    <a class="wordmark-link" href="index.html" aria-label="fillmein home">
+    <a class="wordmark-link" href="/" aria-label="fillmein home">
       <span class="wordmark" aria-hidden="true">
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
     <h1 class="sr-only">Grid</h1>
-    <a class="back-link" href="index.html"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>All puzzles</a>
+    <a class="back-link" href="/"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>All puzzles</a>
     <input id="puzzle-title" class="puzzle-title" type="text" placeholder="Name your puzzle" aria-label="Puzzle title" autocomplete="off" maxlength="120">
     <nav class="tabs" aria-label="Pages">
-      <a class="tab" href="grid.html" aria-current="page">Grid</a>
-      <a class="tab" href="clues.html">Clues <span class="tab-count" data-count="clues"></span></a>
-      <a class="tab" href="export.html">Export</a>
+      <a class="tab" href="grid" aria-current="page">Grid</a>
+      <a class="tab" href="clues">Clues <span class="tab-count" data-count="clues"></span></a>
+      <a class="tab" href="export">Export</a>
     </nav>
     <div class="account" data-account></div>
   </header>
@@ -409,7 +409,7 @@
     <h2>That puzzle isn't in this browser</h2>
     <p>The link names a puzzle this browser doesn't have. If it's in your account, sign in and it opens here as soon as it arrives. If it was deleted, the link is dead.</p>
     <div class="actions">
-      <a class="btn primary" href="puzzles.html">My puzzles</a>
+      <a class="btn primary" href="puzzles">My puzzles</a>
       <button type="button" id="start-fresh" class="btn">Start a new puzzle</button>
     </div>
   </section>
@@ -552,7 +552,7 @@
   </section>
 
   <p class="note">Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2023), the list many constructors load into Crossfire, where 50 is ordinary fill, 60 and up is lively and under 50 is weak. His list gives hundreds of thousands of words a flat 50, obscure and everyday alike, so each score is then nudged by popularity: up to 10 points for words everyone knows, down as much as 20 for words almost nobody uses. Popularity comes from everyday-English word frequencies (wordfreq by Robyn Speer, CC BY-SA 4.0) and, counting for less, how often a word has appeared in published crosswords. The 9,357 published answers his list lacks are unvetted and score 40 at most. "Allow popular words below it" lets autofill and word options also use words under the minimum that are popular: everyday single words that score at least 40, since they help grids fill. Entries you ink completely, like theme answers, don't need to be in the list. The NYT answers list holds only answers that have appeared in New York Times puzzles from 2000 to 2023: each keeps its score here, and those Broda's list lacks score 50.</p>
-  <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
+  <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
 <dialog id="lists-dialog" class="lists-dialog" aria-labelledby="lists-title">
@@ -581,7 +581,7 @@
       <p id="edits-summary" class="lists-empty"></p>
       <ul id="edit-rows" class="list-rows"></ul>
       <button type="button" id="restore-edits" class="btn quiet small" hidden>Put every word back</button>
-      <p class="lists-note"><a href="lists.html" target="_blank" rel="noopener">Sort, filter and edit whole lists on the Word lists page</a></p>
+      <p class="lists-note"><a href="lists" target="_blank" rel="noopener">Sort, filter and edit whole lists on the Word lists page</a></p>
     </section>
 
     <section>
@@ -597,10 +597,10 @@
 <script src="words.js?v=c65d859382"></script>
 <script src="filler.js?v=f7bf33bddc"></script>
 <script src="designer.js?v=eb12a1ed71"></script>
-<script src="store.js?v=bdd69993da"></script>
+<script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=9fd41995f3"></script>
-<script type="module" src="account.js?v=55092d7575"></script>
+<script type="module" src="account.js?v=e777c17977"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>
 (() => {
@@ -616,7 +616,7 @@
     for (const part of document.querySelectorAll(".tabs, .controls, .bench, .theme, .tally, .entries, .note, #puzzle-title")) part.hidden = true;
     $("no-puzzle").hidden = false;
     $("start-fresh").addEventListener("click", () => {
-      location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+      location.href = `grid?p=${encodeURIComponent(S.create())}`;
     });
     window.addEventListener("fillmein:changed", (event) => {
       if (event.detail.id === wanted && S.entries()[wanted]) location.reload();

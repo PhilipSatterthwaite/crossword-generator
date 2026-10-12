@@ -1,5 +1,5 @@
 /* fillmein's saved puzzles, shared by every page. Each puzzle has an id, carried in the page's address
-   (grid.html?p=ID), and is saved in three parts so tabs open side by side never overwrite each other:
+   (grid?p=ID), and is saved in three parts so tabs open side by side never overwrite each other:
    the Grid page saves the grid, the Clues page the clues, the Export page the puzzle's details. An index
    lists the puzzles for the home page. Pages redraw when another tab (or the Back button) changes their
    puzzle. Everything is saved in this browser; account.js copies it to a signed-in account and back.
@@ -10,7 +10,7 @@
   const INDEX = "fillmein:puzzles";
   const SIGNED_IN = "fillmein:signed-in"; // the account signed in here, as account.js last saw it
   const META_FIELDS = ["title", "author", "copyright", "notes"];
-  const PAGES = ["grid.html", "clues.html", "export.html"];
+  const PAGES = ["grid", "clues", "export"];
 
   const read = (key) => {
     try { return JSON.parse(localStorage.getItem(key)); } catch (error) { return null; }

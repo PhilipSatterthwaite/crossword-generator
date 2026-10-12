@@ -235,7 +235,7 @@ def main():
         shutil.copyfile(HERE / name, SITE / name)
     # The Train page is the Word lists page with its own words, telling listtool.js which it is.
     lists = (HERE / "lists.html").read_text(encoding="utf-8")
-    train = lists.replace('<body data-page="edit">', '<body data-page="train">').replace('href="train.html"', 'href="lists.html"')
+    train = lists.replace('<body data-page="edit">', '<body data-page="train">').replace('href="train"', 'href="lists"')
     train = re.sub(r"\{\{lists\.(title|description|social\.title|social\.description|heading|lead|other)(\|\w+)?\}\}", r"{{train.\1\2}}", train)
     (SITE / "train.html").write_text(train, encoding="utf-8")
 
@@ -290,7 +290,7 @@ def main():
     for name in PAGES:
         if name == "404.html":
             continue
-        target = "/" if name == "index.html" else f"/{name}"
+        target = "/" if name == "index.html" else f"/{name[:-len('.html')]}"  # addresses go without .html
         (moved / name).write_text(
             f'<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url={target}">\n'
             f'<link rel="canonical" href="https://{DOMAIN}{target}">\n<title>This page has moved</title>\n'

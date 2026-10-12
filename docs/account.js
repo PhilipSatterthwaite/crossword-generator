@@ -37,6 +37,14 @@ const RETRY_FIRST = 5000; // ms before a failed write is tried again; each failu
 const RETRY_MOST = 5 * 60 * 1000;
 
 const S = window.GridfillStore;
+
+/* Addresses without ".html": the server answers /grid as well as /grid.html, so an old link or
+   bookmark shows the short form once the page has loaded, without a reload. */
+const pageName = () => (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
+if (/\.html$/.test(location.pathname) && !/(^|\/)404\.html$/.test(location.pathname)) {
+  const clean = location.pathname.replace(/(^|\/)index\.html$/, "$1").replace(/\.html$/, "");
+  history.replaceState(history.state, "", clean + location.search + location.hash);
+}
 const app = initializeApp(CONFIG);
 const auth = getAuth(app);
 
@@ -183,8 +191,8 @@ function followAccount(account) {
     if (entry.owner === was || entry.owner === account) touched = true;
     if (!account && S.synced(pid, entry)) S.forget(pid);
   }
-  const page = location.pathname.split("/").pop() || "index.html";
-  const showsPuzzles = S.current() || S.wanted() || page === "index.html" || page === "puzzles.html";
+  const page = pageName();
+  const showsPuzzles = S.current() || S.wanted() || page === "index" || page === "puzzles";
   if (was !== account && touched && showsPuzzles) location.reload();
 }
 
@@ -253,7 +261,7 @@ async function publishState(pid) {
   return snapshot.exists() ? snapshot.data() : null;
 }
 
-const solveUrl = (pid) => new URL(`solve.html?p=${encodeURIComponent(pid)}`, location.href).href;
+const solveUrl = (pid) => new URL(`solve?p=${encodeURIComponent(pid)}`, location.href).href;
 
 // --- taking an account away ---
 
@@ -413,8 +421,7 @@ async function signOutHere() {
   if (account && sent) forgetPuzzlesOf(account);
   // Whatever couldn't be sent stays, out of sight until the account signs in here again.
   writeAccount(sent ? null : account);
-  const page = location.pathname.split("/").pop();
-  if (page && page !== "index.html") location.href = "index.html";
+  if (pageName() !== "index") location.href = "/";
   else location.reload(); // the home page's list of puzzles has changed
 }
 

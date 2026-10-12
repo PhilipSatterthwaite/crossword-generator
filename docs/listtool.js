@@ -1,5 +1,5 @@
-/* The Word lists page (lists.html) and the Train page (train.html, which the site build makes from
-   lists.html): one word at a time, a table, and on the Train page a model that learns from the
+/* The Word lists page (lists) and the Train page (train, which the site build makes from
+   lists): one word at a time, a table, and on the Train page a model that learns from the
    decisions. document.body.dataset.page says which: "edit" or "train". */
 (() => {
   "use strict";

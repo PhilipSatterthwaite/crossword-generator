@@ -153,7 +153,7 @@
       <div class="choice-head"><span class="choice-num">2</span><h2 id="keep-title">{{home.keep.heading|line}}</h2></div>
       <p id="no-puzzles">{{home.keep.empty|line}}</p>
       <ul id="puzzles" class="puzzles" hidden></ul>
-      <a id="manage-link" class="btn quiet" href="puzzles.html" hidden>Manage puzzles and folders</a>
+      <a id="manage-link" class="btn quiet" href="puzzles" hidden>Manage puzzles and folders</a>
       <p id="home-status" class="home-status" role="status"></p>
       <p class="note" data-signed-out><button type="button" class="link-button" data-sign-in>Sign in</button> {{home.keep.signedout|line}}</p>
       <p class="note" data-signed-in hidden>{{home.keep.signedin|line}}</p>
@@ -172,14 +172,14 @@
         <p id="quick-first" class="note" hidden>{{home.quick.first|line}}</p>
         <p id="quick-message" class="quick-message" role="alert"></p>
         <div id="quick-recent" class="quick-recent" hidden></div>
-        <p class="note"><a href="lists.html">{{home.quick.editor|line}}</a></p>
+        <p class="note"><a href="lists">{{home.quick.editor|line}}</a></p>
       </form>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
       <div class="choice-head"><span class="choice-num">4</span><h2 id="guide-title">{{home.guide.heading|line}}</h2></div>
       <p>{{home.guide.body|line}}</p>
-      <a class="btn" href="guide.html">Read the guide</a>
+      <a class="btn" href="guide">Read the guide</a>
     </section>
   </main>
 
@@ -190,7 +190,7 @@
 
   <p class="privacy-note">{{home.privacy|line}}</p>
 
-  <footer class="site-foot"><a href="guide.html">How to make a crossword</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></footer>
+  <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
 <script src="filler.js"></script>
@@ -270,7 +270,7 @@
       if (grid) thumb.append(thumbnail(grid));
       const text = document.createElement("div");
       const link = document.createElement("a");
-      link.href = `grid.html?p=${encodeURIComponent(puzzle.id)}`;
+      link.href = `grid?p=${encodeURIComponent(puzzle.id)}`;
       link.textContent = title;
       const info = document.createElement("div");
       info.className = "meta";
@@ -282,7 +282,7 @@
   }
 
   $("start-new").addEventListener("click", () => {
-    location.href = `grid.html?p=${encodeURIComponent(S.create())}`;
+    location.href = `grid?p=${encodeURIComponent(S.create())}`;
   });
   $("open-file").addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];
@@ -290,7 +290,7 @@
     if (!file) return;
     try {
       const puzzle = window.GridImport.read(file.name, await file.arrayBuffer());
-      location.href = `grid.html?p=${encodeURIComponent(S.importPuzzle(puzzle))}`;
+      location.href = `grid?p=${encodeURIComponent(S.importPuzzle(puzzle))}`;
     } catch (error) {
       $("home-status").textContent = error.message || "That file couldn't be opened.";
     }
