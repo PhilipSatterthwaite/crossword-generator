@@ -34,7 +34,7 @@
 
   const EXAMPLE = {
     intro: `You judge entries for a crossword word list. For each word, decide whether it earns a place in a
-published American crossword, and if so what it is worth.`,
+published American crossword, and if so what its score is.`,
     rules: `Keep a word when a solver would recognise it on sight and not resent it: ordinary vocabulary, real
 phrases people actually say, well-known names, titles and brands.
 
