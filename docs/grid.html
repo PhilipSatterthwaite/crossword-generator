@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-rWPoYA81ujtkkpYo2tO/fd7ufYiAPTd1cZhlSqjS7WM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-sC0Ex/Fii8GZP88ucbnlKSnJbhsQyLi+03rpvTtWHFE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -142,6 +142,9 @@
   .fill { display: grid; gap: 10px; padding-bottom: 14px; border-bottom: 1.5px solid var(--ink); }
   .fill-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
   .panel-status { flex: none; margin: 0; font-size: 13px; }
+  .status-bar { flex: 1 1 auto; align-self: center; max-width: 360px; height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+  .status-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--ink); transition: width 0.25s linear; }
+  .status:has(.status-bar)::before { display: none; }
   .blocks .fill-settings .btn { margin-right: 4px; }
   .fill-settings { gap: 8px 10px; font-size: 13px; }
   .fill-settings .range input { width: 100px; }
@@ -1182,6 +1185,27 @@
   function setStatus(state, text) {
     statusEl.dataset.state = state;
     statusEl.textContent = text;
+  }
+
+  /* While a design or fill runs, the status line is just a bar: how much of the time allowed has
+     gone. The next message replaces it. */
+  function setProgress(label, share) {
+    let bar = statusEl.querySelector(".status-bar");
+    if (!bar) {
+      bar = document.createElement("span");
+      bar.className = "status-bar";
+      bar.setAttribute("role", "progressbar");
+      bar.setAttribute("aria-valuemin", "0");
+      bar.setAttribute("aria-valuemax", "100");
+      bar.append(document.createElement("i"));
+      statusEl.replaceChildren(bar);
+    }
+    statusEl.dataset.state = "busy";
+    const percent = Math.max(0, Math.min(100, Math.round(100 * share)));
+    bar.setAttribute("aria-label", label);
+    bar.setAttribute("aria-valuenow", String(percent));
+    bar.title = label;
+    bar.firstChild.style.width = `${percent}%`;
   }
 
   // --- word options for the selected entry ---
@@ -2360,7 +2384,7 @@
     pencil.fill("");
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
-    setStatus("busy", floor < wanted ? `Filling with words down to ${floor}…` : "Filling…");
+    setProgress(floor < wanted ? `Filling with words down to ${floor}` : "Filling", 0);
     const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
     runner.fill(
       rows,
@@ -2369,7 +2393,7 @@
         applyRows(partial, false);
         render();
         const lowered = floor < wanted ? `, words down to ${floor}` : "";
-        setStatus("busy", `Filling… ${stats.seconds.toFixed(1)} s of ${fillOptions.timeLimit}, ${plural(stats.failures, "backtrack")}${lowered}`);
+        setProgress(lowered ? `Filling${lowered}` : "Filling", stats.seconds / fillOptions.timeLimit);
       },
       (result) => {
         running = false;
@@ -2408,7 +2432,7 @@
     const timeLimit = Math.min(600, Math.max(15, Number($("design-time").value) || 60));
     running = true;
     updateButtons();
-    setStatus("busy", "Designing a grid…");
+    setProgress("Designing", 0);
     // What's on the grid stays: its blocks, and every inked word. Theme entries already inked
     // in full are left where they are; the designer lays the rest out around them.
     runner.design(
@@ -2427,8 +2451,7 @@
         allowPopular: allowPopularEl.checked,
       },
       (progress) => {
-        const found = progress.best ? `, best fills ${progress.best.distinct} ways` : "";
-        setStatus("busy", `Designing… ${progress.elapsed.toFixed(0)} s of ${timeLimit}, ${plural(progress.stats.screened, "pattern")} tried${found}`);
+        setProgress("Designing", progress.elapsed / timeLimit);
       },
       (result) => {
         running = false;
