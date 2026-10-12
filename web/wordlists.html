@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{wordlists.title|plain}}</title>
+<meta name="description" content="{{wordlists.description|plain}}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="fillmein">
+<meta property="og:title" content="{{wordlists.title|plain}}">
+<meta property="og:description" content="{{wordlists.description|plain}}">
+<meta property="og:image" content="https://fillmein.org/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { margin: 0; }
+  .wordmark-link { color: inherit; text-decoration: none; }
+  h1 { margin: 0; font: 600 34px / 1.15 var(--serif); }
+
+  /* The word lists, kept like the puzzle files: a toolbar for what to do with the one picked, and a
+     list of them to pick from, sortable by any column. */
+  .manager { border: 1px solid var(--rule); border-radius: 18px; background: var(--cell); overflow: hidden; box-shadow: 0 10px 28px rgb(0 0 0 / 0.07); }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
+  .toolbar .btn { padding: 7px 13px; border-radius: 999px; font-size: 13px; }
+  .toolbar label.btn { position: relative; display: inline-block; cursor: pointer; }
+  .toolbar label.btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .toolbar label.btn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .toolbar .divider { width: 1px; height: 20px; margin: 0 3px; background: var(--rule); }
+  .columns, .item { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) 96px 80px; align-items: center; gap: 12px; }
+  .columns { padding: 8px 16px; border-bottom: 1px solid var(--line-soft); }
+  .columns button { padding: 0; border: 0; background: none; font: 700 11px / 1 var(--sans); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); text-align: left; cursor: pointer; }
+  .columns button[aria-sort="ascending"]::after { content: " ↑"; }
+  .columns button[aria-sort="descending"]::after { content: " ↓"; }
+  .items { list-style: none; margin: 0; padding: 8px; min-height: 200px; }
+  .items:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+  .item { padding: 10px 12px; border-radius: 14px; cursor: default; user-select: none; }
+  .item:hover { background: var(--hover); }
+  .item[aria-selected="true"] { background: var(--word); box-shadow: inset 0 0 0 2px var(--focus); }
+  .item .name { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+  .item .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .name input { width: 100%; padding: 4px 6px; border: 1px solid var(--ink); border-radius: 4px; font: 600 14px var(--sans); }
+  .item .cell { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tag { padding: 1px 6px; border-radius: 999px; background: var(--chip); font: 500 11px / 1.5 var(--sans); color: var(--muted); white-space: nowrap; }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 16px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--muted); }
+  .statusbar .error { color: var(--danger); }
+  @media (max-width: 640px) {
+    .columns, .item { grid-template-columns: minmax(0, 1fr) 80px; }
+    .columns button:nth-child(2), .columns button:nth-child(4), .item .when, .item .edits { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark-link" href="/" aria-label="fillmein home">
+      <span class="wordmark" aria-hidden="true">
+        <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
+      </span>
+    </a>
+    <div class="account" data-account></div>
+  </header>
+
+  <h1>{{wordlists.heading|line}}</h1>
+
+  <div class="manager">
+    <div class="toolbar">
+      <button type="button" id="new-list" class="btn primary">New list</button>
+      <label class="btn" title="A word list file: one word a line, with a score after it if you like">Load a file…<input type="file" id="load-file" accept=".txt,.dict,.csv,text/plain"></label>
+      <span class="divider" aria-hidden="true"></span>
+      <button type="button" id="edit" class="btn" disabled>Edit</button>
+      <button type="button" id="train" class="btn" disabled>Train</button>
+      <button type="button" id="rename" class="btn quiet" disabled>Rename</button>
+      <button type="button" id="duplicate" class="btn quiet" disabled>Duplicate</button>
+      <button type="button" id="remove" class="btn quiet danger" disabled>Delete</button>
+    </div>
+    <div class="columns">
+      <button type="button" data-sort="name">Name</button><button type="button" data-sort="updated">Changed</button><button type="button" data-sort="count">Words</button><button type="button" data-sort="edits">Edits</button>
+    </div>
+    <ul id="items" class="items" role="listbox" aria-label="Word lists" tabindex="0"></ul>
+    <div class="statusbar"><span id="count"></span><span id="status"></span></div>
+  </div>
+  <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
+</div>
+
+<script src="lists.js"></script>
+<script src="confirm.js"></script>
+<script type="module" src="account.js"></script>
+<script>
+(() => {
+  "use strict";
+  const LISTS = window.FillmeinLists;
+  const $ = (id) => document.getElementById(id);
+  // The lists that come with the site: they can be edited (into a copy), trained and duplicated, never
+  // renamed or deleted. Their sizes are the built-in word list's.
+  const BUILT_INS = [
+    { id: "built-in", name: "Built-in list" },
+    { id: "nyt", name: "NYT answers" },
+  ];
+  const SORT = "fillmein:wordlists:sort";
+
+  let lists = [];      // [{id, name, count, updated, builtIn, edits}]
+  let picked = null;   // the id picked
+  let sort = { key: "updated", down: true };
+  try { sort = { ...sort, ...JSON.parse(localStorage.getItem(SORT) || "{}") }; } catch (error) { /* default */ }
+
+  const say = (text, error = false) => {
+    $("status").textContent = text;
+    $("status").className = error ? "error" : "";
+  };
+  const ago = (time) => {
+    if (!time) return "–";
+    const s = (Date.now() - time) / 1000;
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return new Date(time).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  async function load() {
+    if (!LISTS) {
+      say("Word lists need this browser's storage, which isn't available here.", true);
+      return;
+    }
+    const [mine, overrides] = await Promise.all([LISTS.all(), LISTS.overrides()]);
+    const editCount = (id) => {
+      const e = overrides[id];
+      return e ? Object.keys(e.scores || {}).length + (e.removed || []).length : 0;
+    };
+    // The site's lists' sizes, counted when the site was built (it saves loading all their words).
+    const SIZES = "BUILT_IN_COUNTS";
+    const builtInCount = (id) => (SIZES && typeof SIZES === "object" ? SIZES[id] || 0 : 0);
+    lists = [
+      ...BUILT_INS.map((b) => ({ ...b, builtIn: true, count: builtInCount(b.id), updated: 0, edits: editCount(b.id) })),
+      ...mine.map((list) => ({ id: list.id, name: list.name, count: list.count || 0, updated: list.updated || 0, basedOn: list.basedOn || "", builtIn: false, edits: editCount(list.id) })),
+    ];
+    if (picked && !lists.some((list) => list.id === picked)) picked = null;
+    render();
+  }
+
+  function sorted() {
+    const sign = sort.down ? -1 : 1;
+    const value = (list) => (sort.key === "name" ? list.name.toLowerCase() : list[sort.key] || 0);
+    return lists.slice().sort((a, b) => {
+      // The site's own lists stay at the top whatever the order.
+      if (a.builtIn !== b.builtIn) return a.builtIn ? -1 : 1;
+      const x = value(a), y = value(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * sign || a.name.localeCompare(b.name);
+    });
+  }
+
+  function render() {
+    for (const button of document.querySelectorAll("[data-sort]")) {
+      button.setAttribute("aria-sort", button.dataset.sort === sort.key ? (sort.down ? "descending" : "ascending") : "none");
+    }
+    $("items").replaceChildren(...sorted().map((list) => {
+      const li = document.createElement("li");
+      li.className = "item";
+      li.setAttribute("role", "option");
+      li.dataset.id = list.id;
+      li.setAttribute("aria-selected", String(list.id === picked));
+      const name = document.createElement("span");
+      name.className = "name";
+      name.append(Object.assign(document.createElement("span"), { textContent: list.name }));
+      if (list.builtIn) name.append(Object.assign(document.createElement("span"), { className: "tag", textContent: "comes with the site" }));
+      const cell = (className, text) => Object.assign(document.createElement("span"), { className: `cell ${className}`, textContent: text });
+      li.append(name, cell("when", list.builtIn ? "–" : ago(list.updated)), cell("size", list.count ? list.count.toLocaleString() : "–"), cell("edits", list.edits ? list.edits.toLocaleString() : "–"));
+      return li;
+    }));
+    const mine = lists.filter((list) => !list.builtIn).length;
+    $("count").textContent = `${mine} ${mine === 1 ? "list" : "lists"} of your own`;
+    const list = lists.find((l) => l.id === picked);
+    $("edit").disabled = !list;
+    $("train").disabled = !list;
+    $("duplicate").disabled = !list;
+    $("rename").disabled = !list || list.builtIn;
+    $("remove").disabled = !list || list.builtIn;
+  }
+
+  // Picking: a click picks, a double-click edits, arrows move, Enter edits, Delete deletes, F2 renames.
+  $("items").addEventListener("click", (event) => {
+    const item = event.target.closest(".item");
+    if (!item || event.target.closest("input")) return;
+    picked = item.dataset.id;
+    render();
+  });
+  $("items").addEventListener("dblclick", (event) => {
+    const item = event.target.closest(".item");
+    if (item && !event.target.closest("input")) open("lists", item.dataset.id);
+  });
+  $("items").addEventListener("keydown", (event) => {
+    if (event.target.closest("input")) return;
+    const order = sorted();
+    const at = order.findIndex((list) => list.id === picked);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = order[Math.max(0, Math.min(order.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)))];
+      if (next) { picked = next.id; render(); }
+    } else if (event.key === "Enter" && picked) open("lists", picked);
+    else if (event.key === "Delete" && picked) removePicked();
+    else if (event.key === "F2" && picked) renamePicked();
+  });
+  for (const button of document.querySelectorAll("[data-sort]")) {
+    button.addEventListener("click", () => {
+      const key = button.dataset.sort;
+      sort = sort.key === key ? { key, down: !sort.down } : { key, down: key !== "name" };
+      try { localStorage.setItem(SORT, JSON.stringify(sort)); } catch (error) { /* no storage */ }
+      render();
+    });
+  }
+
+  /* The Word lists or Train page, opened on this list. */
+  function open(page, id) {
+    const key = page === "train" ? "fillmein:train:last" : "fillmein:lists:last";
+    try { localStorage.setItem(key, JSON.stringify({ listId: id, setLength: 0 })); } catch (error) { /* it opens on its last list */ }
+    location.href = page;
+  }
+  $("edit").addEventListener("click", () => picked && open("lists", picked));
+  $("train").addEventListener("click", () => picked && open("train", picked));
+
+  $("new-list").addEventListener("click", async () => {
+    // A new list starts as the built-in one and keeps only what's changed in it.
+    const list = await LISTS.create("My word list", [], { basedOn: "built-in", count: lists.find((l) => l.id === "built-in").count || 0 });
+    picked = list.id;
+    await load();
+    say(`Made ${list.name}.`);
+    renamePicked();
+  });
+
+  $("load-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const { list, skipped } = await LISTS.add(file.name.replace(/\.[^.]+$/, ""), await file.text());
+      picked = list.id;
+      await load();
+      say(`Loaded ${list.name}: ${list.count.toLocaleString()} words${skipped ? `, ${skipped.toLocaleString()} lines skipped` : ""}.`);
+    } catch (error) {
+      say(error.message || "That file couldn't be read.", true);
+    }
+  });
+
+  $("duplicate").addEventListener("click", async () => {
+    const list = lists.find((l) => l.id === picked);
+    if (!list) return;
+    let copy;
+    if (list.builtIn) {
+      copy = await LISTS.create(`${list.name} copy`, [], { basedOn: list.id, count: list.count });
+    } else {
+      const whole = (await LISTS.all()).find((l) => l.id === list.id);
+      copy = await LISTS.create(`${list.name} copy`, whole.words || [], { basedOn: whole.basedOn || "", count: whole.count });
+    }
+    // The copy starts with the list's edits too, so it's the same list under a new name.
+    const edits = await LISTS.editsFor(list.id);
+    if (Object.keys(edits.scores).length || edits.removed.length || edits.kept.length) await LISTS.setEditsFor(copy.id, edits);
+    picked = copy.id;
+    await load();
+    say(`Made ${copy.name}.`);
+  });
+
+  function renamePicked() {
+    const list = lists.find((l) => l.id === picked);
+    const item = list && !list.builtIn ? document.querySelector(`.item[data-id="${CSS.escape(list.id)}"]`) : null;
+    if (!item) return;
+    const name = item.querySelector(".name");
+    const box = Object.assign(document.createElement("input"), { value: list.name, maxLength: 120 });
+    box.setAttribute("aria-label", `New name for ${list.name}`);
+    name.replaceChildren(box);
+    box.focus();
+    box.select();
+    let finished = false;
+    const finish = async (save) => {
+      if (finished) return;
+      finished = true;
+      const value = box.value.trim();
+      if (save && value && value !== list.name) {
+        try {
+          await LISTS.rename(list.id, value);
+          say(`Renamed to ${value}.`);
+        } catch (error) {
+          say(error.message, true);
+        }
+      }
+      await load();
+      $("items").focus();
+    };
+    box.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") finish(true);
+      else if (event.key === "Escape") finish(false);
+    });
+    box.addEventListener("blur", () => finish(true));
+  }
+  $("rename").addEventListener("click", renamePicked);
+
+  async function removePicked() {
+    const list = lists.find((l) => l.id === picked);
+    if (!list || list.builtIn) return;
+    const sure = await window.fillmeinConfirm({
+      title: `Delete ${list.name}?`,
+      text: "The list and its edits go, here and in your account. A puzzle set to fill from it goes back to the built-in list.",
+      confirm: "Delete it",
+    });
+    if (!sure) return;
+    await LISTS.remove(list.id);
+    picked = null;
+    await load();
+    say(`Deleted ${list.name}.`);
+  }
+  $("remove").addEventListener("click", removePicked);
+
+  if (LISTS) LISTS.onChange(() => load());
+  load();
+})();
+</script>
+</body>
+</html>

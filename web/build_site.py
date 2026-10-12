@@ -11,6 +11,7 @@ This adds that wrapper so the page renders the same anywhere, and copies the oth
 
 import base64
 import hashlib
+import json
 import re
 import shutil
 from html import escape
@@ -23,7 +24,7 @@ PAGE_START = '<div class="page">'
 # explore.html is written but not shipped: puzzles will be chosen for it later, rather than every
 # shared puzzle appearing there.
 PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html", "privacy.html",
-         "contact.html", "guide.html", "lists.html", "teach.html", "404.html")
+         "contact.html", "guide.html", "lists.html", "teach.html", "wordlists.html", "404.html")
 # Scripts, stylesheets and the social-preview image the pages load, copied as they are and referenced
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
@@ -224,6 +225,40 @@ def stamp(text, versions):
     return text
 
 
+# The site menu, under every page's header: where it goes, and what it says.
+NAV = (("home", "/", "Home"), ("solve", "/solve", "Solve a puzzle"), ("create", "/puzzles", "Create"),
+       ("lists", "/wordlists", "Word lists"), ("guide", "/guide", "How to make a crossword"))
+# Which menu item each page belongs under, shown as the current one.
+NAV_SECTION = {"index.html": "home", "solve.html": "solve", "puzzles.html": "create", "grid.html": "create",
+               "clues.html": "create", "export.html": "create", "wordlists.html": "lists", "lists.html": "lists",
+               "train.html": "lists", "teach.html": "lists", "guide.html": "guide"}
+LONE_HOME = re.compile(r'\s*<div class="puzzle-bar">\s*<a class="back-link" href="/">.*?</a>\s*</div>', re.DOTALL)
+
+
+def add_nav(text, name):
+    """The site menu after the page's first header, and the lone "Home" button it replaces gone."""
+    current = NAV_SECTION.get(name)
+    mark = ' aria-current="page"'
+    links = "".join(f'<a href="{href}"{mark if key == current else ""}>{label}</a>' for key, href, label in NAV)
+    text = text.replace("</header>", f'</header>\n  <nav class="site-nav" aria-label="Site">{links}</nav>', 1)
+    return LONE_HOME.sub("", text, count=1)
+
+
+def built_in_counts():
+    """How many words the built-in list and the NYT answers list hold, from web/words.js, for pages
+    that show the sizes without loading all the words."""
+    import base64
+    src = (HERE / "words.js").read_text(encoding="utf-8")
+    data = json.loads(src[src.index("{"):src.rindex(";")])
+    total = nyt = 0
+    for length, entry in data.items():
+        n = len(entry[0]) // int(length)
+        total += n
+        published = base64.b64decode(entry[3]) if len(entry) > 3 and entry[3] else b""
+        nyt += sum(bin(byte).count("1") for byte in published)
+    return {"built-in": total, "nyt": nyt}
+
+
 def main():
     page = (HERE / "grid.html").read_text(encoding="utf-8")
     head, marker, body = page.partition(PAGE_START)
@@ -269,9 +304,11 @@ def main():
     worker = stamp((HERE / "worker.js").read_text(encoding="utf-8"), versions)
     (SITE / "worker.js").write_text(worker, encoding="utf-8")
     versions["worker.js"] = version(SITE / "worker.js")
+    counts = json.dumps(built_in_counts())
     for name in PAGES + ("grid.html", "train.html"):
         path = SITE / name
         text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"').replace('"DEFS_VERSION"', f'"{defs}"')
+        text = add_nav(text, name).replace('"BUILT_IN_COUNTS"', counts)
         path.write_text(text, encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included

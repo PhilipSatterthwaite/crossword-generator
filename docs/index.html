@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-SBnGtiFQBSraDEZxLOdC+IAYn/bhNYHKbvDCVlTvS1c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-FhgAYj6ebYw/7CM/yBjElhk+rW5MOt0qQD76ybqXmXg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=f97fe2d008">
+<link rel="stylesheet" href="theme.css?v=07714ffb96">
 <style>
   body { margin: 0; }
   .home-title { margin: 0; line-height: 0; }
@@ -51,6 +51,11 @@
   .choice .btn { justify-self: start; }
   .choice .sub-head { margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); font: 600 18px / 1.2 var(--serif); }
   .list-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .choice .btn.manage { justify-self: stretch; text-align: center; padding: 10px 16px; font-size: 15px; }
+  /* The Solve box: light blue, an upload arrow over the words. */
+  .drop.blue { border-color: color-mix(in srgb, var(--pencil) 45%, transparent); background: color-mix(in srgb, var(--pencil) 10%, var(--cell)); }
+  .drop.blue:hover, .drop.blue.over { border-color: var(--pencil); background: color-mix(in srgb, var(--pencil) 17%, var(--cell)); }
+  .drop-icon { color: var(--pencil); }
   /* Word lists' two ways in, big enough to find at a glance. */
   .list-buttons.big { gap: 12px; margin-top: 4px; }
   .list-buttons.big .btn { flex: 1 1 10em; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
@@ -148,11 +153,13 @@
     </h1>
     <div class="account" data-account></div>
   </header>
+  <nav class="site-nav" aria-label="Site"><a href="/" aria-current="page">Home</a><a href="/solve">Solve a puzzle</a><a href="/puzzles">Create</a><a href="/wordlists">Word lists</a><a href="/guide">How to make a crossword</a></nav>
 
   <main class="choices">
     <section class="choice" aria-labelledby="solve-title">
       <div class="choice-head"><h2 id="solve-title">Solve a puzzle</h2></div>
-      <label class="drop" id="solve-drop" title=".puz, .ipuz or .jpz">
+      <label class="drop blue" id="solve-drop" title=".puz, .ipuz or .jpz">
+        <svg class="drop-icon" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <b>Choose or drop a puzzle file</b>
         <input type="file" id="solve-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
       </label>
@@ -187,6 +194,7 @@
         <a class="btn primary" href="lists">Edit a list</a>
         <a class="btn train" href="train">Train a list</a>
       </div>
+      <a class="btn manage" href="wordlists">Manage lists</a>
     </section>
 
     <section class="choice" aria-labelledby="guide-title">
@@ -365,6 +373,7 @@
   const LISTS = window.FillmeinLists;
   const CHOSEN = "fillmein:quick-add-list"; // the list last added to, so it comes up first next time
   const NEW_LIST = "__new";
+  const ALL_LISTS = "__all"; // every list of your own at once: the default
   // A problem in red; a word added, quietly.
   const say = (text, ok = false) => {
     $("quick-message").textContent = text;
@@ -391,10 +400,11 @@
       return;
     }
     const select = $("quick-list");
-    const keep = select.value && select.value !== NEW_LIST ? select.value : chosen();
+    const keep = select.value && select.value !== NEW_LIST ? select.value : ALL_LISTS;
     select.replaceChildren(...lists.map((list) => new Option(list.name, list.id)));
-    if (!lists.length) select.append(new Option("A new list of my own", NEW_LIST));
-    select.value = lists.some((list) => list.id === keep) ? keep : select.options[0].value;
+    if (lists.length) select.prepend(new Option(lists.length === 1 ? "All my lists (1)" : `All my lists (${lists.length})`, ALL_LISTS));
+    else select.append(new Option("A new list of my own", NEW_LIST));
+    select.value = keep === ALL_LISTS || lists.some((list) => list.id === keep) ? (lists.length ? keep : NEW_LIST) : select.options[0].value;
   }
 
   $("quick-add").addEventListener("submit", async (event) => {
@@ -419,11 +429,12 @@
         // A list of your own that starts as the built-in one and keeps only what you add to it.
         id = (await LISTS.create("My word list", [], { basedOn: "built-in", count: 0 })).id;
       }
-      await LISTS.setScore(id, word, score);
-      choose(id);
+      const targets = id === ALL_LISTS ? (await LISTS.all()).map((list) => list.id) : [id];
+      for (const target of targets) await LISTS.setScore(target, word, score);
+      if (id !== ALL_LISTS) choose(id);
       $("quick-word").value = "";
       await renderQuick();
-      say(`Added ${word}, scored ${score}.`, true);
+      say(targets.length > 1 ? `Added ${word}, scored ${score}, to all ${targets.length} of your lists.` : `Added ${word}, scored ${score}.`, true);
       $("quick-word").focus();
     } catch (error) {
       say("That word couldn't be saved. Try again.");

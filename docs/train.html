@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=f97fe2d008">
+<link rel="stylesheet" href="theme.css?v=07714ffb96">
 <style>
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
@@ -252,7 +252,7 @@
   body[data-page="train"] .sweep, body[data-page="train"] #review-view > .sets, body[data-page="train"] .bulk,
   body[data-page="train"] .grid-head, body[data-page="train"] #scroller, body[data-page="train"] #sets,
   body[data-page="train"] #status, body[data-page="train"] .key { display: none !important; }
-  .other-page { font-size: 14px; font-weight: 600; }
+  .other-page { display: inline-block; margin-top: 4px; padding: 9px 16px; font-size: 14px; text-decoration: none; }
   .review .score-line input { width: 3.6em; padding: 3px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px var(--sans); text-align: right; }
   .status { min-height: 1.4em; margin: 0; font-size: 13px; color: var(--muted); }
   .key { margin: 0; font-size: 12px; color: var(--muted); }
@@ -273,15 +273,12 @@
     </a>
     <div class="account" data-account></div>
   </header>
-
-  <div class="puzzle-bar">
-    <a class="back-link" href="/"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Home</a>
-  </div>
+  <nav class="site-nav" aria-label="Site"><a href="/">Home</a><a href="/solve">Solve a puzzle</a><a href="/puzzles">Create</a><a href="/wordlists" aria-current="page">Word lists</a><a href="/guide">How to make a crossword</a></nav>
 
   <div>
     <h1>Train a list</h1>
     <p class="lead">Swipe left (or press ←) to remove a word, right (or press →) to keep it and score it. Results shows what the model has learned from every list you've edited; once its confidence is green, it can finish the list for you.</p>
-    <p class="lead"><a class="other-page" href="lists">← Edit lists word by word</a></p>
+    <p class="lead"><a class="btn other-page" href="lists">Edit a list</a> <a class="btn quiet other-page" href="/wordlists">All word lists</a></p>
   </div>
 
   <div id="page-loading" class="page-loading-row" role="progressbar" aria-label="Loading the word list" aria-valuemin="0" aria-valuemax="100">

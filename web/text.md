@@ -29,26 +29,11 @@ fillmein · make crosswords
 [home.social.description]
 Build crosswords with a scored word list and an autofill that knows real crossword fill. Free, in your browser.
 
-[home.lede]
-Construct a crossword completely free with our automatic grid-filling software.
-
 [home.new.heading]
 Create
 
-[home.new.body]
-Begin with a blank 15×15 grid. Change the size or load an example, draw your blocks, ink your theme answers and let autofill do the rest.
-
 [home.keep.heading]
 Keep working
-
-[home.keep.empty]
-Puzzles you start show up here, so you can pick up where you left off.
-
-[home.keep.signedout]
-to save your puzzles to your account and pick them up on any device. Until then they're saved in this browser.
-
-[home.keep.signedin]
-Saved to your account, so they're here on every device you sign in on.
 
 // The "Solve a shared puzzle" card is off the home page for now (taken off 19 September 2026).
 // Its words are kept below as notes, so it can come back as it was.
@@ -64,28 +49,11 @@ Saved to your account, so they're here on every device you sign in on.
 [home.quick.heading]
 Word lists
 
-[home.quick.body]
-Quick add: put a word into one of your word lists, with a score from 0 to 100. Every puzzle that fills from that list will use it.
-
-// Shown under the form while there's no list of your own to add to yet.
-[home.quick.first]
-You don't have a word list of your own yet, so the first word you add starts one: the built-in list plus the words you add. Pick it for a puzzle from the List menu on the Grid page.
-
-// The link under the Quick add card to the full list editor.
-[home.quick.editor]
-Sort, filter and edit whole lists
-
 [home.solve.heading]
 Solve a puzzle
 
-[home.solve.body]
-Got a crossword file? Open a .puz, .ipuz or .jpz and solve it right here, no Across Lite needed. Your progress is kept in this browser.
-
 [home.guide.heading]
 How to make a crossword
-
-[home.guide.body]
-New to constructing? Our step-by-step guide takes you from an empty grid to a finished puzzle.
 
 [home.welcome.heading]
 Welcome to *fillmein*
@@ -409,7 +377,7 @@ Word scores run 0 to 100. They start from Peter Broda's scored word list (July 2
 // ============================================================ the word lists page
 
 [lists.title]
-Word lists · fillmein
+Edit a list · fillmein
 
 [lists.description]
 Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.
@@ -421,14 +389,14 @@ Word lists · fillmein
 Sort, filter, remove and rescore the words your puzzles fill from.
 
 [lists.heading]
-Word lists
+Edit a list
 
 [lists.lead]
 Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow (or swipe left) to remove it; press the right arrow (or swipe right) to keep it and say what it's worth. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. Once you've made a few hundred decisions on a mixed sample, a model can learn from them and finish the list. The Table view shows the same words as a list to filter, sort and change all at once.
 
 // The link from the editor to the Train page.
 [lists.other]
-Train a model on your decisions →
+Train a list
 
 // ------------------------------------------------ the Train page (the build makes it from lists)
 
@@ -452,7 +420,7 @@ Swipe left (or press ←) to remove a word, right (or press →) to keep it and 
 
 // The link from the Train page back to the editor.
 [train.other]
-← Edit lists word by word
+Edit a list
 
 [lists.key]
 Score: 0 to 100, as the Grid page uses it; a blue score is one you set. NYT: published answers from 2000 to 2023. Everyday: how familiar the word is in ordinary English, 0 to 100. Google: how many times Google's web corpus (a trillion words, 2006) has the word; a phrase counts as its rarest pair of words, and – means it wasn't seen. Books: how many times Google Books used the word in 2015-2019, the last years its English corpus covers (single words only). Broda: Peter Broda's own score, before the site's popularity nudge. Zipf: the word's frequency in everyday English on the Zipf scale, where 3 is one word in a million and 5 one in ten thousand. Download data gives every word with all of these and your decisions, for a spreadsheet or a model. The pattern box takes letters the word contains, or a pattern with ? for one letter and * for any run: C?T, *ING.
@@ -578,6 +546,15 @@ Make your own crossword with fillmein
 
 
 // ============================================================ my puzzles
+
+[wordlists.title]
+Word lists · fillmein
+
+[wordlists.description]
+Your word lists: make, rename, duplicate, sort and delete them, and open one to edit or train.
+
+[wordlists.heading]
+Word lists
 
 [puzzles.title]
 My puzzles · fillmein
