@@ -155,7 +155,29 @@
     try { localStorage.setItem(LAST, JSON.stringify({ listId, setLength })); } catch (error) { /* no storage */ }
   };
 
+  let wordsLoaded = false; // whether a list's words have been read in yet
+
+  /* The Train page's loading bar (see lists.html): it steps to a share of the way, then creeps on
+     toward creepTo while the next stage works. The animation is a transform, which the browser runs
+     even while this page is too busy to draw anything else. */
+  function loadingAt(share, creepTo = share) {
+    const bar = $("page-loading");
+    if (!bar || bar.hidden) return;
+    const fill = bar.firstChild;
+    const from = new DOMMatrixReadOnly(getComputedStyle(fill).transform).a || 0;
+    for (const running of fill.getAnimations()) running.cancel();
+    fill.style.animation = "none";
+    fill.style.transform = `scaleX(${creepTo})`;
+    fill.animate(
+      [{ transform: `scaleX(${from})` }, { transform: `scaleX(${share})`, offset: creepTo > share ? 0.04 : 1 }, { transform: `scaleX(${creepTo})` }],
+      { duration: creepTo > share ? 9000 : 300, easing: "cubic-bezier(0.2, 0.6, 0.3, 1)", fill: "forwards" }
+    );
+    bar.setAttribute("aria-valuenow", String(Math.round(100 * share)));
+    if (share >= 1) setTimeout(() => { bar.hidden = true; }, 350);
+  }
+
   async function loadList() {
+    loadingAt(0.5, 0.85); // building the rows is the long part
     state = await LISTS.state(listId, { everywhere: TRAIN });
     const list = chosen();
     if (!list && !isBuiltIn(listId)) listId = "built-in";
@@ -170,10 +192,13 @@
       row.spoken = spokenOf(row);
       row.scrabble = Math.round((10 * [...row.word].reduce((sum, ch) => sum + (SCRABBLE[ch] || 0), 0)) / row.len) / 10;
     }
+    loadingAt(0.85, 0.95);
+    wordsLoaded = true;
     applyEdits();
     renderWhich();
     renderSets();
     refilter();
+    loadingAt(0.95);
     setStatus("");
     focusReview();
   }
@@ -473,7 +498,8 @@
     const keptNow = history.length - removedNow;
     const verdicts = history.length ? `<p class="verdicts">This sitting: ${removedNow.toLocaleString()} removed, ${keptNow.toLocaleString()} kept or scored. Backspace undoes the last one.</p>` : "";
     if (!n) {
-      box.innerHTML = `<p class="done">${rows.length ? "No words match." : "This list has no words."}</p>`;
+      // Before the words have loaded there's nothing to say yet: the loading bar is saying it.
+      box.innerHTML = !wordsLoaded ? "" : `<p class="done">${rows.length ? "No words match." : "This list has no words."}</p>`;
       return;
     }
     if (at >= n) {
@@ -1722,6 +1748,8 @@
   // on the very first card.
   loadList().then(async () => {
     if (!TRAIN) return;
+    // The card shows now: the bar is done (a model still training on its own shows on Results).
+    setTimeout(() => loadingAt(1), 0);
     if (restoreModel()) {
       // Opened with the model as it was left; the full ranking follows in the background, and only
       // reorders the feed if no word has been decided meanwhile.

@@ -229,6 +229,13 @@
   #toggle-filters { display: none; }
   /* One page, two uses: the editor has no model; the Train page is just the card and the model. */
   body[data-page="edit"] #model, body[data-page="edit"] .train-tabs { display: none; }
+  /* The Train page's loading bar. Until the page's script takes over it creeps on its own, moved by
+     transform so it keeps going while the browser is busy reading the word data; then it steps. */
+  .page-loading { height: 6px; margin: 12px 0 4px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+  .page-loading i { display: block; height: 100%; border-radius: 3px; background: var(--ink); transform-origin: left; transform: scaleX(0.04); will-change: transform;
+    animation: page-creep 14s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
+  @keyframes page-creep { to { transform: scaleX(0.5); } }
+  body[data-page="edit"] .page-loading, .page-loading[hidden] { display: none; }
   /* The Train page in two tabs: Swipe (the list and the card) and Results (the model). */
   .train-tabs { display: flex; gap: 4px; margin: 4px 0 2px; border-bottom: 1.5px solid var(--ink); }
   .train-tabs button { min-height: 44px; padding: 8px 18px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
@@ -274,6 +281,8 @@
     <p class="lead">Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow (or swipe left) to remove it; press the right arrow (or swipe right) to keep it and say what it's worth. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. Once you've made a few hundred decisions on a mixed sample, a model can learn from them and finish the list. The Table view shows the same words as a list to filter, sort and change all at once.</p>
     <p class="lead"><a class="other-page" href="train">Train a model on your decisions →</a></p>
   </div>
+
+  <div id="page-loading" class="page-loading" role="progressbar" aria-label="Loading the words" aria-valuemin="0" aria-valuemax="100"><i></i></div>
 
   <div class="train-tabs" role="tablist" aria-label="Train">
     <button type="button" role="tab" id="tab-swipe" data-tab="swipe" aria-selected="true" aria-controls="review">Swipe</button>
@@ -449,7 +458,7 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=e777c17977"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
-<script src="listtool.js?v=8ef8e2e037"></script>
+<script src="listtool.js?v=0b49460c2f"></script>
 <script src="judge.js?v=d27ae486d9"></script>
 </body>
 </html>

@@ -56,6 +56,10 @@
     min-height: 52px; padding: 10px 22px; font-size: 17px; font-weight: 700; text-align: center; }
   .list-buttons.big .btn.train { background: var(--pencil); border-color: var(--pencil); color: #fff; }
   .list-buttons.big .btn.train:hover { filter: brightness(1.1); }
+  /* The cards' buttons stand up a little: a heavier border and a hard shadow under it, pressed flat when clicked. */
+  .choice .btn { border-width: 2px; box-shadow: 0 3px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
+  .choice .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
+  .list-buttons.big .btn.train { border-color: color-mix(in srgb, var(--pencil) 70%, black); }
   .note { font-size: 13px; }
   .soon {
     justify-self: start;
