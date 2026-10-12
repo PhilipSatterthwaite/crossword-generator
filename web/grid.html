@@ -227,7 +227,7 @@
   #theme-word::placeholder { letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--muted); }
   .theme-message { margin: 0; font-size: 13px; color: var(--muted); }
   .theme-message:empty { display: none; }
-  .theme-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .theme-list { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 0; padding: 0; list-style: none; }
   .theme-list:empty { display: none; }
   .theme-row {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 100%; padding: 5px 6px 5px 10px;
@@ -506,6 +506,19 @@
     <ul id="theme-list" class="theme-list"></ul>
   </section>
 
+  <section class="theme recommended" aria-labelledby="rec-title">
+    <div class="theme-head">
+      <h2 id="rec-title">{{grid.rec.heading|line}}</h2>
+      <p class="theme-note">{{grid.rec.note|line}}</p>
+    </div>
+    <form id="rec-form" class="theme-form" novalidate>
+      <input id="rec-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a word you'd like in it" aria-label="Recommended entry">
+      <button type="submit" class="btn small">Add</button>
+    </form>
+    <p id="rec-message" class="theme-message" role="status"></p>
+    <ul id="rec-list" class="theme-list"></ul>
+  </section>
+
   <dl class="tally">
     <div><dt>Words</dt><dd><span id="t-words" class="value">–</span><span id="t-words-cap" class="cap"></span></dd></div>
     <div><dt>3-letter words</dt><dd><span id="t-threes" class="value">–</span><span id="t-threes-cap" class="cap"></span></dd></div>
@@ -685,6 +698,9 @@
 
   let W = 15, H = 15;
   let theme = []; // theme entries: words this puzzle must hold somewhere
+  let recommended = []; // words it should hold if they fit, most wanted first
+  // The two word lists below the grid, by the name their rows and buttons carry.
+  const wordLists = { theme: () => theme, rec: () => recommended };
   // A rebus square being typed (see startRebus): its index, or -1, and the letters so far.
   let rebusAt = -1;
   let rebusText = "";
@@ -1069,13 +1085,18 @@
 
   /* Each theme entry, where it is in the grid now, and a way to ink it into the selected entry. */
   function renderTheme(complete, k) {
-    const listEl = $("theme-list");
-    const rows = theme.map((word, t) => {
+    renderWordList("theme", complete, k);
+    renderWordList("rec", complete, k);
+  }
+  function renderWordList(kind, complete, k) {
+    const listEl = $(`${kind}-list`);
+    const label = kind === "theme" ? "the theme entries" : "the recommended entries";
+    const rows = wordLists[kind]().map((word, t) => {
       const at = themeAt(word, complete);
       const penciled = at && at.slot.cells.some((i) => !ink[i]);
       const where = at
         ? `<button type="button" class="theme-where placed" data-theme-go="${slots.indexOf(at.slot)}" title="Select ${at.slot.name}">${at.slot.name}${penciled ? ", penciled" : ""}</button>`
-        : `<span class="theme-where">${running ? "being placed" : "not in the grid yet"}</span>`;
+        : `<span class="theme-where">${running ? "being placed" : kind === "rec" ? "not in the grid" : "not in the grid yet"}</span>`;
       let place = "";
       const slot = k >= 0 ? slots[k] : null;
       const rebus = isRebusTheme(word);
@@ -1089,7 +1110,7 @@
       const squares = themeParts(word);
       const letters = squares.join("").length;
       const size = squares.length === letters ? `(${letters})` : `(${letters} letters, ${squares.length} squares)`;
-      return `<li class="theme-row"><span class="theme-word">${themeHtml(word)} <span class="theme-len">${size}</span></span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="No longer a theme entry" aria-label="Remove ${word} from the theme entries">Remove</button></li>`;
+      return `<li class="theme-row" data-kind="${kind}"><span class="theme-word">${themeHtml(word)} <span class="theme-len">${size}</span></span>${where}${place}<button type="button" class="tiny drop" data-theme-drop="${t}" title="Take it off the list" aria-label="Remove ${word} from ${label}">Remove</button></li>`;
     });
     const html = rows.join("");
     if (listEl.dataset.html !== html) {
@@ -1098,33 +1119,40 @@
     }
   }
 
-  $("theme-form").addEventListener("submit", (event) => {
+  function addWord(kind, event) {
     event.preventDefault();
-    const input = $("theme-word");
-    const message = $("theme-message");
+    const input = $(`${kind === "theme" ? "theme" : "rec"}-word`);
+    const message = $(`${kind}-message`);
+    const list = wordLists[kind]();
     // Bracketed letters share a rebus square: BIG[STAR]FISH takes eight squares.
     const parts = themeParts(input.value);
     const word = themeText(parts);
     const unit = isRebusTheme(word) ? "squares" : "letters";
     if (!word) message.textContent = "Type a word to add.";
-    else if (parts.length < 3) message.textContent = `Theme entries need at least 3 ${unit}.`;
+    else if (kind === "rec" && isRebusTheme(word)) message.textContent = "A rebus entry has to have its square chosen, so it goes in Theme entries.";
+    else if (parts.length < 3) message.textContent = `Entries need at least 3 ${unit}.`;
     else if (parts.length > Math.max(W, H)) message.textContent = `${word} takes ${parts.length} ${unit}, more than the grid is wide.`;
     else if (theme.includes(word)) message.textContent = `${word} is already a theme entry.`;
-    else if (theme.length >= THEME_MOST) message.textContent = `A puzzle can have up to ${THEME_MOST} theme entries.`;
+    else if (recommended.includes(word)) message.textContent = `${word} is already a recommended entry.`;
+    else if (list.length >= THEME_MOST) message.textContent = `A list can have up to ${THEME_MOST} entries.`;
     else {
-      theme.push(word);
+      list.push(word);
       input.value = "";
       message.textContent = "";
       render();
       return;
     }
     input.focus();
-  });
+  }
+  $("theme-form").addEventListener("submit", (event) => addWord("theme", event));
+  $("rec-form").addEventListener("submit", (event) => addWord("rec", event));
 
-  document.querySelector(".theme").addEventListener("click", (event) => {
+  const onListClick = (event) => {
     const go = event.target.closest("[data-theme-go]");
     const place = event.target.closest("[data-theme-place]");
     const drop = event.target.closest("[data-theme-drop]");
+    const row = event.target.closest("[data-kind]");
+    const list = wordLists[row ? row.dataset.kind : "theme"]();
     if (go) {
       const slot = slots[Number(go.dataset.themeGo)];
       if (!slot) return;
@@ -1132,7 +1160,7 @@
       dir = slot.direction;
       render();
     } else if (place) {
-      const word = theme[Number(place.dataset.themePlace)];
+      const word = list[Number(place.dataset.themePlace)];
       const k = currentSlot();
       if (!word || k < 0) return;
       const rebus = isRebusTheme(word);
@@ -1145,11 +1173,12 @@
         });
       });
     } else if (drop) {
-      theme.splice(Number(drop.dataset.themeDrop), 1);
-      $("theme-message").textContent = "";
+      list.splice(Number(drop.dataset.themeDrop), 1);
+      $(`${row ? row.dataset.kind : "theme"}-message`).textContent = "";
       render();
     }
-  });
+  };
+  for (const section of document.querySelectorAll(".theme")) section.addEventListener("click", onListClick);
 
   function updateButtons() {
     const k = currentSlot();
@@ -2369,17 +2398,48 @@
     render();
     void gridEl.offsetWidth; // let the reveal animation restart on this fill's letters
     setProgress(floor < wanted ? `Filling with words down to ${floor}` : "Filling", 0);
-    const fillOptions = { timeLimit: timeLimit(), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme, rebus: rebusMap() };
-    runner.fill(
-      rows,
-      fillOptions,
-      (partial, stats) => {
-        applyRows(partial, false);
-        render();
-        const lowered = floor < wanted ? `, words down to ${floor}` : "";
-        setProgress(lowered ? `Filling${lowered}` : "Filling", stats.seconds / fillOptions.timeLimit);
-      },
-      (result) => {
+    // Recommended entries go in if they can. All of them at once first; failing that, one by one down
+    // the list, each kept if a fill holds it with the ones kept before it. Each try gets a share of the
+    // time left, and one that can't work is proved so in a moment, leaving the rest for the others.
+    const recs = recommended.filter((word) => !theme.includes(word));
+    const total = timeLimit();
+    const started = performance.now();
+    const spent = () => (performance.now() - started) / 1000;
+    const kept = [];
+    let next = -1; // -1: all at once; then the index of the word being tried; recs.length: done trying
+    let best = null; // the last fill that worked, with the words kept so far
+    const attempt = () => {
+      const trying = next < 0 ? recs : next < recs.length ? kept.concat(recs[next]) : kept;
+      const triesLeft = next < 0 ? recs.length + 1 : recs.length - next + 1;
+      const left = Math.max(1, total - spent());
+      const fillOptions = { timeLimit: Math.max(1, left / triesLeft), variety, seed: variety ? Math.floor(Math.random() * 2 ** 31) : 1, minScore: floor, allowPopular: allowPopularEl.checked, progressInterval: 0.2, guide, required: theme.concat(trying), rebus: rebusMap() };
+      if (next >= recs.length) fillOptions.timeLimit = left;
+      const before = spent();
+      runner.fill(
+        rows,
+        fillOptions,
+        (partial, stats) => {
+          applyRows(partial, false);
+          render();
+          const lowered = floor < wanted ? `, words down to ${floor}` : "";
+          setProgress(lowered ? `Filling${lowered}` : "Filling", (before + stats.seconds) / total);
+        },
+        (result) => {
+          if (!running) return finish(result);
+          if (result.success) {
+            if (next < 0) { kept.push(...recs); return finish(result); }
+            if (next < recs.length) { kept.push(recs[next]); best = result; }
+            else return finish(result);
+          }
+          if (next >= recs.length || !recs.length) return finish(best || result);
+          next++;
+          // Done trying: the last fill that worked has every word kept; with none, fill without them.
+          if (next >= recs.length && best) return finish(best);
+          attempt();
+        }
+      );
+    };
+    const finish = (result) => {
         running = false;
         pencil.fill("");
         if (result.success) {
@@ -2387,7 +2447,13 @@
           void gridEl.offsetWidth;
           applyRows(result.grid, true);
           const lowered = floor < wanted ? ` It used words down to ${floor}, as asked${tintEl.checked ? `; those under ${wanted} are tinted` : ""}.` : "";
-          setStatus("ok", `Filled in ${seconds(result.stats.seconds)} after ${plural(result.stats.failures, "backtrack")}.${lowered}`);
+          const fitted = recs.filter((word) => kept.includes(word));
+          const left = recs.filter((word) => !kept.includes(word));
+          const recNote = !recs.length ? ""
+            : !left.length ? ` ${recs.length === 1 ? "Your recommended entry is" : "All your recommended entries are"} in.`
+            : !fitted.length ? (recs.length === 1 ? " Your recommended entry didn't fit." : " None of your recommended entries fit.")
+            : ` In: ${fitted.join(", ")}. Left out: ${left.join(", ")}.`;
+          setStatus("ok", `Filled in ${seconds(spent())}.${recNote}${lowered}`);
         } else {
           setStatus("error", result.reason);
           if (!result.timedOut && floor - LOWER_STEP >= LOWEST) {
@@ -2402,8 +2468,8 @@
         finishFill();
         render();
         resumeCheck();
-      }
-    );
+    };
+    attempt();
     updateButtons();
   }
 
@@ -2462,6 +2528,8 @@
         const source = result.basedOn ? ` The blocks ${result.adapted ? "start from" : "are"} the pattern the Times ran on ${months[m - 1]} ${d}, ${y}.` : "";
         setStatus("ok", `Designed a grid: ${count} blocks (${Math.round(result.blockRatio * 100)}%), ${plural(result.threes, "three-letter word")}, fills ${plural(result.distinct, "different way")}.${source}${raised}`);
         updateButtons();
+        // The designer doesn't know the recommended entries; a fill over its grid tries them in.
+        if (recommended.some((word) => !theme.includes(word))) runFill(false);
       }
     );
   }
@@ -2981,6 +3049,7 @@
       timeLimit: timeLimit(),
       lists: { id: listChoice.id },
       theme,
+      recommended,
     };
   }
 
@@ -3016,6 +3085,7 @@
       listChoice = { id: id || "built-in" };
     }
     theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 2).slice(0, THEME_MOST) : [];
+    recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^[A-Z]{3,}$/.test(word) && !theme.includes(word)).slice(0, THEME_MOST) : [];
     migrateClues(data);
     $("min-score-value").textContent = minScoreEl.value;
     buildGrid();
