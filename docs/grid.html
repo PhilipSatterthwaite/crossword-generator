@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-cMrfJ06+bDJw1kwVXn817w8yeBjfVLOLeaBLJi73b+0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-hTH1kJPyyuhDl1ImiFqtU3OA0mcQfAziovCU9dmkCRg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -515,7 +515,7 @@
       <p class="theme-note">Words this puzzle must include. Autofill puts any you haven't inked wherever they fit. To pick the spot yourself, select an entry and use Put in. For a rebus, bracket the letters that share a square: BIG[STAR]FISH. Fill and Design blocks put it in with crossing words that run through the rebus, and a rebus entry Fill places is inked so its square stays put.</p>
     </div>
     <form id="theme-form" class="theme-form" novalidate>
-      <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
+      <input id="theme-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
       <button type="submit" class="btn small">Add</button>
     </form>
     <p id="theme-message" class="theme-message" role="status"></p>
@@ -528,7 +528,7 @@
       <p class="theme-note">Words you'd like in the puzzle if they fit. Fill tries them in, top of the list first, and leaves out any that won't fit rather than failing. Design blocks tries them in its fill too.</p>
     </div>
     <form id="rec-form" class="theme-form" novalidate>
-      <input id="rec-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a word you'd like in it" aria-label="Recommended entry">
+      <input id="rec-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Add a word you'd like in it" aria-label="Recommended entry">
       <button type="submit" class="btn small">Add</button>
     </form>
     <p id="rec-message" class="theme-message" role="status"></p>
@@ -1160,6 +1160,17 @@
     input.focus();
   }
   $("theme-form").addEventListener("submit", (event) => addWord("theme", event));
+  // Typed in capitals, as they'll be in the grid; the caret stays where it was.
+  for (const id of ["theme-word", "rec-word"]) {
+    $(id).addEventListener("input", (event) => {
+      const box = event.target;
+      const upper = box.value.toUpperCase();
+      if (upper === box.value) return;
+      const [start, end] = [box.selectionStart, box.selectionEnd];
+      box.value = upper;
+      box.setSelectionRange(start, end);
+    });
+  }
   $("rec-form").addEventListener("submit", (event) => addWord("rec", event));
 
   const onListClick = (event) => {

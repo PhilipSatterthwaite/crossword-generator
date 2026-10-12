@@ -499,7 +499,7 @@
       <p class="theme-note">{{grid.theme.note|line}}</p>
     </div>
     <form id="theme-form" class="theme-form" novalidate>
-      <input id="theme-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
+      <input id="theme-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Add a theme entry, or BIG[STAR]FISH for a rebus" aria-label="Theme entry">
       <button type="submit" class="btn small">Add</button>
     </form>
     <p id="theme-message" class="theme-message" role="status"></p>
@@ -512,7 +512,7 @@
       <p class="theme-note">{{grid.rec.note|line}}</p>
     </div>
     <form id="rec-form" class="theme-form" novalidate>
-      <input id="rec-word" type="text" autocomplete="off" spellcheck="false" placeholder="Add a word you'd like in it" aria-label="Recommended entry">
+      <input id="rec-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Add a word you'd like in it" aria-label="Recommended entry">
       <button type="submit" class="btn small">Add</button>
     </form>
     <p id="rec-message" class="theme-message" role="status"></p>
@@ -1144,6 +1144,17 @@
     input.focus();
   }
   $("theme-form").addEventListener("submit", (event) => addWord("theme", event));
+  // Typed in capitals, as they'll be in the grid; the caret stays where it was.
+  for (const id of ["theme-word", "rec-word"]) {
+    $(id).addEventListener("input", (event) => {
+      const box = event.target;
+      const upper = box.value.toUpperCase();
+      if (upper === box.value) return;
+      const [start, end] = [box.selectionStart, box.selectionEnd];
+      box.value = upper;
+      box.setSelectionRange(start, end);
+    });
+  }
   $("rec-form").addEventListener("submit", (event) => addWord("rec", event));
 
   const onListClick = (event) => {
