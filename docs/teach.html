@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI word filtering · fillmein</title>
 <meta name="description" content="Teach an AI how you judge crossword fill, and let it sift a word list the way you would: you write the rules, correct it on a hundred words, and it rewrites the rules to match you.">
@@ -42,7 +42,12 @@
     border: 1px solid var(--rule); border-radius: 12px; margin: 14px 0; }
   .card .word { font: 700 38px / 1.1 var(--sans); letter-spacing: .06em; }
   .card .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
-  .card .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 12.5px; color: var(--muted); }
+  .card .about { display: grid; gap: 7px; max-width: 54ch; }
+  .card .about p { margin: 0; font-size: 14px; line-height: 1.5; }
+  .card .about .definition { color: var(--ink); }
+  .card .about .clue { color: var(--muted); font-style: italic; }
+  .card .about .seen { color: var(--muted); font-size: 13px; }
+  .card .about .waiting { color: var(--muted); opacity: .6; }
   .card .says { margin: 2px 0; font-size: 15px; }
   .card .says b { font-weight: 600; }
   .card .says .why { color: var(--muted); }
@@ -216,9 +221,10 @@
 
 <script src="words.js?v=c65d859382"></script>
 <script src="wordstats.js?v=43ffde067f"></script>
+<script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="claude.js?v=d634e36077"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
-<script src="teach.js?v=3995f07893"></script>
+<script src="teach.js?v=5a886b9b2c"></script>
 </body>
 </html>

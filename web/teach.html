@@ -41,7 +41,12 @@
     border: 1px solid var(--rule); border-radius: 12px; margin: 14px 0; }
   .card .word { font: 700 38px / 1.1 var(--sans); letter-spacing: .06em; }
   .card .reading { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
-  .card .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 12.5px; color: var(--muted); }
+  .card .about { display: grid; gap: 7px; max-width: 54ch; }
+  .card .about p { margin: 0; font-size: 14px; line-height: 1.5; }
+  .card .about .definition { color: var(--ink); }
+  .card .about .clue { color: var(--muted); font-style: italic; }
+  .card .about .seen { color: var(--muted); font-size: 13px; }
+  .card .about .waiting { color: var(--muted); opacity: .6; }
   .card .says { margin: 2px 0; font-size: 15px; }
   .card .says b { font-weight: 600; }
   .card .says .why { color: var(--muted); }
@@ -214,6 +219,7 @@
 
 <script src="words.js"></script>
 <script src="wordstats.js"></script>
+<script>window.FILLMEIN_PAST_VERSION = "PASTCLUES_VERSION"; window.FILLMEIN_DEFS_VERSION = "DEFS_VERSION";</script>
 <script src="confirm.js"></script>
 <script src="claude.js"></script>
 <script type="module" src="account.js"></script>

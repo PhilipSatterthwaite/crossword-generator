@@ -278,7 +278,25 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     save();
   }
 
-  const BANDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+  /* A word's own files: its first Wiktionary definition, and the clues the Times has given it. Both
+     are fetched two letters at a time and kept, so a hundred words cost a handful of requests. */
+  const files = new Map();
+  function fileFor(kind, word, version) {
+    const key = `${kind}/${word.slice(0, 2)}`;
+    if (!files.has(key)) {
+      files.set(key, fetch(`${kind}/${word.slice(0, 2)}.json?v=${version || ""}`)
+        .then((response) => (response.ok ? response.json() : {}))
+        .catch(() => {
+          files.delete(key);
+          return {};
+        }));
+    }
+    return files.get(key);
+  }
+  const definitionOf = (word) => fileFor("defs", word, window.FILLMEIN_DEFS_VERSION).then((file) => file[word] || "");
+  const cluesFor = (word) => fileFor("pastclues", word, window.FILLMEIN_PAST_VERSION).then((file) => file[word] || []);
+
+  const BANDS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]; // cut on the left, the best on the right
 
   /* The word in front of you: what it is, what the rules made of it, and the bands to put it in.
      0 means cut, so one click settles a word either way. */
@@ -304,9 +322,8 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
     $("card").innerHTML =
       `<p class="word">${safe(row.word)}</p>` +
       (row.cuts ? `<p class="reading">reads as a phrase</p>` : "") +
-      `<div class="facts"><span>list score ${row.score}</span><span>NYT ${row.uses}${row.year ? ` (last ${row.year})` : ""}</span>` +
-      `<span>other papers ${row.papers}</span><span>everyday ${row.everyday}/100</span>` +
-      `<span>${row.wikt ? "in Wiktionary" : "not in Wiktionary"}</span>${row.wiki ? "<span>has a Wikipedia article</span>" : ""}</div>` +
+      `<div class="about" id="card-about"><p class="definition waiting">Looking it up…</p>` +
+      `<p class="seen">${row.year ? `Last in a New York Times puzzle in ${row.year}` : "Never used in a New York Times puzzle"}</p></div>` +
       `<p class="says${guess ? "" : " pending"}">${guess
         ? `Claude says <b>${guess.verdict === "cut" ? "cut" : `keep at ${guess.score}`}</b> <span class="why">${safe(guess.why)}</span>`
         : "Claude is still looking at this one…"}</p>` +
@@ -321,6 +338,23 @@ Answer with a verdict, a score (1-100 when keeping, 0 when cutting) and a reason
       `<button type="button" class="btn primary" data-go="agree"${guess ? "" : " disabled"}>Agree${guess ? ` — ${guess.verdict === "cut" ? "cut" : guess.score}` : ""}</button>` +
       `<button type="button" class="btn quiet" data-go="back"${at ? "" : " disabled"}>← Back</button>` +
       `</div>`;
+    describe(row);
+    const next = round.items[at + 1];
+    if (next) { // the next word's files, fetched while you look at this one
+      definitionOf(next.row.word);
+      cluesFor(next.row.word);
+    }
+  }
+
+  /* The definition and a clue the word has had, dropped in when they arrive. */
+  async function describe(row) {
+    const [definition, clues] = await Promise.all([definitionOf(row.word), cluesFor(row.word)]);
+    const box = $("card-about");
+    if (!box || !round.items[round.at] || round.items[round.at].row.word !== row.word) return; // moved on
+    const clue = clues.length ? clues[0] : null;
+    box.innerHTML = `<p class="definition">${definition ? safe(definition) : "No dictionary definition for it."}</p>` +
+      (clue ? `<p class="clue">Clued once as “${safe(clue[0])}”${clue[2] ? ` (${clue[2]})` : ""}</p>` : "") +
+      `<p class="seen">${row.year ? `Last in a New York Times puzzle in ${row.year}` : "Never used in a New York Times puzzle"}</p>`;
   }
 
   /* Settle the word on screen and move on. A score of 0 is a cut; anything else keeps it. */
