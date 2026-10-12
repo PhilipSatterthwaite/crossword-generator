@@ -75,6 +75,12 @@ You don't have a word list of your own yet, so the first word you add starts one
 [home.quick.editor]
 Sort, filter and edit whole lists
 
+[home.solve.heading]
+Solve a puzzle
+
+[home.solve.body]
+Got a crossword file? Open a .puz, .ipuz or .jpz and solve it right here, no Across Lite needed.
+
 [home.guide.heading]
 How to make a crossword
 
@@ -538,16 +544,25 @@ The printed puzzle
 // ============================================================ the solve page
 
 [solve.title]
-Solve · fillmein
+Solve a puzzle · fillmein
 
 [solve.description]
-Solve a crossword someone made with fillmein.
+Solve a crossword in your browser: open a .puz, .ipuz or .jpz file, or a link someone shared from fillmein.
 
 [solve.social.title]
 Solve a crossword on fillmein
 
 [solve.social.description]
-Someone made you a crossword. Open the link and solve it in your browser; no account needed.
+Open a crossword file or a shared link and solve it in your browser; no account needed.
+
+[solve.upload.heading]
+Solve a puzzle
+
+[solve.upload.body]
+Open a crossword file (.puz from Across Lite, .ipuz, or .jpz from Crossword Compiler) and solve it here, with checking, reveals and rebus squares. The puzzle stays in this browser, with your progress, so you can come back to it.
+
+[solve.upload.recent]
+Your puzzles in progress
 
 [solve.missing.heading]
 That link doesn't open a puzzle

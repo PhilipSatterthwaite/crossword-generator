@@ -1,9 +1,12 @@
 /* fillmein importers: read a crossword file (.puz from Across Lite, .ipuz, or .jpz from Crossword
    Compiler) into the shape exporters.js writes, so a puzzle made elsewhere can be opened here.
 
-   read(name, bytes) picks the format from the file name (then from the bytes) and returns
-   {width, height, cells, clues, title, author, copyright, notes}:
+   read(name, bytes, options) picks the format from the file name (then from the bytes) and returns
+   {width, height, cells, clues, rebus, title, author, copyright, notes, locked}:
    - cells: row-major, "#" for a block, a letter, or "" where the file gave no answer;
+   - rebus: {square index: letters} for squares whose answer is several letters (cells keeps the first);
+   - locked: a .puz whose answers are scrambled, opened only with options.allowLocked (for solving
+     without checking), its answers all "";
    - clues: {"across:row,col": text}, keyed the way store.js keys them, using Gridfill.parseGrid to
      number the grid, so a file's own numbering never has to be trusted.
    Throws an Error whose message can be shown as it is. Needs filler.js (Gridfill.parseGrid). */
@@ -37,6 +40,8 @@
     if (puzzle.cells.length !== puzzle.width * puzzle.height) throw new Error("The file's grid doesn't match its size.");
     if (!puzzle.cells.some((cell) => cell !== "#")) throw new Error("The file's grid has no open squares.");
     for (const field of ["title", "author", "copyright", "notes"]) puzzle[field] = String(puzzle[field] || "").trim().slice(0, 2000);
+    puzzle.rebus = puzzle.rebus || {};
+    puzzle.locked = Boolean(puzzle.locked);
     return puzzle;
   };
 
@@ -52,7 +57,7 @@
     }
   }
 
-  function fromPuz(bytes) {
+  function fromPuz(bytes, { allowLocked = false } = {}) {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     const magic = String.fromCharCode(...data.subarray(0x02, 0x0d));
@@ -61,7 +66,7 @@
     const height = data[0x2d];
     const clueCount = view.getUint16(0x2e, true);
     const scrambled = view.getUint16(0x32, true);
-    if (scrambled) throw new Error("That .puz is locked: its answers are scrambled, and the key to them isn't in the file.");
+    if (scrambled && !allowLocked) throw new Error("That .puz is locked: its answers are scrambled, and the key to them isn't in the file.");
     checkSize(width, height);
     const n = width * height;
     let at = 0x34;
@@ -78,11 +83,33 @@
     const [title = "", author = "", copyright = ""] = strings;
     const clueTexts = strings.slice(3, 3 + clueCount);
     const notes = strings[3 + clueCount] || "";
+    // After the notes, optional sections: a 4-letter name, a length, a checksum, the data, a NUL.
+    // GRBS marks each rebus square with its key + 1 into RTBL, " 0:STAR; 1:MOON;".
+    const sections = {};
+    while (at + 8 <= data.length) {
+      const name = String.fromCharCode(...data.subarray(at, at + 4));
+      const length = view.getUint16(at + 4, true);
+      if (!/^[A-Z]{4}$/.test(name) || at + 8 + length > data.length) break;
+      sections[name] = data.subarray(at + 8, at + 8 + length);
+      at += 8 + length + 1;
+    }
+    const rebus = {};
+    if (!scrambled && sections.GRBS && sections.RTBL && sections.GRBS.length === n) {
+      const table = {};
+      for (const part of decodeText(sections.RTBL).split(";")) {
+        const match = /^\s*(\d+):(.+)$/.exec(part);
+        if (match) table[Number(match[1])] = match[2].toUpperCase().replace(/[^A-Z]/g, "");
+      }
+      sections.GRBS.forEach((mark, i) => {
+        const letters = mark ? table[mark - 1] : "";
+        if (letters && letters.length > 1) rebus[i] = letters;
+      });
+    }
     const cells = Array.from(solution, (byte) => (byte === 0x2e || byte === 0x3a ? "#" : letter(String.fromCharCode(byte))));
     // ':' marks an empty square in some writers; '.' is a block. Both came through as "#" above, so
     // put ':' squares back to open.
     solution.forEach((byte, i) => {
-      if (byte === 0x3a) cells[i] = "";
+      if (byte === 0x3a || (scrambled && cells[i] !== "#")) cells[i] = ""; // a locked file's letters mean nothing
     });
     // Clues come in numeric order, an across before a down when they share a number.
     const slots = slotsOf(width, height, cells).sort((a, b) => a.number - b.number || (a.direction === "across" ? -1 : 1));
@@ -91,7 +118,7 @@
     slots.forEach((slot, i) => {
       if (clueTexts[i]) clues[slot.key] = clueTexts[i];
     });
-    return finish({ width, height, cells, clues, title, author, copyright, notes });
+    return finish({ width, height, cells, clues, rebus, title, author, copyright, notes, locked: Boolean(scrambled) });
   }
 
   // --- .ipuz ---
@@ -114,12 +141,17 @@
     const layout = Array.isArray(doc.puzzle) ? doc.puzzle : [];
     const solution = Array.isArray(doc.solution) ? doc.solution : [];
     const cells = [];
+    const rebus = {};
     for (let r = 0; r < height; r++) {
       for (let c = 0; c < width; c++) {
         const shape = cellValue(layout[r] && layout[r][c]);
         const answer = cellValue(solution[r] && solution[r][c]);
         if (shape === block || answer === block || shape === null) cells.push("#");
-        else cells.push(letter(answer));
+        else {
+          cells.push(letter(answer));
+          const letters = String(answer ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+          if (letters.length > 1) rebus[cells.length - 1] = letters;
+        }
       }
     }
     const slots = slotsOf(width, height, cells);
@@ -135,7 +167,7 @@
         if (slot && typeof text === "string" && text.trim()) clues[slot.key] = text.trim();
       }
     }
-    return finish({ width, height, cells, clues, title: doc.title, author: doc.author, copyright: doc.copyright, notes: doc.notes });
+    return finish({ width, height, cells, clues, rebus, title: doc.title, author: doc.author, copyright: doc.copyright, notes: doc.notes });
   }
 
   // --- .jpz (Crossword Compiler XML) ---
@@ -152,12 +184,15 @@
     const height = Number(grid.getAttribute("height"));
     checkSize(width, height);
     const cells = new Array(width * height).fill("");
+    const rebus = {};
     for (const cell of all(grid, "cell")) {
       const x = Number(cell.getAttribute("x")) - 1;
       const y = Number(cell.getAttribute("y")) - 1;
       if (!(x >= 0 && x < width && y >= 0 && y < height)) continue;
       const type = cell.getAttribute("type") || "";
       cells[y * width + x] = type === "block" || type === "void" ? "#" : letter(cell.getAttribute("solution"));
+      const letters = String(cell.getAttribute("solution") || "").toUpperCase().replace(/[^A-Z]/g, "");
+      if (cells[y * width + x] !== "#" && letters.length > 1) rebus[y * width + x] = letters;
     }
     const slots = slotsOf(width, height, cells);
     const byStart = new Map(slots.map((slot) => [`${slot.direction}:${slot.row},${slot.col}`, slot]));
@@ -186,17 +221,18 @@
     }
     const meta = one(xml, "metadata");
     const field = (name) => (meta && one(meta, name) ? one(meta, name).textContent : "");
-    return finish({ width, height, cells, clues, title: field("title"), author: field("creator"), copyright: field("copyright"), notes: field("description") });
+    return finish({ width, height, cells, clues, rebus, title: field("title"), author: field("creator"), copyright: field("copyright"), notes: field("description") });
   }
 
   // --- picking the format ---
 
-  /* name: the file's name; bytes: its contents as an ArrayBuffer or Uint8Array. */
-  function read(name, bytes) {
+  /* name: the file's name; bytes: its contents as an ArrayBuffer or Uint8Array; options:
+     allowLocked, to open a locked .puz for solving without its answers. */
+  function read(name, bytes, options = {}) {
     const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     const extension = String(name || "").toLowerCase().split(".").pop();
     const head = String.fromCharCode(...data.subarray(0, 16));
-    if (extension === "puz" || head.includes("ACROSS&DOWN")) return fromPuz(data);
+    if (extension === "puz" || head.includes("ACROSS&DOWN")) return fromPuz(data, options);
     const text = decodeText(data);
     if (extension === "ipuz" || /^\s*(ipuz\s*\()?\s*\{/.test(text)) return fromIpuz(text);
     if (extension === "jpz" || /^\s*<\?xml|<crossword-compiler/i.test(text)) return fromJpz(text);

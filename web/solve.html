@@ -124,6 +124,24 @@
   .empty-state h2 { margin: 0; font: 600 26px / 1.2 var(--serif); }
   .empty-state p { margin: 0; max-width: 55ch; color: var(--muted); }
 
+  .upload { display: grid; gap: 14px; max-width: 640px; }
+  .upload h1 { margin: 0; font: 600 32px / 1.15 var(--serif); }
+  .upload > p { margin: 0; color: var(--muted); line-height: 1.5; }
+  .drop { display: grid; place-items: center; gap: 8px; min-height: 150px; padding: 20px; border: 2px dashed var(--rule); border-radius: 8px;
+    background: var(--surface); text-align: center; cursor: pointer; }
+  .drop.over { border-color: var(--ink); background: var(--cell); }
+  .drop b { font-size: 17px; }
+  .drop span { font-size: 13px; color: var(--muted); }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .upload-error { margin: 0; color: var(--danger); font-size: 14px; }
+  .upload-error:empty { display: none; }
+  .recent { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .recent li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+  .recent a { font-weight: 600; color: var(--ink); }
+  .recent .meta { flex: 1; font-size: 13px; color: var(--muted); }
+  .recent button { padding: 2px 8px; border: 1px solid var(--rule); border-radius: 3px; background: none; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+  .upload h2 { margin: 10px 0 0; font: 600 20px / 1.2 var(--serif); }
+
   @media (max-width: 900px) {
     .solve-desk { grid-template-columns: minmax(0, 1fr); }
     .clue-list { max-height: 240px; }
@@ -142,6 +160,21 @@
   </header>
 
   <p id="loading" class="status" data-state="busy" role="status">Opening the puzzle…</p>
+
+  <section id="upload" class="upload" hidden>
+    <h1>{{solve.upload.heading|line}}</h1>
+    <p>{{solve.upload.body|line}}</p>
+    <p id="upload-note" class="upload-error" role="alert"></p>
+    <label class="drop" id="drop">
+      <b>Choose a puzzle file</b>
+      <span>or drop it here · .puz, .ipuz or .jpz</span>
+      <input type="file" id="puzzle-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
+    </label>
+    <div id="recent-box" hidden>
+      <h2>{{solve.upload.recent|line}}</h2>
+      <ul id="recent" class="recent"></ul>
+    </div>
+  </section>
 
   <section id="not-found" class="empty-state" hidden>
     <h2>{{solve.missing.heading|line}}</h2>
@@ -196,14 +229,20 @@
 </div>
 
 <script src="filler.js"></script>
+<script src="importers.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const id = new URLSearchParams(location.search).get("p") || "";
-  const PROGRESS = `fillmein:solve:${id}`;
+  const id = new URLSearchParams(location.search).get("p") || "";            // a puzzle shared from fillmein
+  const fileId = new URLSearchParams(location.search).get("f") || "";        // a file opened in this browser
+  const PROGRESS = fileId ? `fillmein:solve:file:${fileId}` : `fillmein:solve:${id}`;
+  // Files opened here: the puzzle under FILE + id, and a list of them, newest first, under FILES.
+  const FILES = "fillmein:solve:files";
+  const FILE = "fillmein:solve:file-puzzle:";
+  const FILES_MOST = 40;
 
   let puzzle = null;      // what was published
   let slots = [];         // entries, from filler.js
@@ -407,7 +446,7 @@
 
   function checkDone() {
     if (done) return;
-    const solved = puzzle.cells.split("").every((cell, i) => cell === "#" || letters[i] === answerAt(i));
+    const solved = puzzle.cells.split("").every((cell, i) => cell === "#" || (puzzle.known ? letters[i] === answerAt(i) : Boolean(letters[i])));
     if (!solved) return;
     done = true;
     stopClock();
@@ -646,13 +685,131 @@
 
   // --- open the puzzle ---
 
+  // "by Someone", unless the file's author line already starts that way.
+  const byline = (author) => (!author ? "" : /^by\s/i.test(author.trim()) ? author.trim() : `by ${author.trim()}`);
+
+  /* The files opened in this browser, newest first: [{id, title, author, width, height, opened}]. */
+  const readFiles = () => {
+    try { return JSON.parse(localStorage.getItem(FILES)) || []; } catch (error) { return []; }
+  };
+  const writeFiles = (list) => {
+    try { localStorage.setItem(FILES, JSON.stringify(list.slice(0, FILES_MOST))); } catch (error) { /* storage full or off */ }
+  };
+  // The same file opened twice is the same puzzle, progress and all: its id comes from its bytes.
+  const fileHash = (bytes) => {
+    let h = 2166136261;
+    for (let i = 0; i < bytes.length; i++) h = Math.imul(h ^ bytes[i], 16777619);
+    return (h >>> 0).toString(36) + bytes.length.toString(36);
+  };
+
+  /* A file read by importers.js, as the solve page holds a puzzle: cells a character a square ("#" a
+     block, the answer's letter, "." where the file gave none) and known when every answer is there. */
+  function fromFile(read) {
+    const cells = read.cells.map((cell) => (cell === "#" ? "#" : cell || ".")).join("");
+    const rebus = {};
+    for (const [key, text] of Object.entries(read.rebus || {})) if (/^[A-Z]{2,12}$/.test(text) && cells[Number(key)] === text[0]) rebus[key] = text;
+    return {
+      title: read.title || "Untitled puzzle",
+      author: read.author || "",
+      width: read.width,
+      height: read.height,
+      cells,
+      clues: read.clues || {},
+      rebus,
+      known: !read.locked && !cells.includes("."),
+    };
+  }
+
+  async function openFile(file) {
+    $("upload-note").textContent = "";
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const read = window.GridImport.read(file.name, bytes, { allowLocked: true });
+      const pid = fileHash(bytes);
+      const stored = fromFile(read);
+      try {
+        localStorage.setItem(FILE + pid, JSON.stringify(stored));
+      } catch (error) {
+        throw new Error("This browser has no room to keep the puzzle. Remove a puzzle from the list and try again.");
+      }
+      writeFiles([{ id: pid, title: stored.title, author: stored.author, width: stored.width, height: stored.height, opened: Date.now() },
+        ...readFiles().filter((entry) => entry.id !== pid)]);
+      location.href = `solve?f=${encodeURIComponent(pid)}`;
+    } catch (error) {
+      $("upload-note").textContent = error.message || "That file couldn't be opened.";
+    }
+  }
+
+  function showUpload(note = "") {
+    $("loading").hidden = true;
+    $("upload").hidden = false;
+    $("upload-note").textContent = note;
+    const list = readFiles();
+    $("recent-box").hidden = !list.length;
+    $("recent").replaceChildren(...list.map((entry) => {
+      const li = document.createElement("li");
+      const link = Object.assign(document.createElement("a"), { href: `solve?f=${encodeURIComponent(entry.id)}`, textContent: entry.title || "Untitled puzzle" });
+      let progress = "";
+      try {
+        const saved = JSON.parse(localStorage.getItem(`fillmein:solve:file:${entry.id}`));
+        if (saved && saved.done) progress = "solved";
+        else if (saved && Array.isArray(saved.letters)) progress = `${saved.letters.filter(Boolean).length} squares filled`;
+      } catch (error) { /* nothing saved yet */ }
+      const meta = Object.assign(document.createElement("span"), {
+        className: "meta",
+        textContent: [byline(entry.author), `${entry.width}×${entry.height}`, progress || "not started"].filter(Boolean).join(" · "),
+      });
+      const drop = Object.assign(document.createElement("button"), { type: "button", textContent: "Remove" });
+      drop.addEventListener("click", () => {
+        try {
+          localStorage.removeItem(FILE + entry.id);
+          localStorage.removeItem(`fillmein:solve:file:${entry.id}`);
+        } catch (error) { /* already gone */ }
+        writeFiles(readFiles().filter((other) => other.id !== entry.id));
+        showUpload();
+      });
+      li.append(link, meta, drop);
+      return li;
+    }));
+  }
+
+  $("puzzle-file").addEventListener("change", (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (file) openFile(file);
+  });
+  // A file can be dropped anywhere on the upload screen.
+  for (const type of ["dragenter", "dragover"]) document.addEventListener(type, (event) => {
+    if ($("upload").hidden) return;
+    event.preventDefault();
+    $("drop").classList.add("over");
+  });
+  for (const type of ["dragleave", "drop"]) document.addEventListener(type, (event) => {
+    if ($("upload").hidden) return;
+    event.preventDefault();
+    $("drop").classList.remove("over");
+    if (type === "drop" && event.dataTransfer && event.dataTransfer.files[0]) openFile(event.dataTransfer.files[0]);
+  });
+
   (async () => {
-    if (!id) {
-      $("loading").hidden = true;
-      $("not-found").hidden = false;
+    if (!id && !fileId) {
+      showUpload();
       return;
     }
-    try {
+    if (fileId) {
+      try {
+        puzzle = JSON.parse(localStorage.getItem(FILE + fileId));
+      } catch (error) {
+        puzzle = null;
+      }
+      if (!puzzle || !(puzzle.width > 0 && puzzle.height > 0) || typeof puzzle.cells !== "string" || puzzle.cells.length !== puzzle.width * puzzle.height) {
+        showUpload("That puzzle isn't in this browser any more. Open its file again to solve it.");
+        return;
+      }
+      writeFiles([{ ...(readFiles().find((entry) => entry.id === fileId) || { id: fileId, title: puzzle.title, author: puzzle.author, width: puzzle.width, height: puzzle.height }), opened: Date.now() },
+        ...readFiles().filter((entry) => entry.id !== fileId)]);
+    }
+    else try {
       const fs = await window.Fillmein.loadFirestore();
       const snapshot = await fs.getDoc(fs.doc(fs.getFirestore(window.Fillmein.app), "published", id));
       if (!snapshot.exists()) throw new Error("not published");
@@ -665,6 +822,7 @@
         cells: String(data.cells || ""),
         clues: data.clues || {},
         rebus: {},
+        known: true,
       };
       // A rebus square's letters, kept only where they start with the square's own letter.
       for (const [key, text] of Object.entries(data.rebus && typeof data.rebus === "object" ? data.rebus : {})) {
@@ -681,11 +839,22 @@
     document.title = `${puzzle.title} · fillmein`;
     $("solve-title").textContent = puzzle.title;
     if (puzzle.author) {
-      $("solve-author").textContent = `by ${puzzle.author}`;
+      $("solve-author").textContent = byline(puzzle.author);
       $("solve-author").hidden = false;
     }
     restore();
     build();
+    if (!puzzle.known) {
+      // A locked file keeps its answers to itself: there's nothing to check or reveal against.
+      for (const button of ["check", "reveal-word", "reveal-all"]) $(button).hidden = true;
+      $("solve-status").textContent = "This puzzle's answers are locked in its file, so it can't be checked; it's done when every square is filled.";
+    }
+    if (fileId) {
+      const another = Object.assign(document.createElement("a"), { href: "solve", textContent: "Solve another puzzle" });
+      const line = document.createElement("p");
+      line.append(another);
+      $("done").append(line);
+    }
     $("loading").hidden = true;
     $("solve").hidden = false;
     if (done) {
