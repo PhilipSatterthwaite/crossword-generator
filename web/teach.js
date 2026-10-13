@@ -84,7 +84,17 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
       ? text.replace(/(^|\n)(\s*-\s*)(\d{2,3})(\s*:)/g, (all, start, dash, number, colon) =>
           (Number(number) >= 10 && Number(number) % 10 === 0 ? `${start}${dash}${Number(number) / 10}${colon}` : all))
       : text;
-    return ladder.replace(/\b([01])\s*-\s*100\b/g, "$1-10").replace(/\b([01]) to 100\b/g, "$1 to 10");
+    return ladder
+      .replace(/\b([01])\s*-\s*100\b/g, "$1-10")
+      .replace(/\b([01]) to 100\b/g, "$1 to 10")
+      // A range of two old-scale scores written out in prose: "they now sit at 65 to 80" means 7 to 8.
+      // Only pairs between 11 and 100, so years (2000 to 2020) and counts of words are left alone.
+      .replace(/\b(\d{2,3})(\s*(?:to|-|\u2013)\s*)(\d{2,3})\b/g, (all, low, between, high) => {
+        const from = Number(low);
+        const to = Number(high);
+        if (from < 11 || from > 100 || to < 11 || to > 100) return all;
+        return `${Math.round(from / 10)}${between}${Math.round(to / 10)}`;
+      });
   };
 
   // --- state ---
@@ -252,6 +262,18 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     };
   }
 
+  /* What judging one word has actually cost and taken, averaged over everything judged so far. The
+     estimate for the whole list leans on this rather than on a guess. */
+  function noteRate(words, cost, seconds, bulk) {
+    if (!words || MODELS_OFF) return;
+    // Kept apart: a teaching round sends ten words a request with someone waiting on each answer,
+    // a run over the list sends forty with four in flight, so one can't be read as the other.
+    const key = bulk ? "bulkRate" : "rate";
+    const had = state[key] || { words: 0, cost: 0, seconds: 0 };
+    state[key] = { words: had.words + words, cost: had.cost + cost, seconds: had.seconds + seconds };
+    save();
+  }
+
   /* Claude's first pass over a set of words, in batches. */
   async function guessAll(rows, onProgress) {
     if (MODELS_OFF) {
@@ -285,6 +307,229 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     }
     const failed = results.filter((result) => result && result.error);
     return { byWord, error: failed.length ? failed[0].error : null };
+  }
+
+  // --- the whole list ---------------------------------------------------------------------------
+
+  const WHOLE_BATCH = 40;  // words per request when there is no one waiting on each answer
+  const WHOLE_WIDTH = 4;   // requests at once
+  const SAVE_EVERY = 10;   // batches between writes, so a stop costs you four hundred words at most
+  const DB = "fillmein-filter";
+
+  /* Somewhere to put half a million verdicts: localStorage is far too small, so they go in
+     IndexedDB, written in batches as the run goes along. */
+  function store(mode, work) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open(DB, 1);
+      open.onupgradeneeded = () => {
+        const db = open.result;
+        if (!db.objectStoreNames.contains("verdicts")) db.createObjectStore("verdicts");
+        if (!db.objectStoreNames.contains("run")) db.createObjectStore("run");
+      };
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const deal = db.transaction(["verdicts", "run"], mode);
+        const out = work(deal.objectStore("verdicts"), deal.objectStore("run"));
+        deal.oncomplete = () => {
+          db.close();
+          resolve(out && out.result !== undefined ? out.result : out);
+        };
+        deal.onerror = () => reject(deal.error);
+      };
+    });
+  }
+  const countDone = () => store("readonly", (verdicts) => verdicts.count());
+
+  /* Every word in the list, shortest first, so a run that is stopped early has still covered the
+     lengths that fill the most grids. */
+  function allWords() {
+    const words = window.GRIDFILL_WORDS || {};
+    const out = [];
+    for (const length of Object.keys(words).map(Number).sort((a, b) => a - b)) {
+      const letters = words[length][0];
+      for (let i = 0; i < letters.length; i += length) out.push(letters.substr(i, length));
+    }
+    return out;
+  }
+
+  let whole = null;    // the run in progress
+  let wholeStop = false;
+  let wholeWords = null;
+
+  const hours = (seconds) => {
+    if (seconds < 90) return `${Math.round(seconds)} seconds`;
+    if (seconds < 5400) return `${Math.round(seconds / 60)} minutes`;
+    const whole_hours = seconds / 3600;
+    return `${whole_hours < 10 ? whole_hours.toFixed(1) : Math.round(whole_hours)} hours`;
+  };
+
+  /* What the rest of the list would cost and take, from what the teaching rounds actually cost and
+     took, scaled for the bigger batches a run uses. Without a measurement, the model's own rates
+     and a word's worth of tokens stand in. */
+  function estimate(left) {
+    const bulk = state.bulkRate;
+    const rates = C.MODELS[C.model()];
+    if (bulk && bulk.words >= 200) {
+      // Measured on a run over the list itself, which is the thing being estimated.
+      return { cost: (bulk.cost / bulk.words) * left, seconds: left / (bulk.words / bulk.seconds), measured: "run" };
+    }
+    const rate = state.rate;
+    if (rate && rate.words >= 20) {
+      // From the teaching rounds, where each request carries fewer words and waits on an answer:
+      // bigger batches spread the rules over more words and run four at a time.
+      const perWord = (rate.cost / rate.words) * 0.8;
+      const perSecond = (rate.words / rate.seconds) * (WHOLE_BATCH / BATCH) * (WHOLE_WIDTH / WIDTH);
+      return { cost: perWord * left, seconds: left / perSecond, measured: "rounds" };
+    }
+    return { cost: ((90 * rates.in + 30 * rates.out) / 1e6) * left, seconds: left / 12, measured: null };
+  }
+
+  async function drawWhole() {
+    if (!$("whole-note")) return;
+    const total = (wholeWords || (wholeWords = allWords())).length;
+    const done = await countDone().catch(() => 0);
+    const left = Math.max(0, total - done);
+    const guess = estimate(left);
+    $("whole-note").innerHTML = done
+      ? `${done.toLocaleString()} of ${total.toLocaleString()} judged. The rest would cost about <b>${C.money(guess.cost)}</b> ` +
+        `and take about <b>${hours(guess.seconds)}</b> on ${C.MODELS[C.model()].name.split(" - ")[0]}.`
+      : `${total.toLocaleString()} words. Judging all of them with your rules would cost about <b>${C.money(guess.cost)}</b> ` +
+        `and take about <b>${hours(guess.seconds)}</b> on ${C.MODELS[C.model()].name.split(" - ")[0]}` +
+        `${guess.measured === "run" ? ", going by the run so far" : guess.measured === "rounds" ? ", going by what your rounds have cost" : ""}. ` +
+        `It saves as it goes, so you can stop and carry on later.`;
+    $("whole-start").textContent = done ? "Carry on judging the list" : "Judge the whole list";
+    $("whole-save").hidden = !done;
+    $("whole-forget").hidden = !done;
+  }
+
+  async function runWhole() {
+    wholeStop = false;
+    $("whole-start").hidden = true;
+    $("whole-stop").hidden = false;
+    $("whole-progress").hidden = false;
+    const total = (wholeWords || (wholeWords = allWords())).length;
+    let done = await countDone();
+    // Which words are already judged: read once, so the run doesn't ask the database per word.
+    const judged = await store("readonly", (verdicts) => verdicts.getAllKeys());
+    const seen = new Set(judged || []);
+    const left = wholeWords.filter((word) => !seen.has(word));
+    const byWord = new Map((wholeWords || []).map((word) => [word, null]));
+    const pool = buildPool();
+    const rows = new Map(pool.map((row) => [row.word, row]));
+    const started = Date.now();
+    let since = 0;
+    let waiting = [];
+
+    const keep = async () => {
+      const batch = waiting;
+      waiting = [];
+      if (!batch.length) return;
+      await store("readwrite", (verdicts, run) => {
+        for (const [word, verdict] of batch) verdicts.put(verdict, word);
+        run.put({ at: Date.now(), done: done }, "state");
+      });
+    };
+
+    for (let i = 0; i < left.length && !wholeStop; i += WHOLE_BATCH * WHOLE_WIDTH) {
+      const lot = [];
+      for (let k = 0; k < WHOLE_WIDTH; k++) {
+        const slice = left.slice(i + k * WHOLE_BATCH, i + (k + 1) * WHOLE_BATCH);
+        if (slice.length) lot.push(slice);
+      }
+      const before = C.spent();
+      const at = Date.now();
+      const answers = await Promise.all(lot.map(async (slice) => {
+        const described = slice.map((word) => (rows.get(word) ? facts(rows.get(word)) : `${word} (${word.length} letters)`));
+        try {
+          const answer = await C.call({
+            system: rulesText(state.rules),
+            messages: [{ role: "user", content: `Judge each of these words.\n\n${described.join("\n")}` }],
+            schema: GUESS_SCHEMA,
+            maxTokens: 8000,
+          });
+          return answer.verdicts || [];
+        } catch (error) {
+          return { error };
+        }
+      }));
+      let got = 0;
+      for (const answer of answers) {
+        if (!answer || answer.error) continue;
+        for (const verdict of answer) {
+          const word = String(verdict.word).toUpperCase();
+          if (!byWord.has(word) || seen.has(word)) continue;
+          seen.add(word);
+          waiting.push([word, { s: onTen(verdict.score), v: verdict.verdict === "cut" ? 0 : 1, w: String(verdict.why || "").slice(0, 60) }]);
+          got++;
+        }
+      }
+      done += got;
+      noteRate(got, C.spent() - before, (Date.now() - at) / 1000, true);
+      since++;
+      if (since >= SAVE_EVERY) {
+        await keep();
+        since = 0;
+      }
+      const share = Math.round((100 * done) / total);
+      $("whole-bar").style.width = `${share}%`;
+      const perSecond = done > 0 ? done / ((Date.now() - started) / 1000) : 0;
+      $("whole-status").textContent = `${done.toLocaleString()} of ${total.toLocaleString()} judged` +
+        (perSecond ? `, about ${hours((total - done) / perSecond)} to go` : "") +
+        `. ${C.money(C.spent())} spent so far.`;
+      const failed = answers.filter((answer) => answer && answer.error);
+      if (failed.length === answers.length) {
+        $("whole-status").textContent = `Stopped: ${failed[0].error.message}. What is judged is saved.`;
+        break;
+      }
+    }
+    await keep();
+    $("whole-start").hidden = false;
+    $("whole-stop").hidden = true;
+    await drawWhole();
+  }
+
+  /* Everything judged so far, as a word list file: WORD;score, which the Word lists page takes. */
+  async function downloadWhole() {
+    $("whole-status").textContent = "Gathering what's judged…";
+    const [keys, values] = await store("readonly", (verdicts) => {
+      const k = verdicts.getAllKeys();
+      const v = verdicts.getAll();
+      return { get result() { return [k.result, v.result]; } };
+    });
+    const lines = [];
+    for (let i = 0; i < keys.length; i++) if (values[i] && values[i].v) lines.push(`${keys[i]};${values[i].s}`);
+    const cut = keys.length - lines.length;
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "fillmein-judged.txt";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    $("whole-status").textContent = `${lines.length.toLocaleString()} words kept, ${cut.toLocaleString()} cut. ` +
+      "Upload the file on the Word lists page to fill from it.";
+  }
+
+  if ($("whole-start")) {
+    $("whole-start").addEventListener("click", () => runWhole());
+    $("whole-stop").addEventListener("click", () => {
+      wholeStop = true;
+      $("whole-status").textContent = "Stopping after this lot…";
+    });
+    $("whole-save").addEventListener("click", () => downloadWhole());
+    $("whole-forget").addEventListener("click", async () => {
+      const ok = await window.fillmeinConfirm({
+        title: "Start the list again?",
+        text: "Every verdict from the run so far goes, and the next run begins at the first word.",
+        confirm: "Start again",
+      });
+      if (!ok) return;
+      await store("readwrite", (verdicts, run) => {
+        verdicts.clear();
+        run.delete("state");
+      });
+      await drawWhole();
+    });
   }
 
   // --- drawing ---
@@ -604,12 +849,21 @@ rules tight and readable - no more than about 500 words in the rules section - a
 evidence contradicts. Keep the person's own wording and emphasis where their decisions agree with
 it. Do not list the hundred words; write rules, not a lookup table.
 
+Words are scored 1 to 10, where 10 is the best and 0 means the word should be cut. Write every
+score in the rules on that scale: "7 to 8", never "70 to 80".
+
 Also return "learned": a few short lines saying what you changed and why, addressed to the person.`;
 
   $("train").addEventListener("click", async () => {
     if (!round) return;
     show("training");
     $("train-bar").style.width = "30%";
+    // Rules still written for the old hundred would draw rules in hundreds back out again.
+    if (looksOldScale(state.rules)) {
+      state.rules = { intro: ontoTen(state.rules.intro), rules: ontoTen(state.rules.rules), closing: ontoTen(state.rules.closing) };
+      save();
+      drawRules();
+    }
     const round_number = state.rounds.length + 1;
     for (const item of round.items) {
       const you = item.you || item.guess;
@@ -647,8 +901,9 @@ Also return "learned": a few short lines saying what you changed and why, addres
         cache: false,   // these instructions are sent once a round, so caching buys nothing
       });
       $("train-bar").style.width = "70%";
-      state.rules = { intro: answer.intro, rules: answer.rules, closing: answer.closing };
-      state.learned = answer.learned || [];
+      // Whatever it wrote, the rules this page keeps are on the site's ten.
+      state.rules = { intro: ontoTen(answer.intro), rules: ontoTen(answer.rules), closing: ontoTen(answer.closing) };
+      state.learned = (answer.learned || []).map(ontoTen);
       state.used = [...new Set([...state.used, ...round.items.map((item) => item.row.word)])];
       state.rounds.push({ at: Date.now(), agreed, of: round.items.length });
       round = null;
@@ -690,6 +945,7 @@ Also return "learned": a few short lines saying what you changed and why, addres
     $("learned").innerHTML = state.learned.length
       ? `<b>What Claude changed</b><ul>${state.learned.map((line) => `<li>${safe(line)}</li>`).join("")}</ul>`
       : "<b>No changes</b>";
+    drawWhole();
     $("sample").innerHTML = state.sample.map(({ row, guess }) => `<div class="one">
       <span class="w">${safe(row.word)}</span>
       <span>${guess ? (guess.verdict === "cut" ? "cut" : `keep at ${guess.score}`) : "—"}</span>

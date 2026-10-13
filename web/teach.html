@@ -209,12 +209,17 @@
     <div class="learned" id="learned"></div>
     <h3 style="margin:16px 0 8px;font:600 16px var(--sans)">A free sample, scored with the new rules</h3>
     <div class="sample" id="sample"></div>
-    <div class="whole-list">
-      <b>Next: the whole list</b>
-      <p class="muted">Once the rules agree with you often enough, the same judge runs over every word you have not seen —
-        527,000 of them — and hands back a list with its cuts marked and its scores set. That part isn't built yet, and is
-        what the paid version is for.</p>
-      <button type="button" class="btn" disabled>Filter all 527,000 words</button>
+    <div class="whole-list" id="whole-list">
+      <b>The whole list</b>
+      <p class="muted" id="whole-note">Working out what that would take…</p>
+      <div class="progress" id="whole-progress" hidden><span id="whole-bar"></span></div>
+      <p class="muted" id="whole-status"></p>
+      <div class="row">
+        <button type="button" class="btn" id="whole-start">Judge the rest of the list</button>
+        <button type="button" class="btn quiet" id="whole-stop" hidden>Pause</button>
+        <button type="button" class="btn quiet" id="whole-save" hidden>Download what's done</button>
+        <button type="button" class="btn quiet" id="whole-forget" hidden>Start it again</button>
+      </div>
     </div>
     <div class="row">
       <button type="button" class="btn" id="more">Train on 100 more</button>
