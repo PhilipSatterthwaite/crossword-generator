@@ -282,6 +282,30 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     save();
   }
 
+  /* The same answer without the reason. A reason earns its place on a card you are reading, and on a
+     correction the rules are rewritten from; over half a million words it is a dozen words of output
+     apiece that nothing ever looks at, and most of what answering a word costs. */
+  const BULK_SCHEMA = {
+    type: "object",
+    properties: {
+      verdicts: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            word: { type: "string" },
+            verdict: { type: "string", enum: ["keep", "cut"] },
+            score: { type: "integer", description: "1-10 when keeping, 0 when cutting" },
+          },
+          required: ["word", "verdict", "score"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["verdicts"],
+    additionalProperties: false,
+  };
+
   /* Claude's first pass over a set of words, in batches. */
   async function guessAll(rows, onProgress) {
     if (MODELS_OFF) {
@@ -382,7 +406,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
      and a word's worth of tokens stand in. */
   /* A word's worth of tokens at a model's prices: what one costs before anything is measured, and
      the yardstick for carrying a measurement from one model to another. */
-  const nominal = (model) => (90 * C.MODELS[model].in + 30 * C.MODELS[model].out) / 1e6;
+  const nominal = (model) => (90 * C.MODELS[model].in + 14 * C.MODELS[model].out) / 1e6; // no reason to write
   const bucket = (key, model) => (state[key] && state[key].words === undefined ? state[key][model] : null);
 
   function estimate(left) {
@@ -476,8 +500,12 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
         try {
           const answer = await C.call({
             system: rulesText(state.rules),
-            messages: [{ role: "user", content: `Judge each of these words.\n\n${described.join("\n")}` }],
-            schema: GUESS_SCHEMA,
+            messages: [{
+              role: "user",
+              content: `Judge each of these words. Answer with each word's verdict and score only: no reasons ` +
+                `are wanted here, whatever the closing of the brief asks for.\n\n${described.join("\n")}`,
+            }],
+            schema: BULK_SCHEMA,
             maxTokens: 8000,
           });
           return answer.verdicts || [];
@@ -492,7 +520,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
           const word = String(verdict.word).toUpperCase();
           if (!byWord.has(word) || seen.has(word)) continue;
           seen.add(word);
-          waiting.push([word, { s: onTen(verdict.score), v: verdict.verdict === "cut" ? 0 : 1, w: String(verdict.why || "").slice(0, 60) }]);
+          waiting.push([word, { s: onTen(verdict.score), v: verdict.verdict === "cut" ? 0 : 1 }]);
           got++;
         }
       }
