@@ -825,12 +825,10 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   const TRAIN_SCHEMA = {
     type: "object",
     properties: {
-      intro: { type: "string" },
-      rules: { type: "string" },
-      closing: { type: "string" },
+      rules: { type: "string", description: "the rewritten rules, and nothing else" },
       learned: { type: "array", items: { type: "string" }, description: "what changed and why, one short line each" },
     },
-    required: ["intro", "rules", "closing", "learned"],
+    required: ["rules", "learned"],
     additionalProperties: false,
   };
 
@@ -846,16 +844,15 @@ Where the two differ, the rules were wrong, not the person. A correction from an
 as much as one from the latest, so a rule that explained the old ones survives unless newer evidence
 contradicts it.
 
-Return the three parts in the shape they are given to you, which is the shape the judge expects:
+You rewrite one part of the brief and only that part: the rules. The opening and the closing are the
+constructor's own. They are shown to you so that what you write sits properly between them, and they
+are not yours to touch: nothing you return can change them.
 
-- intro: one to three sentences saying what the job is. "You judge entries for a crossword word
-  list..." is how it reads.
-- rules: a short paragraph on what to keep; then "Cut a word when it is:" and a dash-led list of the
-  kinds to cut, each with an example or two drawn from their corrections; then "What the scores
-  mean:" and one dash-led line for each score from 10 down to 0. Keep this section under about 500
-  words, and keep the constructor's own wording wherever their decisions bear it out.
-- closing: how to weigh the evidence, and how to answer: a verdict, a score, and a reason of at most
-  twelve words.
+The rules read as they are given to you: a short paragraph on what to keep; then "Cut a word when it
+is:" and a dash-led list of the kinds to cut, each with an example or two drawn from their
+corrections; then "What the scores mean:" and one dash-led line for each score from 10 down to 0.
+Keep the section under about 500 words, and keep the constructor's own wording wherever their
+decisions bear it out.
 
 Words are scored 1 to 10, where 10 is the best and 0 means cut. Every score you write is on that
 scale: "7 to 8", never "70 to 80". There is no hundred-point scale any more.
@@ -869,7 +866,7 @@ what you changed and why.`;
     if (!round) return;
     show("training");
     $("training-note").textContent = `${C.MODELS[RULES_MODEL].name.split(" - ")[0]} is reading every correction at once and ` +
-      "rewriting your rules so they would have produced your decisions.";
+      "rewriting your rules so they would have produced your decisions. Your opening and closing are left as you wrote them.";
     $("train-bar").style.width = "30%";
     noticeScale(); // whatever has been typed into the boxes meanwhile is on the ten before it is sent
     const round_number = state.rounds.length + 1;
@@ -898,7 +895,9 @@ what you changed and why.`;
         system: TRAINER,
         messages: [{
           role: "user",
-          content: `Their current rules:\n\n<rules>\n${rulesText(state.rules)}\n</rules>\n\n` +
+          content: `The opening and closing of their brief, which you do not rewrite:\n\n` +
+            `<opening>\n${state.rules.intro}\n</opening>\n\n<closing>\n${state.rules.closing}\n</closing>\n\n` +
+            `The rules you are rewriting:\n\n<rules>\n${state.rules.rules}\n</rules>\n\n` +
             `Every word they have judged, over ${round_number} round${round_number === 1 ? "" : "s"}. ` +
             `The corrections come first, since those are where the rules were wrong; the words they let ` +
             `stand follow, as the rules got those right. Account for all of it, not only the newest.\n\n${decided}`,
@@ -910,25 +909,19 @@ what you changed and why.`;
         cache: false,   // these instructions are sent once a round, so caching buys nothing
       });
       $("train-bar").style.width = "70%";
-      // The three parts are a brief for the judge. If what comes back talks to you instead -- "your
-      // corrections show...", "I rewrote them around..." -- that part is a reply, and the one it
-      // replaced stands.
-      const reply = /(?:i|we)\s+(?:rewrote|changed|updated|tightened|loosened|reorganis|reorganiz)|your corrections|you corrected|you asked/i;
-      const kept = [];
-      const held = (part, was) => {
-        if (!part || !reply.test(part)) return part || was;
-        kept.push(part === answer.intro ? "opening" : part === answer.closing ? "closing" : "rules");
-        return was;
-      };
-      // Whatever it wrote, the rules this page keeps are on the site's ten.
+      // The opening and closing are yours and are left exactly as they are: only the rules are
+      // rewritten. If what comes back talks to you rather than to the judge -- "your corrections
+      // show...", "I rewrote them around..." -- it is a reply, not a brief, so yours stand.
+      const reply = /\b(?:i|we)\s+(?:rewrote|changed|updated|tightened|loosened|reorganis|reorganiz)|your corrections|you corrected|you asked/i;
+      const refused = Boolean(answer.rules) && reply.test(answer.rules);
       state.rules = {
-        intro: ontoTen(held(answer.intro, state.rules.intro)),
-        rules: ontoTen(held(answer.rules, state.rules.rules)),
-        closing: ontoTen(held(answer.closing, state.rules.closing)),
+        intro: state.rules.intro,
+        rules: ontoTen(refused || !answer.rules ? state.rules.rules : answer.rules),
+        closing: state.rules.closing,
       };
       state.learned = (answer.learned || []).map(ontoTen);
-      if (kept.length) {
-        state.learned.push(`The ${kept.join(" and ")} came back written to you rather than to the judge, so your own stands there.`);
+      if (refused) {
+        state.learned.push("The rules came back written to you rather than to the judge, so your own stand.");
       }
       state.used = [...new Set([...state.used, ...round.items.map((item) => item.row.word)])];
       state.rounds.push({ at: Date.now(), agreed, of: round.items.length });
