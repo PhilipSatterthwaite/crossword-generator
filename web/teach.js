@@ -541,6 +541,11 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   const show = (name) => {
     for (const step of ["gate", "rules", "teach", "training", "result"]) $(`step-${step}`).hidden = step !== name;
+    // The run over the rest of the list stands beside the rules and the result, since it is a thing
+    // you may want at any point, not only after a round. It stays out of the way while judging.
+    const beside = name === "rules" || name === "result";
+    $("step-whole").hidden = !beside;
+    if (beside) drawWhole();
     $("setup").hidden = name === "gate" || MODELS_OFF;
     $("preview-note").hidden = name === "gate";
     if (MODELS_OFF) {

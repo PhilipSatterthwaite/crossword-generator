@@ -210,24 +210,27 @@
     <div class="learned" id="learned"></div>
     <h3 style="margin:16px 0 8px;font:600 16px var(--sans)">A free sample, scored with the new rules</h3>
     <div class="sample" id="sample"></div>
-    <div class="whole-list" id="whole-list">
-      <b>The whole list</b>
-      <p class="muted" id="whole-note">Working out what that would take…</p>
-      <div class="progress" id="whole-progress" hidden><span id="whole-bar"></span></div>
-      <p class="muted" id="whole-status"></p>
-      <div class="row">
-        <button type="button" class="btn" id="whole-start">Judge the rest of the list</button>
-        <button type="button" class="btn quiet" id="whole-stop" hidden>Pause</button>
-        <button type="button" class="btn quiet" id="whole-save" hidden>Download what's done</button>
-        <button type="button" class="btn quiet" id="whole-forget" hidden>Start it again</button>
-      </div>
-    </div>
     <div class="row">
       <button type="button" class="btn" id="more">Train on 100 more</button>
       <button type="button" class="btn quiet" id="see-rules">See and edit the new rules</button>
       <button type="button" class="btn quiet" id="use-rules">Use these on the Train page</button>
       <div class="spacer"></div>
       <p class="muted" id="result-note"></p>
+    </div>
+  </section>
+
+  <section class="step" id="step-whole" hidden>
+    <h2>The rest of the list</h2>
+    <p class="what">Your rules, over every word you have not judged yourself. It saves as it goes, so it can be stopped and
+      carried on, and what it has judged can be downloaded as a word list at any point.</p>
+    <p class="muted" id="whole-note">Working out what that would take…</p>
+    <div class="progress" id="whole-progress" hidden><span id="whole-bar"></span></div>
+    <p class="muted" id="whole-status"></p>
+    <div class="row">
+      <button type="button" class="btn" id="whole-start">Judge the rest of the list</button>
+      <button type="button" class="btn quiet" id="whole-stop" hidden>Pause</button>
+      <button type="button" class="btn quiet" id="whole-save" hidden>Download what's done</button>
+      <button type="button" class="btn quiet" id="whole-forget" hidden>Start it again</button>
     </div>
   </section>
 </div>
