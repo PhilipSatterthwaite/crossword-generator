@@ -271,11 +271,14 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
      estimate for the whole list leans on this rather than on a guess. */
   function noteRate(words, cost, seconds, bulk) {
     if (!words || MODELS_OFF) return;
-    // Kept apart: a teaching round sends ten words a request with someone waiting on each answer,
-    // a run over the list sends forty with four in flight, so one can't be read as the other.
+    // Kept apart two ways. A teaching round sends ten words a request with someone waiting on each
+    // answer and a run sends forty with four in flight, so one can't be read as the other; and each
+    // model has its own price and pace, so Haiku's figures say nothing about Opus's.
     const key = bulk ? "bulkRate" : "rate";
-    const had = state[key] || { words: 0, cost: 0, seconds: 0 };
-    state[key] = { words: had.words + words, cost: had.cost + cost, seconds: had.seconds + seconds };
+    const model = C.model();
+    if (!state[key] || state[key].words !== undefined) state[key] = {}; // the old shape, before models were kept apart
+    const had = state[key][model] || { words: 0, cost: 0, seconds: 0 };
+    state[key][model] = { words: had.words + words, cost: had.cost + cost, seconds: had.seconds + seconds };
     save();
   }
 
@@ -294,6 +297,8 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     const system = rulesText(state.rules);
     const batches = [];
     for (let i = 0; i < rows.length; i += BATCH) batches.push(rows.slice(i, i + BATCH));
+    const spentBefore = C.spent();
+    const began = Date.now();
     const results = await C.pool(batches.map((batch) => async () => {
       const answer = await C.call({
         system,
@@ -310,6 +315,9 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
       // keeps one scale whatever the rules say, so the card and the Agree button never show a 40.
       for (const verdict of result) byWord.set(String(verdict.word).toUpperCase(), { ...verdict, score: onTen(verdict.score) });
     }
+    // What this round actually cost and took, so the estimate for the rest of the list is measured
+    // rather than guessed.
+    noteRate(byWord.size, C.spent() - spentBefore, (Date.now() - began) / 1000, false);
     const failed = results.filter((result) => result && result.error);
     return { byWord, error: failed.length ? failed[0].error : null };
   }
@@ -372,22 +380,39 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   /* What the rest of the list would cost and take, from what the teaching rounds actually cost and
      took, scaled for the bigger batches a run uses. Without a measurement, the model's own rates
      and a word's worth of tokens stand in. */
+  /* A word's worth of tokens at a model's prices: what one costs before anything is measured, and
+     the yardstick for carrying a measurement from one model to another. */
+  const nominal = (model) => (90 * C.MODELS[model].in + 30 * C.MODELS[model].out) / 1e6;
+  const bucket = (key, model) => (state[key] && state[key].words === undefined ? state[key][model] : null);
+
   function estimate(left) {
-    const bulk = state.bulkRate;
-    const rates = C.MODELS[C.model()];
+    const model = C.model();
+    const bulk = bucket("bulkRate", model);
     if (bulk && bulk.words >= 200) {
-      // Measured on a run over the list itself, which is the thing being estimated.
+      // Measured on a run on this model over the list itself, which is the thing being estimated.
       return { cost: (bulk.cost / bulk.words) * left, seconds: left / (bulk.words / bulk.seconds), measured: "run" };
     }
-    const rate = state.rate;
+    const rate = bucket("rate", model);
     if (rate && rate.words >= 20) {
-      // From the teaching rounds, where each request carries fewer words and waits on an answer:
-      // bigger batches spread the rules over more words and run four at a time.
+      // From the teaching rounds on this model, where each request carries fewer words and waits on
+      // an answer: bigger batches spread the rules over more words and run four at a time.
       const perWord = (rate.cost / rate.words) * 0.8;
       const perSecond = (rate.words / rate.seconds) * (WHOLE_BATCH / BATCH) * (WHOLE_WIDTH / WIDTH);
       return { cost: perWord * left, seconds: left / perSecond, measured: "rounds" };
     }
-    return { cost: ((90 * rates.in + 30 * rates.out) / 1e6) * left, seconds: left / 12, measured: null };
+    // Nothing measured on this model, but perhaps on another: its tokens per word carry across, so
+    // the cost does at the new model's prices. How fast it answers does not, so that is a guess.
+    for (const key of ["bulkRate", "rate"]) {
+      const other = state[key] && state[key].words === undefined
+        ? Object.entries(state[key]).find(([name, had]) => name !== model && had.words >= (key === "bulkRate" ? 200 : 20))
+        : null;
+      if (!other) continue;
+      const [name, had] = other;
+      const scale = nominal(model) / nominal(name);
+      const perWord = (had.cost / had.words) * scale * (key === "rate" ? 0.8 : 1);
+      return { cost: perWord * left, seconds: left / 12, measured: "other", from: name };
+    }
+    return { cost: nominal(model) * left, seconds: left / 12, measured: null };
   }
 
   async function drawWhole() {
@@ -401,7 +426,9 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
         `and take about <b>${hours(guess.seconds)}</b> on ${C.MODELS[C.model()].name.split(" - ")[0]}.`
       : `${total.toLocaleString()} words. Judging all of them with your rules would cost about <b>${C.money(guess.cost)}</b> ` +
         `and take about <b>${hours(guess.seconds)}</b> on ${C.MODELS[C.model()].name.split(" - ")[0]}` +
-        `${guess.measured === "run" ? ", going by the run so far" : guess.measured === "rounds" ? ", going by what your rounds have cost" : ""}. ` +
+        `${guess.measured === "run" ? ", going by the run so far"
+          : guess.measured === "rounds" ? ", going by what your rounds have cost"
+          : guess.measured === "other" ? `, going by its prices against what ${C.MODELS[guess.from].name.split(" - ")[0]} used` : ""}. ` +
         `It saves as it goes, so you can stop and carry on later.`;
     $("whole-start").textContent = done ? "Carry on judging the list" : "Judge the whole list";
     $("whole-save").hidden = !done;
@@ -992,7 +1019,10 @@ what you changed and why.`;
   $("key").addEventListener("change", () => C.setKey($("key").value));
   $("model").innerHTML = Object.entries(C.MODELS).map(([id, m]) => `<option value="${id}">${m.name}</option>`).join("");
   $("model").value = C.model();
-  $("model").addEventListener("change", () => C.setModel($("model").value));
+  $("model").addEventListener("change", () => {
+    C.setModel($("model").value);
+    drawWhole(); // the price and the time are this model's, so they are worked out again
+  });
   const showSpent = () => ($("spent").textContent = C.spent() ? `${C.money(C.spent())} spent so far` : "");
   C.onSpend(showSpent);
   showSpent();
