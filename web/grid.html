@@ -358,6 +358,8 @@
   .list-row .name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
   .list-row .count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
   .lists-empty { margin: 0; font-size: 14px; color: var(--muted); }
+  .block-add { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .block-add input { width: 11ch; padding: 5px 7px; border: 1px solid var(--rule); border-radius: 6px; font: 600 13px var(--sans); text-transform: uppercase; }
   .lists-note { margin: 0; font-size: 13px; color: var(--muted); }
   .file-button { display: inline-flex; align-items: center; gap: 8px; }
   .file-button input { display: none; }
@@ -569,6 +571,21 @@
     </section>
 
     <section>
+      <h3>Kept out of this puzzle</h3>
+      <p id="blocked-summary" class="lists-empty"></p>
+      <ul id="blocked-rows" class="list-rows"></ul>
+      <div class="actions">
+        <label class="block-add">Keep a word out
+          <input type="text" id="block-word" placeholder="WORD" autocomplete="off" spellcheck="false" maxlength="25">
+        </label>
+        <button type="button" id="block-add" class="btn quiet small">Add</button>
+        <button type="button" id="unblock-all" class="btn quiet small" hidden>Let them all back</button>
+      </div>
+      <p class="lists-note">These stay in your word list and in your other puzzles. It is what to use when an entry
+        is too close to a theme answer: wrong here, fine everywhere else.</p>
+    </section>
+
+    <section>
       <h3>Sync to my account</h3>
       <p id="sync-note" class="lists-note"></p>
       <div id="sync-actions" class="actions"></div>
@@ -657,6 +674,11 @@
   // rebuild (another list, a new score, the next visit) folds it in for real.
   const hidden = new Set();
   const hiddenRescored = new Map(); // hidden word -> whether it had a score of its own before
+  /* Words kept out of this puzzle alone. They stay in your list and in every other puzzle; here the
+     fill and the options never offer them. A themed puzzle needs this: an entry too close to a theme
+     answer gives the theme away in this grid and is perfectly good in the next one. Saved with the
+     puzzle, so it holds between visits and follows the puzzle to another device. */
+  let blockedHere = new Set();
   let wordListVersion = 0; // bumped when lists or per-word edits change, so the options are worked out again
   const lexicon = new Map();
   function lexiconFor(length) {
@@ -708,6 +730,7 @@
   let shiftAlone = false;
   const REBUS_MOST = 12;
   const THEME_MOST = 30;
+  const BLOCKED_MOST = 500; // words one puzzle can keep out: plenty for a theme, small enough to save
   let blocks = [], ink = [], pencil = [];
   let sel = 0, dir = "across";
   let slots = [], numbers = [], slotAt = { across: [], down: [] };
@@ -1020,7 +1043,9 @@
       // A filled entry's word can come out of the list from here, and a removal made this visit undone.
       const word = wordBySlot.get(slot);
       let edit = "";
-      if (window.FillmeinLists && word && hidden.has(word)) {
+      if (word && blockedHere.has(word)) {
+        edit = `<button type="button" class="entry-edit" data-word-action="unblock" data-word="${word}" title="Let ${word} into this puzzle again" aria-label="Let ${word} back into this puzzle">Let in</button>`;
+      } else if (window.FillmeinLists && word && hidden.has(word)) {
         edit = `<button type="button" class="entry-edit" data-word-action="undo" data-word="${word}" title="Put ${word} back in your word list">Undo</button>`;
       } else if (window.FillmeinLists && word && scoreBySlot.get(slot) !== null) {
         edit = `<button type="button" class="entry-edit drop" data-word-action="remove" data-word="${word}" title="Take ${word} out of your word list" aria-label="Remove ${word} from your word list">Remove</button>`;
@@ -1341,8 +1366,9 @@
     const full = k >= 0 && slots[k].cells.every((i) => ink[i] || pencil[i]);
     const word = full ? slots[k].cells.map((i) => ink[i] || pencil[i]).join("") : "";
     const score = word ? scoreOf(word) : null;
+    const out = Boolean(word) && blockedHere.has(word);
     // Left alone while it shows the same word and score, so a render mid-drag doesn't drop the slider.
-    const key = `${word}|${score}`;
+    const key = `${word}|${score}|${out}`;
     if (box.dataset.key === key) return;
     box.dataset.key = key;
     box.replaceChildren();
@@ -1351,6 +1377,14 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn quiet small";
+    // A word this puzzle keeps out: the only thing to offer is letting it back in.
+    if (out) {
+      button.textContent = "Let it back into this puzzle";
+      button.title = `${word} is in your list; put it back in this puzzle too`;
+      button.addEventListener("click", () => unblockHere(word));
+      box.append(button);
+      return;
+    }
     if (score === null) {
       button.textContent = "Add to list";
       button.title = `Add ${word} to the word list, scored 5`;
@@ -1368,9 +1402,11 @@
     label.title = `Your score for ${word}`;
     const slider = document.createElement("input");
     slider.type = "range";
-    slider.min = "0";
-    slider.max = "100";
-    slider.value = String(score);
+    // Scores run 1 to 10. Taking a word out is what the Remove button is for, so the slider has no 0.
+    slider.min = "1";
+    slider.max = "10";
+    slider.step = "1";
+    slider.value = String(Math.max(1, Math.min(10, score)));
     slider.setAttribute("aria-label", `Score for ${word}`);
     slider.addEventListener("input", () => {
       $("sel-score").innerHTML = scoreChip(Number(slider.value));
@@ -1388,12 +1424,20 @@
     });
     label.append(slider);
     button.textContent = "Remove from list";
-    button.title = `Take ${word} out of the word list`;
+    button.title = `Take ${word} out of the word list, in every puzzle`;
     button.addEventListener("click", async () => {
       if (!(await ensureEditable())) return;
       await removeFromList(word);
     });
-    box.append(label, button);
+    /* Out of this puzzle only: nothing is saved to the list, so this works on the lists that come
+       with the site as well as your own. */
+    const here = document.createElement("button");
+    here.type = "button";
+    here.className = "btn quiet small";
+    here.textContent = "Remove for this puzzle";
+    here.title = `Keep ${word} out of this puzzle, and leave it in your list`;
+    here.addEventListener("click", () => blockHere(word));
+    box.append(label, here, button);
   }
 
   /* The lists that come with the site stay as they are. Anything that would change one asks first:
@@ -1434,6 +1478,81 @@
     note.append(wrap);
   }
 
+  /* Hide words from this page and from the solver, or put them back. Words already where they should
+     be are left alone, and only words the list actually holds are hidden, so the solver's count of
+     how many words it has stays honest. Returns the words that changed. */
+  function hideWords(words, gone) {
+    const changed = [];
+    for (const word of words) {
+      if (hidden.has(word) === gone) continue;
+      if (gone && scoreOf(word) === null) continue; // not in the list: nothing to hide
+      changed.push(word);
+    }
+    for (const word of changed) {
+      if (gone) hidden.add(word);
+      else hidden.delete(word);
+    }
+    if (changed.length) runner.hide(changed, gone);
+    return changed;
+  }
+
+  /* Keep a word out of this puzzle, or let it back in. The list is not touched, so this works on the
+     lists that come with the site as well as your own. */
+  async function blockHere(word) {
+    if (blockedHere.has(word)) return;
+    blockedHere.add(word);
+    save();
+    hideWords([word], true);
+    patchOptions(word, true);
+    renderBlocked();
+    if (LISTS) await noteEdits();
+    else render();
+    noteBlocked(word);
+  }
+
+  async function unblockHere(word) {
+    if (!blockedHere.delete(word)) return;
+    save();
+    hideWords([word], false);
+    patchOptions(word, false);
+    renderBlocked();
+    if (LISTS) await noteEdits();
+    else render();
+  }
+
+  async function unblockAll() {
+    if (!blockedHere.size) return;
+    const words = [...blockedHere];
+    blockedHere.clear();
+    save();
+    hideWords(words, false);
+    for (const word of words) patchOptions(word, false);
+    renderBlocked();
+    if (LISTS) await noteEdits();
+    else render();
+  }
+
+  /* The words this puzzle keeps out, put back in place after the list has been rebuilt. */
+  function applyBlocked() {
+    if (blockedHere.size) hideWords([...blockedHere], true);
+  }
+
+  /* An Undo right where the word was kept out, the way a removal from the list has one. */
+  function noteBlocked(word) {
+    const note = $("options-note");
+    if (!note) return;
+    note.replaceChildren();
+    const wrap = document.createElement("span");
+    wrap.className = "undo-note";
+    wrap.append(`${word} is out of this puzzle. It is still in your list.`);
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.textContent = "Undo";
+    undo.addEventListener("click", () => unblockHere(word));
+    wrap.append(undo);
+    note.append(wrap);
+  }
+
   /* Take a word out of the list in use. The saved edit is made as before; the word is then hidden
      rather than the list rebuilt, and only the option verdicts it could change are worked out again. */
   async function removeFromList(word) {
@@ -1443,9 +1562,8 @@
     if (!listed) {
       await refreshWordList();
     } else {
-      hidden.add(word);
       hiddenRescored.set(word, rescored);
-      runner.hide([word], true);
+      hideWords([word], true);
       patchOptions(word, true);
       await noteEdits();
     }
@@ -1456,13 +1574,14 @@
      score of its own before, which the undo drops: then the list is rebuilt as before. */
   async function restoreToList(word) {
     await quietly(() => LISTS.restoreWord(listChoice.id, word));
-    if (!hidden.has(word) || hiddenRescored.get(word)) {
+    // A word this puzzle keeps out goes back into the list, and stays out of this grid: the rebuild
+    // puts it in the list and applyBlocked hides it here again.
+    if (blockedHere.has(word) || !hidden.has(word) || hiddenRescored.get(word)) {
       await refreshWordList();
       return;
     }
-    hidden.delete(word);
     hiddenRescored.delete(word);
-    runner.hide([word], false);
+    hideWords([word], false);
     patchOptions(word, false);
     await noteEdits();
   }
@@ -1752,7 +1871,7 @@
       row = document.createElement("li");
       row.className = "option-row";
       row.innerHTML = `<button type="button" class="option" data-index="${i}" data-word="${option.word}"><span class="option-word">${option.word}</span>${option.popular ? '<span class="tag" title="Scores under the minimum, allowed because it is popular">popular</span>' : ""}${scoreChip(option.score)}${option.combo !== undefined ? `<span class="option-combo" title="Average of ${option.word} and the best word that fits each entry crossing it, each counted by its length">avg ${option.combo}</span>` : ""}<span class="option-mark" aria-hidden="true"></span></button>` +
-        `<span class="option-edit"><button type="button" data-word-action="score" data-word="${option.word}" title="Give ${option.word} your own score">Score</button><button type="button" class="drop" data-word-action="remove" data-word="${option.word}" title="Take ${option.word} out of your word list">Remove</button></span>`;
+        `<span class="option-edit"><button type="button" data-word-action="score" data-word="${option.word}" title="Give ${option.word} your own score">Score</button><button type="button" data-word-action="here" data-word="${option.word}" title="Keep ${option.word} out of this puzzle and leave it in your list" aria-label="Remove ${option.word} for this puzzle">Not here</button><button type="button" class="drop" data-word-action="remove" data-word="${option.word}" title="Take ${option.word} out of your word list, in every puzzle">Remove</button></span>`;
       optionRows.set(i, row);
     }
     const button = row.firstChild;
@@ -2028,7 +2147,8 @@
     const action = event.target.closest("[data-word-action]");
     if (action && LISTS) {
       const word = action.dataset.word;
-      if (action.dataset.wordAction === "undo") await restoreToList(word);
+      if (action.dataset.wordAction === "unblock") await unblockHere(word);
+      else if (action.dataset.wordAction === "undo") await restoreToList(word);
       else if (await ensureEditable()) await removeFromList(word);
       return;
     }
@@ -2751,6 +2871,8 @@
       sentLengths = merged;
       await runner.setWords(changed, !sameShape);
     }
+    // The rebuilt list holds every word again, this puzzle's own exclusions included: hide those.
+    applyBlocked();
     renderLists();
     render();
     if (recheck && ready) resumeCheck();
@@ -2803,7 +2925,38 @@
     select.value = known ? listChoice.id : "built-in";
   }
 
+  /* The words this puzzle keeps out, each with a way back in. Nothing here belongs to a list, so it
+     shows whether or not this browser can keep lists of its own. */
+  function renderBlocked() {
+    const rows = $("blocked-rows");
+    if (!rows) return;
+    rows.replaceChildren();
+    const words = [...blockedHere].sort();
+    for (const word of words.slice(0, 12)) {
+      const row = document.createElement("li");
+      row.className = "list-row";
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = word;
+      const what = document.createElement("span");
+      what.className = "count";
+      what.textContent = scoreOf(word) === null && !hidden.has(word) ? "not in this list" : "out of this puzzle";
+      const back = document.createElement("button");
+      back.type = "button";
+      back.className = "btn quiet small";
+      back.textContent = "Let in";
+      back.addEventListener("click", () => unblockHere(word));
+      row.append(name, what, back);
+      rows.append(row);
+    }
+    $("blocked-summary").textContent = words.length
+      ? `${words.length} word${words.length === 1 ? "" : "s"} kept out of this puzzle${words.length > 12 ? ", the first twelve below" : ""}.`
+      : "None. Use Not here beside a word in the options list, or Remove for this puzzle on the selected entry.";
+    $("unblock-all").hidden = !words.length;
+  }
+
   function renderLists() {
+    renderBlocked();
     if (!LISTS) return;
     renderListChoice();
     const rows = $("list-rows");
@@ -3022,17 +3175,44 @@
       $("lists-note").textContent = error.message || "That file couldn't be read.";
     }
   });
+  /* A word kept out before it ever turns up in the options: you know the theme answer, so you know
+     which entries would give it away. */
+  async function addBlocked() {
+    const word = $("block-word").value.toUpperCase().replace(/[^A-Z]/g, "");
+    if (!word) return;
+    if (blockedHere.size >= BLOCKED_MOST) {
+      $("lists-note").textContent = `One puzzle can keep out ${BLOCKED_MOST} words. Let some back in first.`;
+      return;
+    }
+    $("block-word").value = "";
+    await blockHere(word);
+  }
+  $("block-add").addEventListener("click", addBlocked);
+  $("block-word").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addBlocked();
+    }
+  });
+  $("unblock-all").addEventListener("click", unblockAll);
+
   $("restore-edits").addEventListener("click", async () => {
     await LISTS.setEditsFor(listChoice.id, null);
     await refreshWordList();
   });
 
-  /* Score and Remove sit beside each option, outside the button that previews the word. */
+  /* Score, Not here and Remove sit beside each option, outside the button that previews the word. */
   $("options").addEventListener("click", async (event) => {
     const action = event.target.closest("[data-word-action]");
-    if (!action || !LISTS) return;
+    if (!action) return;
     event.stopPropagation();
     const word = action.dataset.word;
+    // Keeping a word out of this puzzle changes no list, so it needs no list of your own.
+    if (action.dataset.wordAction === "here") {
+      await blockHere(word);
+      return;
+    }
+    if (!LISTS) return;
     if (!(await ensureEditable())) return;
     if (action.dataset.wordAction === "remove") {
       await removeFromList(word);
@@ -3115,6 +3295,7 @@
       allowPopular: allowPopularEl.checked,
       timeLimit: timeLimit(),
       lists: { id: listChoice.id },
+      blocked: [...blockedHere],
       theme,
       recommended,
     };
@@ -3152,6 +3333,7 @@
       const id = typeof data.lists.id === "string" ? data.lists.id : data.lists.use === "built-in" ? "built-in" : first;
       listChoice = { id: id || "built-in" };
     }
+    blockedHere = new Set(Array.isArray(data.blocked) ? data.blocked.filter((word) => typeof word === "string" && /^[A-Z]{2,25}$/.test(word)).slice(0, BLOCKED_MOST) : []);
     theme = Array.isArray(data.theme) ? data.theme.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 2).slice(0, THEME_MOST) : [];
     recommended = Array.isArray(data.recommended) ? data.recommended.filter((word) => typeof word === "string" && /^([A-Z]|\[[A-Z]{2,}\])+$/.test(word) && themeParts(word).length >= 3 && !theme.includes(word)).slice(0, THEME_MOST) : [];
     migrateClues(data);
@@ -3175,6 +3357,10 @@
       async () => {
         // The puzzle may be set to use custom lists, and per-word edits apply to every puzzle.
         await refreshWordList({ recheck: false });
+        // The rebuild applies this puzzle's own exclusions; without lists in this browser there is no
+        // rebuild, so they are applied here.
+        applyBlocked();
+        renderBlocked();
         ready = true;
         updateButtons();
         if (restored) {
