@@ -454,6 +454,14 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
           : guess.measured === "rounds" ? ", going by what your rounds have cost"
           : guess.measured === "other" ? `, going by its prices against what ${C.MODELS[guess.from].name.split(" - ")[0]} used` : ""}. ` +
         `It saves as it goes, so you can stop and carry on later.`;
+    // How far it got is worth seeing before it starts again, not only while it runs.
+    $("whole-progress").hidden = !done;
+    if (done) {
+      $("whole-bar").style.width = `${((100 * done) / total).toFixed(2)}%`;
+      if (!$("whole-status").textContent) {
+        $("whole-status").textContent = `${((100 * done) / total).toFixed(1)}% of the list, judged and saved in this browser.`;
+      }
+    }
     $("whole-start").textContent = done ? "Carry on judging the list" : "Judge the whole list";
     $("whole-save").hidden = !done;
     $("whole-forget").hidden = !done;
@@ -464,6 +472,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     $("whole-start").hidden = true;
     $("whole-stop").hidden = false;
     $("whole-progress").hidden = false;
+    $("whole-status").textContent = "Starting…";
     const total = (wholeWords || (wholeWords = allWords())).length;
     let done = await countDone();
     // Which words are already judged: read once, so the run doesn't ask the database per word.
@@ -531,10 +540,12 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
         await keep();
         since = 0;
       }
-      const share = Math.round((100 * done) / total);
-      $("whole-bar").style.width = `${share}%`;
+      // Half a million words means whole percents sit still for an hour at a time, so the bar is
+      // drawn to a hundredth and the share is said in words beside it.
+      const share = (100 * done) / total;
+      $("whole-bar").style.width = `${share.toFixed(2)}%`;
       const perSecond = done > 0 ? done / ((Date.now() - started) / 1000) : 0;
-      $("whole-status").textContent = `${done.toLocaleString()} of ${total.toLocaleString()} judged` +
+      $("whole-status").textContent = `${done.toLocaleString()} of ${total.toLocaleString()} judged (${share.toFixed(1)}%)` +
         (perSecond ? `, about ${hours((total - done) / perSecond)} to go` : "") +
         `. ${C.money(C.spent())} spent so far.`;
       const failed = answers.filter((answer) => answer && answer.error);
