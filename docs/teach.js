@@ -7,6 +7,9 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const C = window.FillmeinClaude;
+  const LISTS = window.FillmeinLists;
+  const BUILT_INS = { "built-in": "Built-in list", nyt: "NYT answers" };
+  const CHOICE = "fillmein:teach:list";
   const STATE = "fillmein:teach";
   const JUDGE_RUBRIC = "fillmein:ai:rubric"; // what judge.js reads on the Train page
   /* True while the look of this page is being settled: nothing is sent to Claude, no key is needed,
@@ -141,11 +144,36 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   const WIKT = ["listed", "noun", "verb", "adjective", "adverb", "proper", "phrase", "abbreviation", "dated", "informal", "offensive", "rare", "inflection"];
   const FIELDS = ["uses", "everyday", "google", "year", "broda", "zipf", "cuts", "books", "lat", "wsj", "usa", "tny", "up", "nw", "other", "outlets", "clues", "wiki", "subtlex", "opensubs", "wikt"];
-  let pool = null; // every 3-10 letter word, with the figures the rules might lean on
+  let pool = null;       // every 3-10 letter word of the list in use, with the figures rules lean on
+  let listWords = null;  // that list's words, as words.js packs them
+  let listId = "built-in";
+
+  /* The list being worked on. The built-in words are the base; a list of someone's own replaces them,
+     and scores or removals they have set are laid over either. The figures each word carries --
+     uses, familiarity, Google, Wiktionary -- are the built-in ones, since they are facts about the
+     word rather than about the list. */
+  async function loadList() {
+    pool = null;
+    wholeWords = null;
+    listWords = window.GRIDFILL_WORDS || {};
+    if (!LISTS) return;
+    try {
+      const { lists, edits } = await LISTS.state(listId);
+      const chosen = lists.find((list) => list.id === listId) || null;
+      const ownWords = chosen && chosen.basedOn !== "built-in";
+      listWords = LISTS.merge(window.GRIDFILL_WORDS, {
+        use: ownWords ? "custom" : "built-in",
+        lists: ownWords ? [chosen] : [],
+        edits,
+      });
+    } catch (error) {
+      listWords = window.GRIDFILL_WORDS || {}; // a list that won't load shouldn't stop the page
+    }
+  }
 
   function buildPool() {
     if (pool) return pool;
-    const words = window.GRIDFILL_WORDS || {};
+    const words = listWords || window.GRIDFILL_WORDS || {};
     const stats = window.GRIDFILL_STATS || {};
     pool = [];
     for (let len = 3; len <= 10; len++) {
@@ -351,13 +379,13 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   const WHOLE_BATCH = 40;  // words per request when there is no one waiting on each answer
   const WHOLE_WIDTH = 4;   // requests at once
   const SAVE_EVERY = 10;   // batches between writes, so a stop costs you four hundred words at most
-  const DB = "fillmein-filter";
+  const DB = () => `fillmein-filter-${listId}`; // one list's verdicts are not another's
 
   /* Somewhere to put half a million verdicts: localStorage is far too small, so they go in
      IndexedDB, written in batches as the run goes along. */
   function store(mode, work) {
     return new Promise((resolve, reject) => {
-      const open = indexedDB.open(DB, 1);
+      const open = indexedDB.open(DB(), 1);
       open.onupgradeneeded = () => {
         const db = open.result;
         if (!db.objectStoreNames.contains("verdicts")) db.createObjectStore("verdicts");
@@ -381,7 +409,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   /* Every word in the list, shortest first, so a run that is stopped early has still covered the
      lengths that fill the most grids. */
   function allWords() {
-    const words = window.GRIDFILL_WORDS || {};
+    const words = listWords || window.GRIDFILL_WORDS || {};
     const out = [];
     for (const length of Object.keys(words).map(Number).sort((a, b) => a - b)) {
       const letters = words[length][0];
@@ -395,8 +423,8 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   let wholeWords = null;
 
   const hours = (seconds) => {
-    if (seconds < 90) return `${Math.round(seconds)} seconds`;
-    if (seconds < 5400) return `${Math.round(seconds / 60)} minutes`;
+    if (seconds < 90) return `${Math.round(seconds)} second${Math.round(seconds) === 1 ? "" : "s"}`;
+    if (seconds < 5400) return `${Math.round(seconds / 60)} minute${Math.round(seconds / 60) === 1 ? "" : "s"}`;
     const whole_hours = seconds / 3600;
     return `${whole_hours < 10 ? whole_hours.toFixed(1) : Math.round(whole_hours)} hours`;
   };
@@ -1052,6 +1080,35 @@ what you changed and why.`;
     $("result-note").textContent = "Saved. The Train page's panel will use these.";
   });
 
+  // --- which list ---
+
+  async function drawLists() {
+    if (!LISTS || !$("list-choice")) return;
+    let lists = [];
+    try {
+      ({ lists } = await LISTS.state(listId));
+    } catch (error) {
+      /* their own lists are unavailable; the built-in one still is */
+    }
+    const choices = [["built-in", BUILT_INS["built-in"]], ...lists.map((list) => [list.id, `${list.name} (${(list.count || 0).toLocaleString()})`])];
+    if (!choices.some(([id]) => id === listId)) listId = "built-in"; // the one in use was deleted
+    $("list-choice").innerHTML = choices.map(([id, name]) => `<option value="${safe(id)}">${safe(name)}</option>`).join("");
+    $("list-choice").value = listId;
+    $("edit-list").textContent = listId === "built-in" ? "Edit word lists" : "Edit this list";
+  }
+
+  if ($("list-choice")) {
+    $("list-choice").addEventListener("change", async () => {
+      listId = $("list-choice").value;
+      set(CHOICE, listId);
+      await loadList();
+      await drawLists(); // the link beside it belongs to the list now in use
+      $("rules-note").textContent = `Working on ${$("list-choice").selectedOptions[0].textContent}. ` +
+        "Your rules carry across; what has been judged is kept per list.";
+      drawWhole();
+    });
+  }
+
   // --- the key, the model, the bill ---
 
   $("key").value = C.key();
@@ -1093,5 +1150,9 @@ what you changed and why.`;
       $("rules-note").textContent = "Set aside. Show me a hundred when you're ready.";
     });
   }
+  listId = get(CHOICE, "built-in");
+  loadList().then(drawLists).then(() => {
+    if (!$("step-whole").hidden) drawWhole();
+  });
   show(get(UNLOCKED) || state.rounds.length ? "rules" : "gate");
 })();

@@ -157,6 +157,9 @@
     free for now and runs on your own API key.</p>
 
   <div class="setup" id="setup" hidden>
+    <label class="field"><span class="caption">Word list</span>
+      <select id="list-choice" class="score" style="width:auto"></select></label>
+    <a class="btn quiet" id="edit-list" href="/lists">Edit this list</a>
     <label class="field key"><span class="caption">Your API key</span>
       <input type="password" id="key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"></label>
     <label class="field"><span class="caption">Model</span><select id="model" class="score"></select></label>
@@ -238,6 +241,7 @@
 <script src="words.js"></script>
 <script src="wordstats.js"></script>
 <script>window.FILLMEIN_PAST_VERSION = "PASTCLUES_VERSION"; window.FILLMEIN_DEFS_VERSION = "DEFS_VERSION";</script>
+<script src="lists.js"></script>
 <script src="confirm.js"></script>
 <script src="claude.js"></script>
 <script type="module" src="account.js"></script>
