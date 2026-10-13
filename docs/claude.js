@@ -55,10 +55,10 @@
        the API enforce the answer's shape, so the reply parses or the request fails. Thinking is on by
        default and counts against maxTokens, so leave it room. Returns the parsed JSON when a schema
        was given, otherwise the text. */
-    async call({ system, messages, schema = null, maxTokens = 1024, effort = "low", cache = true, room = 1 }) {
+    async call({ system, messages, schema = null, maxTokens = 1024, effort = "low", cache = true, room = 1, model = null }) {
       const key = api.key();
       if (!key) throw new Error("no API key: add one at the top of the page");
-      const model = api.model();
+      model = model && MODELS[model] ? model : api.model();
       const body = {
         model,
         max_tokens: maxTokens,
@@ -94,7 +94,7 @@
         // Thinking counts against max_tokens, so a hard question can use the whole budget before a
         // word of the answer. Ask again with room to spare rather than handing back a failure.
         if (message.stop_reason === "max_tokens" && maxTokens < MOST_TOKENS && room < 3) {
-          return api.call({ system, messages, schema, maxTokens: Math.min(maxTokens * 4, MOST_TOKENS), effort, cache, room: room + 1 });
+          return api.call({ system, messages, schema, maxTokens: Math.min(maxTokens * 4, MOST_TOKENS), effort, cache, room: room + 1, model });
         }
         throw new Error(message.stop_reason === "max_tokens"
           ? `ran out of room before answering, even with ${maxTokens.toLocaleString()} tokens`

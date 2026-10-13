@@ -15,6 +15,11 @@
 
   const PER_ROUND = 100;
   const SAMPLE = 10;
+  /* The model that rewrites the rules. Judging words is a hundred cheap calls a round and the cheap
+     model does it well; the rules are one call that everything afterwards rests on, so it gets the
+     best model whatever is chosen for the words. */
+  const RULES_MODEL = "claude-opus-5-5";
+
   const BATCH = 10; // words per request
   const WIDTH = 3;  // requests at once
 
@@ -560,21 +565,16 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     noticeScale();
   }
 
-  /* Says so when the rules in the boxes are written for the old hundred, and offers to move them. */
+  /* There is one scale. Rules written for the old hundred are moved onto it as they are read, and
+     the boxes show what was actually moved rather than announcing it twice. */
   function noticeScale() {
     if (!looksOldScale(state.rules)) return;
-    $("rules-note").innerHTML = "These rules score words out of a hundred, and words are scored 1 to 10 now. " +
-      '<button type="button" class="btn quiet" id="onto-ten">Put my rules on the 1-10 scale</button>';
-    const button = $("onto-ten");
-    if (!button) return;
-    button.addEventListener("click", () => {
-      state.rules = { intro: ontoTen(state.rules.intro), rules: ontoTen(state.rules.rules), closing: ontoTen(state.rules.closing) };
-      save();
-      drawRules();
-      $("rules-note").textContent = looksOldScale(state.rules)
-        ? "Moved what I could. Look for any hundreds left in your own wording."
-        : "Your rules talk in 1 to 10 now.";
-    });
+    state.rules = { intro: ontoTen(state.rules.intro), rules: ontoTen(state.rules.rules), closing: ontoTen(state.rules.closing) };
+    save();
+    $("intro").value = state.rules.intro;
+    $("rules").value = state.rules.rules;
+    $("closing").value = state.rules.closing;
+    $("rules-note").textContent = "Your rules scored words out of a hundred; the numbers are on the 1 to 10 scale now.";
   }
 
   function readRules() {
@@ -834,36 +834,44 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     additionalProperties: false,
   };
 
-  const TRAINER = `You are improving the rules a crossword constructor uses to judge words for their word list.
+  const TRAINER = `You are rewriting the standing orders a crossword constructor gives to whoever judges
+words for their word list. What you write is read cold by that judge, before every word, and by
+nobody else. It is a brief, not a reply: write it to the judge, in the second person, exactly as the
+rules you are given are written. Never address the constructor in it, never describe your own
+changes in it, and never begin with what their corrections showed.
 
 You are given their current rules and every word they have judged, over one round or many: their
 decision is the truth, and the guess beside it was made by the rules as they stood at the time.
 Where the two differ, the rules were wrong, not the person. A correction from an early round counts
-as much as one from the latest, so rules that explained the old ones must survive this rewrite
-unless newer evidence contradicts them.
+as much as one from the latest, so a rule that explained the old ones survives unless newer evidence
+contradicts it.
 
-Rewrite the rules so that, read cold, they would produce the person's decisions on these words and
-generalise to words like them. Work out what the corrections have in common and say that as a rule.
-Be specific: name the kinds of word, and give an example or two from their corrections. Keep the
-rules tight and readable - no more than about 500 words in the rules section - and drop anything the
-evidence contradicts. Keep the person's own wording and emphasis where their decisions agree with
-it. Do not list the hundred words; write rules, not a lookup table.
+Return the three parts in the shape they are given to you, which is the shape the judge expects:
 
-Words are scored 1 to 10, where 10 is the best and 0 means the word should be cut. Write every
-score in the rules on that scale: "7 to 8", never "70 to 80".
+- intro: one to three sentences saying what the job is. "You judge entries for a crossword word
+  list..." is how it reads.
+- rules: a short paragraph on what to keep; then "Cut a word when it is:" and a dash-led list of the
+  kinds to cut, each with an example or two drawn from their corrections; then "What the scores
+  mean:" and one dash-led line for each score from 10 down to 0. Keep this section under about 500
+  words, and keep the constructor's own wording wherever their decisions bear it out.
+- closing: how to weigh the evidence, and how to answer: a verdict, a score, and a reason of at most
+  twelve words.
 
-Also return "learned": a few short lines saying what you changed and why, addressed to the person.`;
+Words are scored 1 to 10, where 10 is the best and 0 means cut. Every score you write is on that
+scale: "7 to 8", never "70 to 80". There is no hundred-point scale any more.
+
+Write rules, not a lookup table: no lists of the words you were given.
+
+"learned" is the only part the constructor reads: a few short lines there, addressed to them, saying
+what you changed and why.`;
 
   $("train").addEventListener("click", async () => {
     if (!round) return;
     show("training");
+    $("training-note").textContent = `${C.MODELS[RULES_MODEL].name.split(" - ")[0]} is reading every correction at once and ` +
+      "rewriting your rules so they would have produced your decisions.";
     $("train-bar").style.width = "30%";
-    // Rules still written for the old hundred would draw rules in hundreds back out again.
-    if (looksOldScale(state.rules)) {
-      state.rules = { intro: ontoTen(state.rules.intro), rules: ontoTen(state.rules.rules), closing: ontoTen(state.rules.closing) };
-      save();
-      drawRules();
-    }
+    noticeScale(); // whatever has been typed into the boxes meanwhile is on the ten before it is sent
     const round_number = state.rounds.length + 1;
     for (const item of round.items) {
       const you = item.you || item.guess;
@@ -896,14 +904,32 @@ Also return "learned": a few short lines saying what you changed and why, addres
             `stand follow, as the rules got those right. Account for all of it, not only the newest.\n\n${decided}`,
         }],
         schema: TRAIN_SCHEMA,
+        model: RULES_MODEL,
         maxTokens: 32000,
         effort: "high", // the one call worth thinking about
         cache: false,   // these instructions are sent once a round, so caching buys nothing
       });
       $("train-bar").style.width = "70%";
+      // The three parts are a brief for the judge. If what comes back talks to you instead -- "your
+      // corrections show...", "I rewrote them around..." -- that part is a reply, and the one it
+      // replaced stands.
+      const reply = /(?:i|we)\s+(?:rewrote|changed|updated|tightened|loosened|reorganis|reorganiz)|your corrections|you corrected|you asked/i;
+      const kept = [];
+      const held = (part, was) => {
+        if (!part || !reply.test(part)) return part || was;
+        kept.push(part === answer.intro ? "opening" : part === answer.closing ? "closing" : "rules");
+        return was;
+      };
       // Whatever it wrote, the rules this page keeps are on the site's ten.
-      state.rules = { intro: ontoTen(answer.intro), rules: ontoTen(answer.rules), closing: ontoTen(answer.closing) };
+      state.rules = {
+        intro: ontoTen(held(answer.intro, state.rules.intro)),
+        rules: ontoTen(held(answer.rules, state.rules.rules)),
+        closing: ontoTen(held(answer.closing, state.rules.closing)),
+      };
       state.learned = (answer.learned || []).map(ontoTen);
+      if (kept.length) {
+        state.learned.push(`The ${kept.join(" and ")} came back written to you rather than to the judge, so your own stands there.`);
+      }
       state.used = [...new Set([...state.used, ...round.items.map((item) => item.row.word)])];
       state.rounds.push({ at: Date.now(), agreed, of: round.items.length });
       round = null;
