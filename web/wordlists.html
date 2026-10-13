@@ -85,7 +85,7 @@
       <button type="button" data-sort="name">Name</button><button type="button" data-sort="updated">Changed</button><button type="button" data-sort="count">Words</button><button type="button" data-sort="edits">Edits</button>
     </div>
     <ul id="items" class="items" role="listbox" aria-label="Word lists" tabindex="0"></ul>
-    <div class="statusbar"><span id="count"></span><span id="status"></span></div>
+    <div class="statusbar"><span id="count"></span><span id="status"></span><span id="sync"></span></div>
   </div>
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
@@ -93,6 +93,7 @@
 <script src="lists.js"></script>
 <script src="confirm.js"></script>
 <script type="module" src="account.js"></script>
+<script src="lists-sync.js"></script>
 <script>
 (() => {
   "use strict";
@@ -315,6 +316,25 @@
     say(`Deleted ${list.name}.`);
   }
   $("remove").addEventListener("click", removePicked);
+
+  /* Where the lists are kept. Signed in, everything on this page goes up to the account and comes
+     down on your other devices (lists-sync.js); signed out, it is this browser and nothing else. */
+  function renderSync(status) {
+    const note = $("sync");
+    if (!status.signedIn) {
+      note.innerHTML = 'On this device only. <button type="button" class="link-button" data-sign-in>Sign in</button> to keep your lists in your account.';
+      return;
+    }
+    if (status.error) {
+      note.textContent = status.error;
+      note.className = "error";
+      return;
+    }
+    note.className = "";
+    if (status.busy) note.textContent = "Saving to your account…";
+    else note.textContent = status.last ? `Saved to your account at ${new Date(status.last).toLocaleTimeString()}.` : "Kept in your account.";
+  }
+  if (window.FillmeinSync) window.FillmeinSync.onStatus(renderSync);
 
   if (LISTS) LISTS.onChange(() => load());
   load();

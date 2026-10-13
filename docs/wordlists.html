@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-NmkWdTyq0/9Ykvg72Y3He3WoCG8kAGGS/ZuJ//Yvf4c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-DDMaqwDvD2D0xWzaIoipaao7amqR3ZWgzNLmuUrMzHE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Word lists · fillmein</title>
 <meta name="description" content="Your word lists: make, rename, duplicate, sort and delete them, and open one to edit or train.">
@@ -87,7 +87,7 @@
       <button type="button" data-sort="name">Name</button><button type="button" data-sort="updated">Changed</button><button type="button" data-sort="count">Words</button><button type="button" data-sort="edits">Edits</button>
     </div>
     <ul id="items" class="items" role="listbox" aria-label="Word lists" tabindex="0"></ul>
-    <div class="statusbar"><span id="count"></span><span id="status"></span></div>
+    <div class="statusbar"><span id="count"></span><span id="status"></span><span id="sync"></span></div>
   </div>
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
@@ -95,6 +95,7 @@
 <script src="lists.js?v=b34f3c2bbb"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
+<script src="lists-sync.js?v=c42dc37175"></script>
 <script>
 (() => {
   "use strict";
@@ -317,6 +318,25 @@
     say(`Deleted ${list.name}.`);
   }
   $("remove").addEventListener("click", removePicked);
+
+  /* Where the lists are kept. Signed in, everything on this page goes up to the account and comes
+     down on your other devices (lists-sync.js); signed out, it is this browser and nothing else. */
+  function renderSync(status) {
+    const note = $("sync");
+    if (!status.signedIn) {
+      note.innerHTML = 'On this device only. <button type="button" class="link-button" data-sign-in>Sign in</button> to keep your lists in your account.';
+      return;
+    }
+    if (status.error) {
+      note.textContent = status.error;
+      note.className = "error";
+      return;
+    }
+    note.className = "";
+    if (status.busy) note.textContent = "Saving to your account…";
+    else note.textContent = status.last ? `Saved to your account at ${new Date(status.last).toLocaleTimeString()}.` : "Kept in your account.";
+  }
+  if (window.FillmeinSync) window.FillmeinSync.onStatus(renderSync);
 
   if (LISTS) LISTS.onChange(() => load());
   load();

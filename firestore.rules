@@ -1,6 +1,6 @@
 rules_version = '2';
 // Firestore access rules for fillmein.org. Paste into the Firebase console (Firestore Database -> Rules)
-// and Publish whenever this file changes; web/account.js and web/lists-sync.js are what read and write
+// and Publish whenever this file changes; web/account.js, web/lists-sync.js and web/teach-sync.js read and write
 // these documents.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -58,16 +58,23 @@ service cloud.firestore {
           && request.resource.data.data is string && request.resource.data.data.size() <= 540000;
       }
     }
-    // The account's per-word edits: one document, with a compressed record per list under "lists"
-    // (lists-sync.js merges it list by list). "data" and "updated" are the earlier single-record
-    // shape, allowed so the first sync after the change can clear them.
+    // The account's own working documents. "edits" holds the per-word edits, a compressed record per
+    // list under "lists" (lists-sync.js merges it list by list); its "data" and "updated" are the
+    // earlier single-record shape, allowed so the first sync after the change can clear them.
+    // "teach" holds the Teach page's rules and rounds, compressed whole (teach-sync.js); the verdicts
+    // of a run over a whole list are never sent, so this stays small.
     match /users/{uid}/private/{document} {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid)
-        && document == "edits"
-        && request.resource.data.keys().hasOnly(["format", "lists", "data", "updated"])
-        && request.resource.data.get("format", "gzip") == "gzip"
-        && request.resource.data.get("lists", {}) is map;
+        && ((document == "edits"
+              && request.resource.data.keys().hasOnly(["format", "lists", "data", "updated"])
+              && request.resource.data.get("format", "gzip") == "gzip"
+              && request.resource.data.get("lists", {}) is map)
+            || (document == "teach"
+              && request.resource.data.keys().hasOnly(["format", "updated", "data"])
+              && request.resource.data.format == "gzip"
+              && request.resource.data.updated is number
+              && request.resource.data.data is string && request.resource.data.data.size() <= 900000));
     }
 
     // Error reports from the pages (account.js): anyone may leave one, nobody reads them here; the

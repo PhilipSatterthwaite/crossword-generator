@@ -33,6 +33,7 @@
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .spacer { flex: 1; }
   .muted { color: var(--muted); font-size: 13px; }
+  .sync-line { margin: -6px 0 16px; max-width: 70ch; line-height: 1.5; }
   .setup { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
   .setup .field { margin: 0; }
   .setup .field.key { flex: 1 1 260px; }
@@ -168,6 +169,7 @@
     <div class="spacer"></div>
     <p class="muted" id="spent"></p>
   </div>
+  <p class="muted sync-line" id="sync-note"></p>
 
   <section class="step" id="step-rules" hidden>
     <h2>1. Your rules</h2>
@@ -247,6 +249,8 @@
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="claude.js?v=628b40c516"></script>
 <script type="module" src="account.js?v=583e91dd6c"></script>
-<script src="teach.js?v=adcdf64ffc"></script>
+<script src="lists-sync.js?v=c42dc37175"></script>
+<script src="teach-sync.js?v=af324eb2bd"></script>
+<script src="teach.js?v=a532488068"></script>
 </body>
 </html>

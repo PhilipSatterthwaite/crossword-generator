@@ -107,14 +107,24 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   // --- state ---
 
-  let state = { rules: { ...EXAMPLE }, used: [], rounds: [], learned: [], sample: [], record: [], round: null };
+  const FRESH = () => ({ rules: { ...EXAMPLE }, used: [], rounds: [], learned: [], sample: [], record: [], round: null, updated: 0 });
+  let state = FRESH();
   try {
     const saved = JSON.parse(get(STATE, "null"));
     if (saved && saved.rules) state = { ...state, ...saved };
   } catch (error) {
     /* start afresh */
   }
-  const save = () => set(STATE, JSON.stringify(state));
+  // Teaching saved before this browser stamped it counts as the oldest there is, so an account's copy
+  // wins over it, and it still goes up if the account has none.
+  if (state.rules && !state.updated) state.updated = 1;
+
+  /* Every save is stamped and, a few seconds later, sent to the account (teach-sync.js). */
+  const save = () => {
+    state.updated = Date.now();
+    set(STATE, JSON.stringify(state));
+    if (window.FillmeinTeachSync) window.FillmeinTeachSync.soon();
+  };
 
   /* The hundred in progress, kept small enough to write after every answer: a word, what the rules
      said about it, and what you said. Leaving the page and coming back carries on where you were. */
@@ -641,6 +651,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     $("step-whole").hidden = !beside;
     if (beside) drawWhole();
     $("setup").hidden = name === "gate" || MODELS_OFF;
+    $("sync-note").hidden = name === "gate"; // nothing is being kept yet on the way in
     $("preview-note").hidden = name === "gate";
     if (MODELS_OFF) {
       $("preview-note").textContent = "The models are off while this page's look is being settled. Everything works, but the " +
@@ -679,6 +690,16 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   function readRules() {
     state.rules = { intro: $("intro").value, rules: $("rules").value, closing: $("closing").value };
     save();
+  }
+
+  /* What you write in the boxes is kept as you write it. Until now the rules were only read when you
+     pressed a button, so rewriting them and leaving the page lost the rewrite. */
+  let typing = null;
+  for (const box of ["intro", "rules", "closing"]) {
+    $(box).addEventListener("input", () => {
+      clearTimeout(typing);
+      typing = setTimeout(readRules, 600);
+    });
   }
 
   /* A word's own files: its first Wiktionary definition, and the clues the Times has given it. Both
@@ -1122,13 +1143,15 @@ what you changed and why.`;
   const showSpent = () => ($("spent").textContent = C.spent() ? `${C.money(C.spent())} spent so far` : "");
   C.onSpend(showSpent);
   showSpent();
-  if (state.rounds.length) {
-    drawResult();
-    $("rules-note").textContent = `${state.rounds.length} round${state.rounds.length === 1 ? "" : "s"} done. Edit the rules, or take another hundred words.`;
-  }
+  /* What the page says on arrival: how many rounds are behind you, and whether a hundred is waiting
+     half-judged. Drawn again if your teaching comes down from the account after the page has loaded. */
+  function openingView() {
+    if (state.rounds.length) {
+      drawResult();
+      $("rules-note").textContent = `${state.rounds.length} round${state.rounds.length === 1 ? "" : "s"} done. Edit the rules, or take another hundred words.`;
+    }
 
-  /* A hundred left half-judged is waiting where you left it, so say so and offer to carry on. */
-  if (state.round && state.round.items && state.round.items.length) {
+    if (!state.round || !state.round.items || !state.round.items.length) return;
     const left = state.round.items.length - Math.min(state.round.at || 0, state.round.items.length);
     $("rules-note").innerHTML = `You left a hundred part-judged, ${left} still to go. ` +
       '<button type="button" class="btn" id="carry-on">Carry on</button> ' +
@@ -1150,6 +1173,47 @@ what you changed and why.`;
       $("rules-note").textContent = "Set aside. Show me a hundred when you're ready.";
     });
   }
+  openingView();
+
+  // --- your teaching, in your account ---
+
+  /* Signed in, the rules and the rounds follow you to another device (teach-sync.js). A run over a
+     whole list is too big to send, so its verdicts stay in the browser that made them, and the API
+     key stays here as well. */
+  const SYNC = window.FillmeinTeachSync;
+
+  function drawSync(status) {
+    const note = $("sync-note");
+    if (!note) return;
+    if (!status.signedIn) {
+      note.innerHTML = 'Your rules and rounds are in this browser only. <button type="button" class="link-button" data-sign-in>Sign in</button> and they follow you to your other devices.';
+      return;
+    }
+    if (status.error) note.textContent = status.error;
+    else if (status.busy) note.textContent = "Saving your teaching to your account…";
+    else note.textContent = status.last
+      ? `Your rules and rounds are in your account, last saved at ${new Date(status.last).toLocaleTimeString()}. What a whole-list run has judged stays on the device that ran it.`
+      : "Your rules and rounds are kept in your account.";
+  }
+
+  if (SYNC) {
+    SYNC.onStatus(drawSync);
+    SYNC.hold({
+      read: () => ({ state, updated: state.updated || 0 }),
+      write: (theirs, updated) => {
+        if (!theirs || !theirs.rules) return true; // nothing usable up there; let it be replaced
+        // Not in the middle of a hundred: taking it away mid-round would lose the answers given.
+        if (!$("step-teach").hidden || !$("step-training").hidden) return false;
+        state = { ...FRESH(), ...theirs, updated };
+        set(STATE, JSON.stringify(state)); // the account's stamp is kept, not bumped
+        drawRules();
+        openingView();
+        if (!$("step-gate").hidden && (state.rounds.length || state.round)) show("rules");
+        return true;
+      },
+    });
+  }
+
   listId = get(CHOICE, "built-in");
   loadList().then(drawLists).then(() => {
     if (!$("step-whole").hidden) drawWhole();

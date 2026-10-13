@@ -29,7 +29,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
           "designer.js", "nytpatterns.js", "solvefiles.js",
-          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "claude.js", "teach.js", "social.png",
+          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "claude.js", "teach.js", "teach-sync.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
