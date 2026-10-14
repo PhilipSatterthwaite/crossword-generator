@@ -629,7 +629,7 @@
           `<div class="range-wrap"><input type="range" id="score-range" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score">` +
           `<i class="model-mark" style="left: calc(11px + (100% - 22px) * ${(guessFor(row).score - 1) / 9})" title="Model's guess"></i></div>`
         : `<input type="range" id="score-range" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score">`) +
-      `<div class="presets">${[20, 35, 50, 60, 70, 80, 90, 100].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
+      `<div class="presets">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<button type="button" data-preset="${n}">${n}</button>`).join("")}</div>` +
       `<div class="number-line">or type it <input type="number" id="score-box" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score, typed"> then Enter or →</div>` +
       `<div class="decide"><button type="button" class="btn quiet" data-decide="score-cancel"><kbd>Esc</kbd>Back</button>` +
       `<button type="button" class="btn primary" data-decide="score-done"><kbd>⏎</kbd>Keep</button></div></div>`;
@@ -866,7 +866,7 @@
     if (row.popular) tags.push('<span class="tag" title="Everyday enough to be allowed under the minimum score">popular</span>');
     const can = editable();
     return `<span class="word">${row.word}</span><span class="num">${row.len}</span>` +
-      `<input class="score num${row.own ? " own" : ""}" type="number" min="0" max="10" value="${row.score}" aria-label="Score for ${row.word}"${can ? "" : " disabled"}>` +
+      `<input class="score num${row.own ? " own" : ""}" type="number" min="1" max="10" value="${Math.max(1, row.score)}" aria-label="Score for ${row.word}, 1 to 10"${can ? "" : " disabled"}>` +
       `<span class="num uses">${row.uses ? row.uses.toLocaleString() : "–"}</span><span class="num">${row.everyday}</span><span class="num goog" title="${row.google.toLocaleString()}">${compact(row.google)}</span><span class="num goog" title="${row.books.toLocaleString()}">${compact(row.books)}</span><span class="num goog" title="${row.papers.toLocaleString()}">${compact(row.papers)}</span><span class="num vow">${row.year || "–"}</span>` +
       `<span class="flags">${tags.join("")}</span>` +
       (can ? `<button type="button" class="act${row.removed ? "" : " drop"}" data-act="${row.removed ? "restore" : "remove"}">${row.removed ? "Put back" : "Remove"}</button>` : "<span></span>");
@@ -948,8 +948,9 @@
     const el = input.closest(".row");
     const i = Number(el.dataset.i);
     const row = shown[i];
-    const value = Math.max(0, Math.min(10, Math.round(Number(input.value))));
-    if (!Number.isFinite(value) || value === row.score) {
+    // 1 to 10: taking a word out is what Remove is for, so a 0 typed here isn't a removal.
+    const value = Math.max(1, Math.min(10, Math.round(Number(input.value))));
+    if (input.value === "" || !Number.isFinite(value) || value === row.score) {
       input.value = row.score;
       return;
     }

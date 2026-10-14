@@ -455,8 +455,8 @@
       return;
     }
     const score = Number($("quick-score").value);
-    if ($("quick-score").value === "" || !Number.isFinite(score) || score < 0 || score > 100) {
-      say("Scores run from 0 to 100.");
+    if ($("quick-score").value === "" || !Number.isInteger(score) || score < 1 || score > 10) {
+      say("Scores run from 1 to 10.");
       $("quick-score").focus();
       return;
     }
