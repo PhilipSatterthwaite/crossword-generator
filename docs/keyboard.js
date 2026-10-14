@@ -8,7 +8,9 @@
    page needs no second way of handling them: letters, Backspace, space, Enter, and Rebus as a Shift
    pressed and released on its own (or Enter, to finish a rebus already started).
 
-   FillmeinKeyboard.attach(input, {isRebus, spaceLabel, enterLabel}). Does nothing on a device with a
+   FillmeinKeyboard.attach(input, {isRebus, spaceLabel, enterLabel, extra}): extra is more keys for the
+   bottom row, between space and Enter, as [{label, key}]. While a rebus is being typed, Enter says
+   "enter" (it keeps the letters), and the extra keys rest, since they don't apply. Does nothing on a device with a
    mouse or trackpad. */
 (function (root) {
   "use strict";
@@ -37,7 +39,9 @@
       `<div class="tk-row">${[...ROWS[0]].map((ch) => key(ch, ch)).join("")}</div>` +
       `<div class="tk-row tk-indent">${[...ROWS[1]].map((ch) => key(ch, ch)).join("")}</div>` +
       `<div class="tk-row">${key("Rebus", "Rebus", "tk-wide tk-rebus")}${[...ROWS[2]].map((ch) => key(ch, ch)).join("")}${key("⌫", "Backspace", "tk-wide")}</div>` +
-      `<div class="tk-row">${key("123", "Native", "tk-wide tk-quiet")}${key(options.spaceLabel || "space", " ", "tk-space tk-quiet")}${key(options.enterLabel || "↵", "Enter", "tk-wide tk-quiet")}</div>`;
+      `<div class="tk-row">${key("123", "Native", "tk-wide tk-quiet")}${key(options.spaceLabel || "space", " ", "tk-space tk-quiet")}` +
+      `${(options.extra || []).map((extra) => key(extra.label, extra.key, "tk-wide tk-quiet tk-extra")).join("")}` +
+      `${key(options.enterLabel || "↵", "Enter", "tk-wide tk-quiet tk-enter")}</div>`;
     document.body.append(board);
 
     const send = (name, type = "keydown") => input.dispatchEvent(new KeyboardEvent(type, { key: name, bubbles: true, cancelable: true }));
@@ -54,7 +58,12 @@
       }
       showRebus();
     };
-    const showRebus = () => board.querySelector(".tk-rebus").setAttribute("aria-pressed", String(isRebus()));
+    const showRebus = () => {
+      const on = isRebus();
+      board.querySelector(".tk-rebus").setAttribute("aria-pressed", String(on));
+      board.querySelector(".tk-enter").textContent = on ? "enter ↵" : options.enterLabel || "↵";
+      for (const extra of board.querySelectorAll(".tk-extra")) extra.classList.toggle("tk-resting", on);
+    };
 
     // Keys act on the press, not the lift, and never take the focus from the grid.
     let repeat = null;

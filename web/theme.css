@@ -517,6 +517,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .tk-wide { flex: 1.6 1 0; font-size: 14px; }
 .tk-space { flex: 5 1 0; font-size: 14px; }
 .tk-quiet { background: var(--chip); }
+.tk-resting { opacity: 0.4; }
 .tk-rebus[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--ground); }
 /* Room under the page for the keyboard, so nothing sits behind it. */
 body.touch-keys-open { padding-bottom: 250px; }

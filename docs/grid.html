@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-DIvYoVkt8lAGd7AMcSyE3E9AbErAj5LvsSZkkcS2YKk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-9Lqiyl4VNsvn/ss1HHOdHwZxZ+NeZ60PberDmEVUxzE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" href="words.js?v=c030f0646d" as="script">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=fb6dfeb783">
+<link rel="stylesheet" href="theme.css?v=c2aab3172f">
 <style>
 
   .page { gap: 16px; }
@@ -640,7 +640,7 @@
 <script src="designer.js?v=eb12a1ed71"></script>
 <script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=6d9282b39d"></script>
-<script src="keyboard.js?v=329e4f6ece"></script>
+<script src="keyboard.js?v=8e6a844f36"></script>
 <script src="lists.js?v=b34f3c2bbb"></script>
 <script type="module" src="account.js?v=b2c298a5a4"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
@@ -2168,7 +2168,8 @@
   // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be. Its 123
   // key brings up the phone's keyboard, for a block (.) among other things.
   if (window.FillmeinKeyboard) {
-    window.FillmeinKeyboard.attach(input, { isRebus: () => rebusAt >= 0, spaceLabel: "blank square", enterLabel: "turn ↵" });
+    window.FillmeinKeyboard.attach(input, { isRebus: () => rebusAt >= 0, spaceLabel: "blank", enterLabel: "turn ↵",
+      extra: [{ label: "■ block", key: "." }] });
   }
 
   // Phone keyboards often skip keydown for letters, so read what lands in the input.
