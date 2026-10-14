@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-9fH1KQnjRT7rLy8txyF7IqHnWCYLD40RONntJ7aj2fM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-Y4p83sFKuMw7FnmGeETP1W2OZHFwFI3Rm7yUvbAPGCU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -32,6 +32,13 @@
   .page { gap: 16px; }
   /* Controls: grid-level tools in one ruled row above the bench; the autofill lives in the panel. */
   .controls { border-block: 1px solid var(--line-soft); }
+  #toggle-controls { display: none; }
+  /* On a phone the settings above the grid fold away behind one button, so the grid comes first; the
+     undo and erase buttons stay out, since they're wanted all the time. */
+  @media (max-width: 640px) {
+    #toggle-controls { display: inline-block; margin: 8px 0 0; }
+    .controls:not(.open) .control-row > :not(.edits) { display: none; }
+  }
   .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; }
   .control-group { gap: 8px; }
   .btn.icon { display: inline-flex; align-items: center; justify-content: center; padding: 7px 9px; }
@@ -434,7 +441,8 @@
     </div>
   </section>
 
-  <div class="controls">
+  <div class="controls" id="controls">
+    <button type="button" id="toggle-controls" class="btn quiet small" aria-expanded="false" aria-controls="controls">Grid size, examples and list ▾</button>
     <div class="control-row">
       <form id="size-form" class="control-group">
         <span class="label">Grid</span>
@@ -3211,6 +3219,11 @@
     if (ready && !running) setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
   });
   $("open-lists").addEventListener("click", openLists);
+  $("toggle-controls").addEventListener("click", () => {
+    const open = $("controls").classList.toggle("open");
+    $("toggle-controls").setAttribute("aria-expanded", String(open));
+    $("toggle-controls").textContent = open ? "Grid size, examples and list ▴" : "Grid size, examples and list ▾";
+  });
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });

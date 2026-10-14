@@ -18,6 +18,13 @@
   .page { gap: 16px; }
   /* Controls: grid-level tools in one ruled row above the bench; the autofill lives in the panel. */
   .controls { border-block: 1px solid var(--line-soft); }
+  #toggle-controls { display: none; }
+  /* On a phone the settings above the grid fold away behind one button, so the grid comes first; the
+     undo and erase buttons stay out, since they're wanted all the time. */
+  @media (max-width: 640px) {
+    #toggle-controls { display: inline-block; margin: 8px 0 0; }
+    .controls:not(.open) .control-row > :not(.edits) { display: none; }
+  }
   .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; }
   .control-group { gap: 8px; }
   .btn.icon { display: inline-flex; align-items: center; justify-content: center; padding: 7px 9px; }
@@ -417,7 +424,8 @@
     </div>
   </section>
 
-  <div class="controls">
+  <div class="controls" id="controls">
+    <button type="button" id="toggle-controls" class="btn quiet small" aria-expanded="false" aria-controls="controls">Grid size, examples and list ▾</button>
     <div class="control-row">
       <form id="size-form" class="control-group">
         <span class="label">Grid</span>
@@ -3194,6 +3202,11 @@
     if (ready && !running) setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
   });
   $("open-lists").addEventListener("click", openLists);
+  $("toggle-controls").addEventListener("click", () => {
+    const open = $("controls").classList.toggle("open");
+    $("toggle-controls").setAttribute("aria-expanded", String(open));
+    $("toggle-controls").textContent = open ? "Grid size, examples and list ▴" : "Grid size, examples and list ▾";
+  });
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });
