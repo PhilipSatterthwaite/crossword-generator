@@ -132,6 +132,9 @@ html.ready body::before { animation-play-state: running; }
 @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
 
 .page { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+/* A grid track grows to its widest child's natural width unless told otherwise, which let one long row
+   (a list of length buttons, say) push a phone's page a few pixels sideways. */
+.page > * { min-width: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Masthead: the name is itself a row of the grid — FILL, ME and IN, split by blocks. */
