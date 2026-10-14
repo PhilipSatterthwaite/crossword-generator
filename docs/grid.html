@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-PsueADavcbC6IMClAz2iT/D0ZN0OgFkedzzgLj5vDm8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-MyZEK/XgjnNEoNcAVLXreF6Zbh75IV2hn0o1iz2LIzE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -164,7 +164,9 @@
 
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .options-summary { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .options-summary { display: inline-flex; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .options-summary .tally { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
+  .options-more { padding: 8px 10px; font-size: 12px; color: var(--muted); }
   .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
   .options-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .option[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: -2px; }
@@ -511,11 +513,6 @@
           <span id="options-title" class="label">Word options</span>
           <span id="options-summary" class="options-summary"></span>
         </div>
-        <p class="options-legend">
-          <span><span class="key works" aria-hidden="true"></span><b id="count-works">0</b> confirmed</span>
-          <span><span class="key" aria-hidden="true"></span><b id="count-open">0</b> unconfirmed</span>
-          <span><span class="key fails" aria-hidden="true"></span><b id="count-fails">0</b> confirmed bad</span>
-        </p>
         <p id="options-note" class="options-note" aria-live="polite"></p>
         <ol id="options" class="options-list"></ol>
       </section>
@@ -1905,6 +1902,7 @@
   // Option rows are kept between renders (by option index) and only updated and reordered, so a
   // click that starts while check results pour in still lands on the row it started on.
   const optionRows = new Map();
+  const moreRow = Object.assign(document.createElement("li"), { className: "options-more" });
   let optionRowsFor = null;
 
   function optionRow(i, option) {
@@ -1941,9 +1939,6 @@
       if (option.status === "works") works++;
       else if (option.status === "fails") fails++;
     }
-    $("count-works").textContent = works;
-    $("count-open").textContent = list.length - works - fails;
-    $("count-fails").textContent = fails;
 
     if (!options || options.message) {
       // Nothing to list: say why inside the box, rather than leaving it a blank white rectangle.
@@ -1970,6 +1965,10 @@
         if ((status === "works" ? "works" : status === "fails" ? "fails" : "open") === group) visible.push(optionRow(i, list[i]));
       }
     }
+    if (list.length > VISIBLE_OPTIONS) {
+      moreRow.textContent = `The first ${VISIBLE_OPTIONS} of ${list.length.toLocaleString()}; words that work move up as they're found.`;
+      visible.push(moreRow);
+    }
     const shown = listEl.children;
     if (visible.length !== shown.length || visible.some((row, k) => shown[k] !== row)) {
       const focused = listEl.contains(document.activeElement) ? document.activeElement : null;
@@ -1978,13 +1977,17 @@
     }
 
     const checked = list.filter((o) => o.status !== null).length;
-    summary.textContent = options.total ? `${options.total.toLocaleString()} ${options.total === 1 ? "word fits" : "words fit"}` : "";
+    // One line: how many fit, and of those how many are confirmed to work and how many break the grid.
+    summary.innerHTML = options.total
+      ? `${options.total.toLocaleString()} fit` +
+        ` <span class="tally works" title="Confirmed: a full fill exists with this word in place"><span class="key works" aria-hidden="true"></span>${works.toLocaleString()}</span>` +
+        ` <span class="tally" title="Confirmed bad: no fill can use this word"><span class="key fails" aria-hidden="true"></span>${fails.toLocaleString()}</span>`
+      : "";
     let text;
     if (!list.length) text = `No word scoring ${minScore()} or more fits these letters. Lower the minimum score or change a letter.`;
     else if (options.error) text = options.error;
-    else if (!options.done) text = running ? "Checking resumes when the fill finishes." : `Checking from the top down: ${checked} of ${list.length} done. Click a word to preview it.`;
-    else text = "Every word in the list has been checked. Click a word to preview it.";
-    if (list.length > VISIBLE_OPTIONS) text += ` Showing the first ${VISIBLE_OPTIONS} rows; words that work move up as they're found.`;
+    else if (!options.done) text = running ? "Checking resumes when the fill finishes." : `Checking ${checked.toLocaleString()} of ${list.length.toLocaleString()}… Click a word to preview it.`;
+    else text = "All checked. Click a word to preview it.";
     note.textContent = previewText() || text;
   }
 
