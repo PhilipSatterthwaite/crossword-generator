@@ -164,7 +164,7 @@
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .options-summary { display: inline-flex; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .options-summary .tally { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
+  .options-summary .opt-count { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
   .options-more { padding: 8px 10px; font-size: 12px; color: var(--muted); }
   .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
   .options-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1980,8 +1980,8 @@
     // One line: how many fit, and of those how many are confirmed to work and how many break the grid.
     summary.innerHTML = options.total
       ? `${options.total.toLocaleString()} fit` +
-        ` <span class="tally works" title="Confirmed: a full fill exists with this word in place"><span class="key works" aria-hidden="true"></span>${works.toLocaleString()}</span>` +
-        ` <span class="tally" title="Confirmed bad: no fill can use this word"><span class="key fails" aria-hidden="true"></span>${fails.toLocaleString()}</span>`
+        ` <span class="opt-count works" title="Confirmed: a full fill exists with this word in place"><span class="key works" aria-hidden="true"></span>${works.toLocaleString()}</span>` +
+        ` <span class="opt-count" title="Confirmed bad: no fill can use this word"><span class="key fails" aria-hidden="true"></span>${fails.toLocaleString()}</span>`
       : "";
     let text;
     if (!list.length) text = `No word scoring ${minScore()} or more fits these letters. Lower the minimum score or change a letter.`;

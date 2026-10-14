@@ -73,7 +73,7 @@
   .drop-icon { color: var(--pencil); }
   /* Word lists' three ways in: alike, side by side, the same width. */
   .list-buttons.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-  .list-buttons.three .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;
+  .list-buttons.three .btn { justify-self: stretch; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;
     min-height: 48px; padding: 8px 10px; font-size: 15px; font-weight: 700; text-align: center; }
   /* The AI filtering is a paid feature in waiting: a small tag says so, rather than a different button. */
   .list-buttons.three .btn.ai::after { content: "preview"; padding: 2px 6px; border-radius: 999px;

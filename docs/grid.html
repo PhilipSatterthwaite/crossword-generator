@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-Y4p83sFKuMw7FnmGeETP1W2OZHFwFI3Rm7yUvbAPGCU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-u5p/SljQUFXhDXbc1OYBFzq4ugtkdLmvtioBwPd7uQ8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -178,7 +178,7 @@
   .options { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; padding-top: 14px; border-top: 1.5px solid var(--ink); min-width: 0; }
   .options-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .options-summary { display: inline-flex; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .options-summary .tally { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
+  .options-summary .opt-count { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
   .options-more { padding: 8px 10px; font-size: 12px; color: var(--muted); }
   .options-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: 13px; color: var(--muted); }
   .options-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1997,8 +1997,8 @@
     // One line: how many fit, and of those how many are confirmed to work and how many break the grid.
     summary.innerHTML = options.total
       ? `${options.total.toLocaleString()} fit` +
-        ` <span class="tally works" title="Confirmed: a full fill exists with this word in place"><span class="key works" aria-hidden="true"></span>${works.toLocaleString()}</span>` +
-        ` <span class="tally" title="Confirmed bad: no fill can use this word"><span class="key fails" aria-hidden="true"></span>${fails.toLocaleString()}</span>`
+        ` <span class="opt-count works" title="Confirmed: a full fill exists with this word in place"><span class="key works" aria-hidden="true"></span>${works.toLocaleString()}</span>` +
+        ` <span class="opt-count" title="Confirmed bad: no fill can use this word"><span class="key fails" aria-hidden="true"></span>${fails.toLocaleString()}</span>`
       : "";
     let text;
     if (!list.length) text = `No word scoring ${minScore()} or more fits these letters. Lower the minimum score or change a letter.`;
