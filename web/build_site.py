@@ -235,8 +235,15 @@ NAV_SECTION = {"index.html": "home", "solve.html": "solve", "puzzles.html": "cre
 LONE_HOME = re.compile(r'\s*<div class="puzzle-bar">\s*<a class="back-link" href="/">.*?</a>\s*</div>', re.DOTALL)
 
 
+# The puzzle's own tabs already make a row of navigation (wordmark home, All puzzles, Grid / Clues /
+# Export), so the site menu would be a second one above the work; those pages go without it.
+NO_NAV = ("grid.html", "clues.html", "export.html")
+
+
 def add_nav(text, name):
     """The site menu after the page's first header, and the lone "Home" button it replaces gone."""
+    if name in NO_NAV:
+        return text
     current = NAV_SECTION.get(name)
     mark = ' aria-current="page"'
     links = "".join(f'<a href="{href}"{mark if key == current else ""}>{label}</a>' for key, href, label in NAV)
