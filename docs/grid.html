@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-a1JkF27kTeffxYGo8sLegAPCf7OU1BHdh7Trjlk6Yzc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-9fH1KQnjRT7rLy8txyF7IqHnWCYLD40RONntJ7aj2fM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -2233,18 +2233,28 @@
     useWord(event.shiftKey);
   });
 
-  $("size-form").addEventListener("submit", (event) => {
+  /* Anything that wipes the grid's letters asks first, but only when there are letters to lose. Undo
+     would bring them back, but a mis-tap on a phone shouldn't depend on knowing that. */
+  async function okToWipe(title, confirm) {
+    if (!ink.some(Boolean) && !pencil.some(Boolean)) return true;
+    return window.fillmeinConfirm({ title, text: "Every letter in the grid goes. Undo (Ctrl+Z) brings them back.", confirm });
+  }
+
+  $("size-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const size = (field) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(Number($(field).value) || 15)));
     const cols = size("cols");
     const rows = size("rows");
+    if (!(await okToWipe(`Start a new ${cols}×${rows} grid?`, "New grid"))) return;
     edit(() => loadRows(blank(cols, rows)));
   });
 
-  $("example").addEventListener("change", () => {
+  $("example").addEventListener("change", async () => {
     const rows = EXAMPLES[$("example").value];
+    const name = $("example").selectedOptions[0] ? $("example").selectedOptions[0].textContent : "the example";
     $("example").value = "";
     if (!rows) return;
+    if (!(await okToWipe(`Load ${name}?`, "Load it"))) return;
     edit(() => loadRows(rows));
   });
 
@@ -2313,7 +2323,8 @@
     edit(() => pencil.fill(""));
   });
 
-  $("clear").addEventListener("click", () => {
+  $("clear").addEventListener("click", async () => {
+    if (!(await okToWipe("Clear every letter?", "Clear letters"))) return;
     edit(() => { ink.fill(""); pencil.fill(""); });
   });
 

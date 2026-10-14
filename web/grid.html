@@ -2216,18 +2216,28 @@
     useWord(event.shiftKey);
   });
 
-  $("size-form").addEventListener("submit", (event) => {
+  /* Anything that wipes the grid's letters asks first, but only when there are letters to lose. Undo
+     would bring them back, but a mis-tap on a phone shouldn't depend on knowing that. */
+  async function okToWipe(title, confirm) {
+    if (!ink.some(Boolean) && !pencil.some(Boolean)) return true;
+    return window.fillmeinConfirm({ title, text: "Every letter in the grid goes. Undo (Ctrl+Z) brings them back.", confirm });
+  }
+
+  $("size-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const size = (field) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(Number($(field).value) || 15)));
     const cols = size("cols");
     const rows = size("rows");
+    if (!(await okToWipe(`Start a new ${cols}×${rows} grid?`, "New grid"))) return;
     edit(() => loadRows(blank(cols, rows)));
   });
 
-  $("example").addEventListener("change", () => {
+  $("example").addEventListener("change", async () => {
     const rows = EXAMPLES[$("example").value];
+    const name = $("example").selectedOptions[0] ? $("example").selectedOptions[0].textContent : "the example";
     $("example").value = "";
     if (!rows) return;
+    if (!(await okToWipe(`Load ${name}?`, "Load it"))) return;
     edit(() => loadRows(rows));
   });
 
@@ -2296,7 +2306,8 @@
     edit(() => pencil.fill(""));
   });
 
-  $("clear").addEventListener("click", () => {
+  $("clear").addEventListener("click", async () => {
+    if (!(await okToWipe("Clear every letter?", "Clear letters"))) return;
     edit(() => { ink.fill(""); pencil.fill(""); });
   });
 
