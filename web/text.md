@@ -404,7 +404,7 @@ Sort, filter, remove and rescore the words your puzzles fill from.
 Edit a list
 
 [lists.lead]
-Go through a list one word at a time: pick a length, and each word comes up with its score, how often it has been a New York Times answer and how everyday it is. Press the left arrow (or swipe left) to remove it; press the right arrow (or swipe right) to keep it and say what it's worth. A word you've kept is confirmed and doesn't come up again, so each set only ever shows what's still to decide. Once you've made a few hundred decisions on a mixed sample, a model can learn from them and finish the list. The Table view shows the same words as a list to filter, sort and change all at once.
+One word at a time: remove it, or keep it and give it a score. A word you've decided doesn't come up again. Table shows the same words as a list to filter, sort and change at once.
 
 // The link from the editor to the Train page.
 [lists.other]
