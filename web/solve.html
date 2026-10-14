@@ -677,16 +677,16 @@
       clearTimeout(Number(button.dataset.armed));
       delete button.dataset.armed;
       button.textContent = button.dataset.label;
-      button.classList.remove("stop");
+      button.classList.remove("danger");
       return true;
     }
     button.dataset.label = button.textContent;
     button.textContent = question;
-    button.classList.add("stop");
+    button.classList.add("danger");
     button.dataset.armed = String(setTimeout(() => {
       delete button.dataset.armed;
       button.textContent = button.dataset.label;
-      button.classList.remove("stop");
+      button.classList.remove("danger");
     }, 4000));
     return false;
   }

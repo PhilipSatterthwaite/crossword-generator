@@ -18,7 +18,7 @@
         <p id="confirm-text" class="confirm-text"></p>
         <div class="confirm-actions">
           <button type="button" class="btn" data-confirm-no>Cancel</button>
-          <button type="button" class="btn destructive" data-confirm-yes></button>
+          <button type="button" class="btn primary danger" data-confirm-yes></button>
         </div>
       </div>`;
     box.addEventListener("click", (event) => {

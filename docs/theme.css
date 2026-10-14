@@ -204,8 +204,6 @@ html.was-signed-in .account [data-placeholder] { visibility: hidden; }
 .confirm-choices .btn { display: grid; gap: 2px; justify-items: start; padding: 12px 15px; border-radius: 12px; text-align: left; white-space: normal; }
 .confirm-choices .choice-label { font-weight: 600; }
 .confirm-choices .choice-note { font-size: 12px; font-weight: 400; opacity: 0.78; }
-.btn.destructive { background: var(--danger); border-color: var(--danger); color: var(--ground); }
-.btn.destructive:hover:not(:disabled) { background: var(--score-lo); border-color: var(--score-lo); }
 .btn.danger { border-color: var(--danger); color: var(--danger); }
 .btn.danger:hover:not(:disabled) { background: var(--score-lo-bg); border-color: var(--danger); color: var(--score-lo); }
 
@@ -459,7 +457,10 @@ a.btn { display: inline-block; text-decoration: none; }
 .btn:hover:not(:disabled) { background: var(--hover); }
 .btn.primary { background: var(--ink); color: var(--ground); }
 .btn.primary:hover:not(:disabled) { background: var(--pencil); border-color: var(--pencil); color: var(--ground); }
-.btn.stop { border-color: var(--danger); color: var(--danger); }
+/* Four kinds of button and no more: primary (the one thing to do), plain, quiet, and danger (it can't be
+   taken back); a danger primary is the filled red of a confirmation's yes. .small only changes the size. */
+.btn.primary.danger { background: var(--danger); border-color: var(--danger); color: var(--ground); }
+.btn.primary.danger:hover:not(:disabled) { background: var(--score-lo); border-color: var(--score-lo); color: var(--ground); }
 .btn.quiet { border-color: var(--rule); font-weight: 500; }
 .btn:disabled { opacity: 0.42; cursor: not-allowed; }
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
