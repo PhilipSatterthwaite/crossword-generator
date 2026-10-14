@@ -180,7 +180,29 @@
     if (share >= 1) setTimeout(() => { bar.hidden = true; }, 350);
   }
 
+  /* The words and their figures, downloaded with a bar that moves (bigwords.js): the first half of the
+     bar is the download, the rest is building the list from it. */
+  const MB = (n) => (n >= 10 ? Math.round(n) : n.toFixed(1));
+  const wordsReady = window.FillmeinWords
+    ? window.FillmeinWords.load(["words", "stats"], (share, got, all) => {
+      const bar = $("page-loading");
+      if (!bar || bar.hidden || share >= 1) return;
+      const fill = bar.querySelector(".page-loading i");
+      for (const running of fill.getAnimations()) running.cancel();
+      fill.style.animation = "none";
+      fill.style.transform = `scaleX(${Math.max(0.02, share * 0.5)})`;
+      bar.setAttribute("aria-valuenow", String(Math.round(50 * share)));
+      $("page-loading-text").textContent = `Downloading the word list: ${MB(got)} of ${MB(all)} MB. Only the first time; your browser keeps it.`;
+    })
+    : Promise.resolve();
+
   async function loadList() {
+    try {
+      await wordsReady;
+    } catch (error) {
+      $("page-loading-text").textContent = "The word list didn't download. Check your connection and reload the page.";
+      throw error;
+    }
     loadingAt(0.5, 0.85, "Loading the word list…"); // building the rows is the long part
     state = await LISTS.state(listId, { everywhere: TRAIN });
     const list = chosen();
@@ -1757,7 +1779,10 @@
   // The Train page trains as soon as it opens, when there's enough to learn from, so its guesses show
   // on the very first card.
   loadList().then(async () => {
-    if (!TRAIN) return;
+    if (!TRAIN) {
+      loadingAt(1);
+      return;
+    }
     // The card shows now; the bar stays for the model: the saved one loaded and its ranking made,
     // or a first one trained, the bar starting over to follow that.
     if (restoreModel()) {

@@ -32,6 +32,7 @@
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .spacer { flex: 1; }
   .muted { color: var(--muted); font-size: 13px; }
+  .words-loading { display: grid; gap: 6px; margin: 0 0 18px; }
   .sync-line { margin: -6px 0 16px; max-width: 70ch; line-height: 1.5; }
   .setup { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
   .setup .field { margin: 0; }
@@ -165,6 +166,10 @@
     <p class="muted" id="spent"></p>
   </div>
   <p class="muted sync-line" id="sync-note"></p>
+  <div class="words-loading" id="words-loading" hidden>
+    <div class="progress"><span id="words-bar"></span></div>
+    <p class="muted" id="words-note">Downloading the word list…</p>
+  </div>
 
   <section class="step" id="step-rules" hidden>
     <h2>1. Your rules</h2>
@@ -237,8 +242,8 @@
   </section>
 </div>
 
-<script src="words.js"></script>
-<script src="wordstats.js"></script>
+<script>window.FILLMEIN_WORD_FILES = { words: ["words.js", "WORDS_BYTES"], stats: ["wordstats.js", "STATS_BYTES"] };</script>
+<script src="bigwords.js"></script>
 <script>window.FILLMEIN_PAST_VERSION = "PASTCLUES_VERSION"; window.FILLMEIN_DEFS_VERSION = "DEFS_VERSION";</script>
 <script src="lists.js"></script>
 <script src="confirm.js"></script>

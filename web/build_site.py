@@ -29,7 +29,7 @@ PAGES = ("index.html", "puzzles.html", "clues.html", "export.html", "solve.html"
 # with a version stamp.
 ASSETS = ("theme.css", "store.js", "account.js", "confirm.js", "lists.js", "lists-sync.js", "filler.js",
           "designer.js", "nytpatterns.js", "solvefiles.js",
-          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "claude.js", "teach.js", "teach-sync.js", "social.png",
+          "exporters.js", "importers.js", "words.js", "wordstats.js", "listtool.js", "claude.js", "teach.js", "teach-sync.js", "bigwords.js", "social.png",
           "favicon.svg", "favicon.png", "apple-touch-icon.png")
 # What each page may load, as a Content-Security-Policy in a <meta> tag (GitHub Pages sets no headers).
 # Scripts: the site's own, Firebase from gstatic, Google's api.js from apis.google.com (Firebase loads it
@@ -316,6 +316,9 @@ def main():
         path = SITE / name
         text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"').replace('"DEFS_VERSION"', f'"{defs}"')
         text = add_nav(text, name).replace('"BUILT_IN_COUNTS"', counts)
+        # The big word files' sizes, so a page can show how far along their download is (bigwords.js).
+        text = text.replace('"WORDS_BYTES"', str((SITE / "words.js").stat().st_size))
+        text = text.replace('"STATS_BYTES"', str((SITE / "wordstats.js").stat().st_size))
         path.write_text(text, encoding="utf-8")
         secure(path)  # after stamping: the hashes must match the inline scripts as finally written
     (SITE / ".nojekyll").write_text("", encoding="utf-8")  # serve files as-is on GitHub Pages, __/ included

@@ -162,9 +162,36 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
      and scores or removals they have set are laid over either. The figures each word carries --
      uses, familiarity, Google, Wiktionary -- are the built-in ones, since they are facts about the
      word rather than about the list. */
+  /* The words and their figures: 33 MB, so they are fetched only once the page is unlocked, with a
+     bar that moves (bigwords.js), and what needs them waits for them. */
+  let wordsIn = Boolean(window.GRIDFILL_WORDS && window.GRIDFILL_STATS);
+  let wordsLoading = null;
+  function ensureWords() {
+    if (wordsIn) return Promise.resolve();
+    if (wordsLoading) return wordsLoading;
+    $("words-loading").hidden = false;
+    // Start stays clickable: a click while this downloads waits for it, with the bar above saying how long.
+    const MB = (n) => (n >= 10 ? Math.round(n) : n.toFixed(1));
+    wordsLoading = window.FillmeinWords.load(["words", "stats"], (share, got, all) => {
+      $("words-bar").style.width = `${(100 * share).toFixed(1)}%`;
+      $("words-note").textContent = `Downloading the word list: ${MB(got)} of ${MB(all)} MB. Only the first time; your browser keeps it.`;
+    }).then(async () => {
+      wordsIn = true;
+      $("words-loading").hidden = true;
+      await loadList();
+      drawWhole();
+    }, (error) => {
+      wordsLoading = null;
+      $("words-note").textContent = "The word list didn't download. Check your connection and reload the page.";
+      throw error;
+    });
+    return wordsLoading;
+  }
+
   async function loadList() {
     pool = null;
     wholeWords = null;
+    if (!wordsIn) return; // loaded again once the words are in
     listWords = window.GRIDFILL_WORDS || {};
     if (!LISTS) return;
     try {
@@ -479,6 +506,10 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
 
   async function drawWhole() {
     if (!$("whole-note")) return;
+    if (!wordsIn) {
+      $("whole-note").textContent = "Waiting for the word list…";
+      return;
+    }
     const total = (wholeWords || (wholeWords = allWords())).length;
     const done = await countDone().catch(() => 0);
     const left = Math.max(0, total - done);
@@ -506,6 +537,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   }
 
   async function runWhole() {
+    await ensureWords();
     wholeStop = false;
     $("whole-start").hidden = true;
     $("whole-stop").hidden = false;
@@ -666,6 +698,7 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
   $("unlock").addEventListener("click", () => {
     set(UNLOCKED, "1");
     show("rules");
+    ensureWords().catch(() => {});
   });
 
   function drawRules() {
@@ -880,6 +913,14 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
       return;
     }
     $("start").disabled = true;
+    if (!wordsIn) $("rules-note").textContent = "Waiting for the word list to finish downloading…";
+    try {
+      await ensureWords();
+    } catch (error) {
+      $("start").disabled = false;
+      $("rules-note").textContent = "The word list didn't download. Check your connection and try again.";
+      return;
+    }
     $("rules-note").textContent = "Choosing a hundred words…";
     const rows = pick(PER_ROUND);
     round = { at: 0, items: rows.map((row) => ({ row, guess: null, you: null, changed: false })) };
@@ -1158,7 +1199,8 @@ what you changed and why.`;
       '<button type="button" class="btn quiet" id="start-over">Start a fresh hundred</button>';
     const carry = $("carry-on");
     const fresh = $("start-over");
-    if (carry) carry.addEventListener("click", () => {
+    if (carry) carry.addEventListener("click", async () => {
+      await ensureWords();
       round = restoreRound();
       if (!round) {
         $("rules-note").textContent = "Those words have gone from the list. Take a fresh hundred.";
@@ -1215,8 +1257,9 @@ what you changed and why.`;
   }
 
   listId = get(CHOICE, "built-in");
-  loadList().then(drawLists).then(() => {
-    if (!$("step-whole").hidden) drawWhole();
-  });
-  show(get(UNLOCKED) || state.rounds.length ? "rules" : "gate");
+  drawLists();
+  const opensUnlocked = Boolean(get(UNLOCKED) || state.rounds.length);
+  show(opensUnlocked ? "rules" : "gate");
+  // Past the gate, the words start downloading at once; before it, nothing big is fetched.
+  if (opensUnlocked) ensureWords().catch(() => {});
 })();

@@ -236,7 +236,7 @@
   .page-loading i { display: block; height: 100%; border-radius: 3px; background: var(--ink); transform-origin: left; transform: scaleX(0.04); will-change: transform;
     animation: page-creep 14s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
   @keyframes page-creep { to { transform: scaleX(0.5); } }
-  body[data-page="edit"] .page-loading-row, .page-loading-row[hidden] { display: none; }
+  .page-loading-row[hidden] { display: none; }
   /* The Train page in two tabs: Swipe (the list and the card) and Results (the model). */
   .train-tabs { display: flex; gap: 4px; margin: 4px 0 2px; border-bottom: 1.5px solid var(--ink); }
   .train-tabs button { min-height: 44px; padding: 8px 18px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
@@ -455,8 +455,8 @@
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
-<script src="words.js"></script>
-<script src="wordstats.js"></script>
+<script>window.FILLMEIN_WORD_FILES = { words: ["words.js", "WORDS_BYTES"], stats: ["wordstats.js", "STATS_BYTES"] };</script>
+<script src="bigwords.js"></script>
 <script src="lists.js"></script>
 <script src="confirm.js"></script>
 <script type="module" src="account.js"></script>

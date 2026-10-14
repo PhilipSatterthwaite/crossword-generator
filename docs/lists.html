@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Nvl7RL6Um8uFFUi6+AeDzK8aZnnMssibs1oJ8H5Mum0=' 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Edit a list · fillmein</title>
 <meta name="description" content="Sort and filter a word list by score, length, how often the Times has used a word and how everyday it is, then remove or rescore words one by one or all at once.">
@@ -237,7 +237,7 @@
   .page-loading i { display: block; height: 100%; border-radius: 3px; background: var(--ink); transform-origin: left; transform: scaleX(0.04); will-change: transform;
     animation: page-creep 14s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
   @keyframes page-creep { to { transform: scaleX(0.5); } }
-  body[data-page="edit"] .page-loading-row, .page-loading-row[hidden] { display: none; }
+  .page-loading-row[hidden] { display: none; }
   /* The Train page in two tabs: Swipe (the list and the card) and Results (the model). */
   .train-tabs { display: flex; gap: 4px; margin: 4px 0 2px; border-bottom: 1.5px solid var(--ink); }
   .train-tabs button { min-height: 44px; padding: 8px 18px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
@@ -453,13 +453,13 @@
   <footer class="site-foot"><a href="guide">How to make a crossword</a><a href="privacy">Privacy</a><a href="contact">Contact</a></footer>
 </div>
 
-<script src="words.js?v=c030f0646d"></script>
-<script src="wordstats.js?v=7191747880"></script>
+<script>window.FILLMEIN_WORD_FILES = { words: ["words.js?v=c030f0646d", 6863105], stats: ["wordstats.js?v=7191747880", 26272642] };</script>
+<script src="bigwords.js?v=5e45121516"></script>
 <script src="lists.js?v=b34f3c2bbb"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script type="module" src="account.js?v=b2c298a5a4"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
-<script src="listtool.js?v=a097cf4633"></script>
+<script src="listtool.js?v=5c3150bdb9"></script>
 </body>
 </html>

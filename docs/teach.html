@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Nvl7RL6Um8uFFUi6+AeDzK8aZnnMssibs1oJ8H5Mum0=' 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI word filtering · fillmein</title>
 <meta name="description" content="Teach an AI how you judge crossword fill, and let it sift a word list the way you would: you write the rules, correct it on a hundred words, and it rewrites the rules to match you.">
@@ -33,6 +33,7 @@
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .spacer { flex: 1; }
   .muted { color: var(--muted); font-size: 13px; }
+  .words-loading { display: grid; gap: 6px; margin: 0 0 18px; }
   .sync-line { margin: -6px 0 16px; max-width: 70ch; line-height: 1.5; }
   .setup { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
   .setup .field { margin: 0; }
@@ -167,6 +168,10 @@
     <p class="muted" id="spent"></p>
   </div>
   <p class="muted sync-line" id="sync-note"></p>
+  <div class="words-loading" id="words-loading" hidden>
+    <div class="progress"><span id="words-bar"></span></div>
+    <p class="muted" id="words-note">Downloading the word list…</p>
+  </div>
 
   <section class="step" id="step-rules" hidden>
     <h2>1. Your rules</h2>
@@ -239,8 +244,8 @@
   </section>
 </div>
 
-<script src="words.js?v=c030f0646d"></script>
-<script src="wordstats.js?v=7191747880"></script>
+<script>window.FILLMEIN_WORD_FILES = { words: ["words.js?v=c030f0646d", 6863105], stats: ["wordstats.js?v=7191747880", 26272642] };</script>
+<script src="bigwords.js?v=5e45121516"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
 <script src="lists.js?v=b34f3c2bbb"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
@@ -248,6 +253,6 @@
 <script type="module" src="account.js?v=b2c298a5a4"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script src="teach-sync.js?v=af324eb2bd"></script>
-<script src="teach.js?v=a532488068"></script>
+<script src="teach.js?v=d5046e720a"></script>
 </body>
 </html>
