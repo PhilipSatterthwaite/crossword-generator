@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-QtSItf+2bmSaWFQh5pthJ1NVEKAgnwHz1wEq8aFJ7DU='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-PsueADavcbC6IMClAz2iT/D0ZN0OgFkedzzgLj5vDm8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -988,6 +988,10 @@
   }
 
   function render() {
+    // The hint for an empty grid goes once the grid isn't empty.
+    if (statusEl.textContent.endsWith(START_HINT) && (blocks.some(Boolean) || ink.some(Boolean) || pencil.some(Boolean))) {
+      statusEl.textContent = statusEl.textContent.slice(0, -START_HINT.length);
+    }
     if (rebusAt >= 0 && sel !== rebusAt) finishRebus(false); // moved away from a rebus being typed: keep it
     refreshOptions();
     if (preview && (!options || options.signature !== preview.signature)) {
@@ -1517,8 +1521,20 @@
       if (gone) hidden.add(word);
       else hidden.delete(word);
     }
-    if (changed.length) runner.hide(changed, gone);
+    if (changed.length) {
+      runner.hide(changed, gone);
+      recount();
+    }
     return changed;
+  }
+
+  /* The status line's word count, kept true when words go out or come back. Only a "Ready" line is
+     touched: a fill's result or an error says something else and stays until the next message. */
+  const START_HINT = " Add blocks and letters, or load an example to start from.";
+
+  function recount() {
+    if (!ready || running || !/^Ready: [0-9,]+ scored words/.test(statusEl.textContent)) return;
+    statusEl.textContent = statusEl.textContent.replace(/^Ready: [0-9,]+/, `Ready: ${runner.count.toLocaleString()}`);
   }
 
   /* Keep a word out of this puzzle, or let it back in. The list is not touched, so this works on the
@@ -2898,6 +2914,7 @@
     }
     // The rebuilt list holds every word again, this puzzle's own exclusions included: hide those.
     applyBlocked();
+    recount();
     renderLists();
     render();
     if (recheck && ready) resumeCheck();
@@ -3392,7 +3409,7 @@
           setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
           resumeCheck();
         } else {
-          setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words. Add blocks and letters, or load an example to start from.`);
+          setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.${START_HINT}`);
         }
       },
       () => setStatus("error", "The word list didn't load. Reload the page to try again.")
