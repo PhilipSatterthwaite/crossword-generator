@@ -251,6 +251,24 @@ def add_nav(text, name):
     return LONE_HOME.sub("", text, count=1)
 
 
+# The account box is filled in by account.js once Firebase has answered, half a second to two seconds
+# after the page shows. Until then it holds a Sign in button, so the header doesn't pop and shift; a
+# browser that was signed in last time keeps that button's space but hides it, so a signed-in visitor
+# never sees "Sign in" flash before their name.
+ACCOUNT_BOX = '<div class="account" data-account></div>'
+ACCOUNT_PLACEHOLDER = ('<div class="account" data-account><button type="button" class="btn small" data-sign-in '
+                       'data-placeholder>Sign in</button></div>')
+WAS_SIGNED_IN = ('<script>try { if (localStorage.getItem("fillmein:signed-in")) '
+                 'document.documentElement.classList.add("was-signed-in"); } catch (error) { /* no storage */ }</script>\n</head>')
+
+
+def account_box(text):
+    """A Sign in button in the account box from the first paint, and a hint for browsers signed in before."""
+    if ACCOUNT_BOX not in text:
+        return text
+    return text.replace(ACCOUNT_BOX, ACCOUNT_PLACEHOLDER).replace("</head>", WAS_SIGNED_IN, 1)
+
+
 def built_in_counts():
     """How many words the built-in list and the NYT answers list hold, from web/words.js, for pages
     that show the sizes without loading all the words."""
@@ -316,6 +334,7 @@ def main():
         path = SITE / name
         text = stamp(path.read_text(encoding="utf-8"), versions).replace('"PASTCLUES_VERSION"', f'"{past_clues}"').replace('"DEFS_VERSION"', f'"{defs}"')
         text = add_nav(text, name).replace('"BUILT_IN_COUNTS"', counts)
+        text = account_box(text)
         # The big word files' sizes, so a page can show how far along their download is (bigwords.js).
         text = text.replace('"WORDS_BYTES"', str((SITE / "words.js").stat().st_size))
         text = text.replace('"STATS_BYTES"', str((SITE / "wordstats.js").stat().st_size))

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Nvl7RL6Um8uFFUi6+AeDzK8aZnnMssibs1oJ8H5Mum0=' 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-Nvl7RL6Um8uFFUi6+AeDzK8aZnnMssibs1oJ8H5Mum0=' 'sha256-F+32e7XbL9lPrDBuWr6blyq2pdNWFG/8zkiAtGAE1NI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI word filtering · fillmein</title>
 <meta name="description" content="Teach an AI how you judge crossword fill, and let it sift a word list the way you would: you write the rules, correct it on a hundred words, and it rewrites the rules to match you.">
@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=f015afbf97">
+<link rel="stylesheet" href="theme.css?v=2ac26ec6d6">
 <style>
   body { margin: 0; }
   .wide { max-width: 980px; }
@@ -115,6 +115,7 @@
     .sample .one { grid-template-columns: 1fr; }
   }
 </style>
+<script>try { if (localStorage.getItem("fillmein:signed-in")) document.documentElement.classList.add("was-signed-in"); } catch (error) { /* no storage */ }</script>
 </head>
 <body>
 <div class="page wide">
@@ -124,7 +125,7 @@
         <span><sup>1</sup>F</span><span>I</span><span>L</span><span>L</span><span class="wm-block"></span><span class="fill-letter"><sup>2</sup>M</span><span class="fill-letter">E</span><span class="wm-block"></span><span class="fill-letter"><sup>3</sup>I</span><span class="fill-letter">N</span>
       </span>
     </a>
-    <div class="account" data-account></div>
+    <div class="account" data-account><button type="button" class="btn small" data-sign-in data-placeholder>Sign in</button></div>
   </header>
   <nav class="site-nav" aria-label="Site"><a href="/">Home</a><a href="/solve">Solve a puzzle</a><a href="/puzzles">Create</a><a href="/wordlists" aria-current="page">Word lists</a><a href="/guide">How to make a crossword</a></nav>
 

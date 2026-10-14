@@ -173,6 +173,9 @@ html.ready body::before { animation-play-state: running; }
   min-height: 32px;
   font-size: 14px;
 }
+/* The account's buttons match the site menu's pills beside them. */
+.account .btn { border-radius: 999px; padding: 6px 14px; }
+html.was-signed-in .account [data-placeholder] { visibility: hidden; }
 .account-name { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .account-sync:empty { display: none; }
 .account-sync[data-state="error"] { font-size: 13px; color: var(--danger); }
