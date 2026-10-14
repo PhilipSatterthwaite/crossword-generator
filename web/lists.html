@@ -309,7 +309,7 @@
     <span class="field"><b>Length</b> <input id="len-min" type="number" min="3" max="25" aria-label="Shortest"> <span class="dash">–</span> <input id="len-max" type="number" min="3" max="25" aria-label="Longest"></span>
     <span class="field"><b>Score</b> <input id="score-min" type="number" min="0" max="10" aria-label="Lowest score"> <span class="dash">–</span> <input id="score-max" type="number" min="0" max="10" aria-label="Highest score"></span>
     <span class="field" title="Published crossword answers, 2000 to 2023"><b>NYT uses</b> <input id="uses-min" type="number" min="0" aria-label="Fewest uses"> <span class="dash">–</span> <input id="uses-max" type="number" min="0" aria-label="Most uses"></span>
-    <span class="field" title="How familiar the word is in everyday English, 0 to 100"><b>Everyday</b> <input id="ev-min" type="number" min="0" max="100" aria-label="Least everyday"> <span class="dash">–</span> <input id="ev-max" type="number" min="0" max="100" aria-label="Most everyday"></span>
+    <span class="field" title="How familiar the word is in everyday English, 0 to 100. Not a score."><b>Familiarity</b> <input id="ev-min" type="number" min="0" max="100" aria-label="Least familiar"> <span class="dash">–</span> <input id="ev-max" type="number" min="0" max="100" aria-label="Most familiar"></span>
     <span class="field" title="Times Google's web corpus has the word (a phrase: its rarest word pair)"><b>Google</b> <input id="g-min" type="number" min="0" aria-label="Fewest Google hits"> <span class="dash">–</span> <input id="g-max" type="number" min="0" aria-label="Most Google hits"></span>
     <label class="check"><input type="checkbox" id="only-rescored"> Rescored</label>
     <label class="check"><input type="checkbox" id="only-removed"> Removed</label>
@@ -332,7 +332,7 @@
         <option value="uses-down">Most NYT appearances first</option>
         <option value="score-up">Lowest score first</option>
         <option value="score-down">Highest score first</option>
-        <option value="everyday-up">Least everyday first</option>
+        <option value="everyday-up">Least familiar first</option>
         <option value="google-up">Fewest Google hits first</option>
         <option value="google-down">Most Google hits first</option>
         <option value="books-up">Fewest Google Books uses first</option>
@@ -403,7 +403,7 @@
       <select id="sweep-stat" aria-label="Which figure">
         <option value="uses" selected>NYT appearances</option>
         <option value="score">score</option>
-        <option value="everyday">everyday figure</option>
+        <option value="everyday">familiarity</option>
         <option value="google">Google hits</option>
         <option value="books">Google Books uses</option>
         <option value="papers">uses in other papers</option>
@@ -438,7 +438,7 @@
     <button type="button" class="num" data-sort="len" aria-sort="none">Len</button>
     <button type="button" class="num" data-sort="score" aria-sort="none">Score</button>
     <button type="button" class="num uses" data-sort="uses" aria-sort="ascending">NYT</button>
-    <button type="button" class="num" data-sort="everyday" aria-sort="none">Everyday</button>
+    <button type="button" class="num" data-sort="everyday" aria-sort="none" title="How familiar the word is in everyday English, 0 to 100. Not a score.">Familiar</button>
     <button type="button" class="num goog" data-sort="google" aria-sort="none">Google</button>
     <button type="button" class="num goog" data-sort="books" aria-sort="none" title="Google Books uses, 2015-2019">Books</button>
     <button type="button" class="num goog" data-sort="papers" aria-sort="none" title="Uses as an answer in crosswords other than the Times">Papers</button>

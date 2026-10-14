@@ -522,7 +522,7 @@
       (row.cuts ? `<p class="reading">read as <b>${readingOf(row)}</b></p>` : "") +
       modelGuess(row) +
       `<div class="facts"><span>Score <b>${row.score}</b></span><span title="Peter Broda's own score, before the site's popularity nudge">Broda <b>${row.broda < 0 ? "–" : row.broda}</b></span>` +
-      `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span>Everyday <b>${row.everyday}</b></span>` +
+      `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span title="How familiar the word is in everyday English, 0 to 100. Not a score.">Familiar <b>${row.everyday}</b></span>` +
       `<span title="Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand">Zipf <b>${row.zipf ? row.zipf.toFixed(1) : "–"}</b></span>` +
       `<span title="${row.google.toLocaleString()} in Google's web corpus">Google <b>${compact(row.google)}</b></span>` +
       `<span title="${row.books.toLocaleString()} uses in Google Books, 2015-2019">Books <b>${compact(row.books)}</b></span>` +
@@ -1043,7 +1043,7 @@
   $("bulk-remove").addEventListener("click", () => bulk("remove"));
 
   /* Keep or remove every undecided word in the set whose figure clears a threshold. */
-  const STAT_NAMES = { scrabble: "average Scrabble letter score", papers: "uses in other papers", outlets: "outlets", spoken: "spoken uses", wiki: "Wikipedia titles", uses: "NYT appearances", score: "score", everyday: "everyday figure", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
+  const STAT_NAMES = { scrabble: "average Scrabble letter score", papers: "uses in other papers", outlets: "outlets", spoken: "spoken uses", wiki: "Wikipedia titles", uses: "NYT appearances", score: "score", everyday: "familiarity", google: "Google hits", books: "Google Books uses", broda: "Broda score", year: "last Times year" };
   function sweepRows() {
     const stat = $("sweep-stat").value;
     const atLeast = $("sweep-how").value === "min";
