@@ -623,6 +623,7 @@
 <script src="designer.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
+<script src="keyboard.js"></script>
 <script src="lists.js"></script>
 <script type="module" src="account.js"></script>
 <script src="lists-sync.js"></script>
@@ -2146,6 +2147,12 @@
       render();
     }
   });
+
+  // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be. Its 123
+  // key brings up the phone's keyboard, for a block (.) among other things.
+  if (window.FillmeinKeyboard) {
+    window.FillmeinKeyboard.attach(input, { isRebus: () => rebusAt >= 0, spaceLabel: "blank square", enterLabel: "turn ↵" });
+  }
 
   // Phone keyboards often skip keydown for letters, so read what lands in the input.
   input.addEventListener("input", () => {

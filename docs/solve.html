@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-+9IeXOd0vBcsOBKSgoXa0X88fDe+cUQbU2vhl2RMzv4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-5hRRK2a0PsO0YRnfUgACEke+Lsbh0c6R6Pekpxk5N3c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solve a puzzle · fillmein</title>
 <meta name="description" content="Solve a crossword in your browser: open a .puz, .ipuz or .jpz file, or a link someone shared from fillmein.">
@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
-<link rel="stylesheet" href="theme.css?v=a993e6c95f">
+<link rel="stylesheet" href="theme.css?v=fb6dfeb783">
 <style>
   /* The warm-up cover: the page's own background, over everything, while the grid is built, painted
      and settled underneath it. Taking it away is one step, with no work left to do. */
@@ -234,6 +234,7 @@
 <script src="solvefiles.js?v=0baaac8c9f"></script>
 <script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=6d9282b39d"></script>
+<script src="keyboard.js?v=329e4f6ece"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -627,6 +628,11 @@
     } else return;
     render();
   });
+
+  // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be.
+  if (window.FillmeinKeyboard) {
+    window.FillmeinKeyboard.attach($("solve-input"), { isRebus: () => rebusAt >= 0, spaceLabel: "across / down", enterLabel: "next ↵" });
+  }
 
   $("solve-input").addEventListener("input", (event) => {
     // Phone keyboards insert text rather than sending key presses.

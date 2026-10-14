@@ -231,6 +231,7 @@
 <script src="solvefiles.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
+<script src="keyboard.js"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -624,6 +625,11 @@
     } else return;
     render();
   });
+
+  // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be.
+  if (window.FillmeinKeyboard) {
+    window.FillmeinKeyboard.attach($("solve-input"), { isRebus: () => rebusAt >= 0, spaceLabel: "across / down", enterLabel: "next ↵" });
+  }
 
   $("solve-input").addEventListener("input", (event) => {
     // Phone keyboards insert text rather than sending key presses.
