@@ -408,9 +408,30 @@
     filterTimer = setTimeout(refilter, 150);
   };
   for (const el of document.querySelectorAll(".filters input")) el.addEventListener("input", refilterSoon);
+  /* The two folding parts, Filters (on a phone) and Change many at once, open the way they were left. */
+  const FOLDS = "fillmein:lists:open";
+  const folds = (() => { try { return JSON.parse(localStorage.getItem(FOLDS)) || {}; } catch (error) { return {}; } })();
+  function fold(button, part, name, open) {
+    part.classList.toggle("open", open);
+    button.setAttribute("aria-expanded", String(open));
+    folds[name] = open;
+    try { localStorage.setItem(FOLDS, JSON.stringify(folds)); } catch (error) { /* this visit only */ }
+  }
+  fold($("toggle-filters"), document.querySelector(".filters"), "filters", Boolean(folds.filters));
+  fold($("toggle-sweep"), document.querySelector(".sweep"), "sweep", Boolean(folds.sweep));
   $("toggle-filters").addEventListener("click", () => {
-    const open = document.querySelector(".filters").classList.toggle("open");
-    $("toggle-filters").setAttribute("aria-expanded", String(open));
+    fold($("toggle-filters"), document.querySelector(".filters"), "filters", !document.querySelector(".filters").classList.contains("open"));
+  });
+  $("toggle-sweep").addEventListener("click", () => {
+    const open = !document.querySelector(".sweep").classList.contains("open");
+    fold($("toggle-sweep"), document.querySelector(".sweep"), "sweep", open);
+    $("toggle-sweep").closest("details").open = false;
+    if (open) document.querySelector(".sweep").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+  // The More menu closes on a click anywhere else.
+  document.addEventListener("click", (event) => {
+    const menu = document.querySelector(".more-menu");
+    if (menu && menu.open && !menu.contains(event.target)) menu.open = false;
   });
   $("clear-filters").addEventListener("click", () => {
     for (const el of document.querySelectorAll(".filters input")) {
@@ -1706,6 +1727,7 @@
   }
 
   $("download").addEventListener("click", () => {
+    $("download").closest("details").open = false;
     setStatus("Making the spreadsheet…");
     setTimeout(() => {
       const lines = [CSV_HEAD.join(",")];

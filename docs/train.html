@@ -87,7 +87,14 @@
   .sets button:hover { border-color: var(--ink); }
   .sets button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
   .sets button small { color: inherit; opacity: 0.7; }
-  .sweep { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+  .sweep { display: none; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+  .sweep.open { display: flex; }
+  .more-menu { position: relative; }
+  .more-menu > summary { list-style: none; cursor: pointer; }
+  .more-menu > summary::-webkit-details-marker { display: none; }
+  .more-items { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; gap: 6px; min-width: 200px; padding: 8px;
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--cell); box-shadow: 0 10px 28px rgb(0 0 0 / 0.12); }
+  .more-items .btn { text-align: left; }
   .sweep .label { margin-right: 4px; font-weight: 600; }
   .sweep input[type="number"] { width: 4em; padding: 4px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
   .sweep .hint { flex-basis: 100%; margin: 0; color: var(--muted); }
@@ -212,6 +219,7 @@
     .model .model-go { justify-self: stretch; }
   }
 
+  #toggle-filters { display: none; }
   /* Phones: the filters fold away, the length buttons scroll sideways, the buttons are thumb-sized. */
   @media (max-width: 640px) {
     .filters { display: none; }
@@ -219,14 +227,12 @@
     #toggle-filters { display: inline-block; }
     .sets { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
     .sets button { flex: none; }
-    .sweep { display: none; }
     .review { padding: 22px 12px 18px; }
     .review .decide .btn { min-width: 0; flex: 1 1 40%; min-height: 48px; font-size: 16px; }
     .review .decide { width: 100%; }
     .review .facts { font-size: 13px; gap: 4px 12px; }
     .which .note { flex-basis: 100%; }
   }
-  #toggle-filters { display: none; }
   /* One page, two uses: the editor has no model; the Train page is just the card and the model. */
   body[data-page="edit"] #model, body[data-page="edit"] .train-tabs { display: none; }
   /* The Train page's loading bar. Until the page's script takes over it creeps on its own, moved by
@@ -252,7 +258,7 @@
   body[data-page="train"] .sweep, body[data-page="train"] #review-view > .sets, body[data-page="train"] .bulk,
   body[data-page="train"] .grid-head, body[data-page="train"] #scroller, body[data-page="train"] #sets,
   body[data-page="train"] #status, body[data-page="train"] .key { display: none !important; }
-  .other-page { display: inline-block; margin-top: 4px; padding: 9px 16px; font-size: 14px; text-decoration: none; }
+  .other-page { display: inline-block; margin-top: 2px; font-size: 14px; font-weight: 600; color: var(--ink); text-underline-offset: 3px; }
   .review .score-line input { width: 3.6em; padding: 3px 5px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); font: 600 13px var(--sans); text-align: right; }
   .status { min-height: 1.4em; margin: 0; font-size: 13px; color: var(--muted); }
   .key { margin: 0; font-size: 12px; color: var(--muted); }
@@ -279,7 +285,7 @@
   <div>
     <h1>Train a list</h1>
     <p class="lead">Swipe left (or press ←) to remove a word, right (or press →) to keep it and score it. Results shows what the model has learned from every list you've edited; once its confidence is green, it can finish the list for you.</p>
-    <p class="lead"><a class="btn other-page" href="lists">Edit a list</a> <a class="btn quiet other-page" href="/wordlists">All word lists</a></p>
+    <p class="lead"><a class="other-page" href="lists">Edit a list →</a></p>
   </div>
 
   <div id="page-loading" class="page-loading-row" role="progressbar" aria-label="Loading the word list" aria-valuemin="0" aria-valuemax="100">
@@ -294,7 +300,13 @@
   <div class="which">
     <label class="field">List <select id="list" aria-label="Word list to edit"></select></label>
     <button type="button" id="copy" class="btn small" hidden>Make a copy to edit</button>
-    <button type="button" id="download" class="btn quiet small" title="Every word of this list with all its figures and your decisions, as a spreadsheet">Download data (CSV)</button>
+    <details class="more-menu">
+      <summary class="btn quiet small">More</summary>
+      <div class="more-items">
+        <button type="button" id="download" class="btn quiet small" title="Every word of this list with all its figures and your decisions, as a spreadsheet">Download data (CSV)</button>
+        <button type="button" id="toggle-sweep" class="btn quiet small" aria-expanded="false">Change many at once…</button>
+      </div>
+    </details>
     <p id="which-note" class="note"></p>
     <span class="modes" role="group" aria-label="View">
       <button type="button" data-mode="review" aria-pressed="true">One at a time</button>
@@ -461,6 +473,6 @@
 <script type="module" src="account.js?v=b2c298a5a4"></script>
 <script src="lists-sync.js?v=c42dc37175"></script>
 <script>window.FILLMEIN_PAST_VERSION = "ca1d46bfe6"; window.FILLMEIN_DEFS_VERSION = "56be122b81";</script>
-<script src="listtool.js?v=5c3150bdb9"></script>
+<script src="listtool.js?v=a079ed1451"></script>
 </body>
 </html>
