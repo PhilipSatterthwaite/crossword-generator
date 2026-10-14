@@ -66,25 +66,22 @@
   .choice .btn { justify-self: start; }
   .choice .sub-head { margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); font: 600 18px / 1.2 var(--serif); }
   .list-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
-  .choice .btn.manage { justify-self: stretch; text-align: center; padding: 10px 16px; font-size: 15px; }
+  .manage-link { justify-self: start; font-size: 14px; font-weight: 600; color: var(--ink); text-underline-offset: 3px; }
   /* The Solve box: light blue, an upload arrow over the words. */
   .drop.blue { border-color: color-mix(in srgb, var(--pencil) 45%, transparent); background: color-mix(in srgb, var(--pencil) 10%, var(--cell)); }
   .drop.blue:hover, .drop.blue.over { border-color: var(--pencil); background: color-mix(in srgb, var(--pencil) 17%, var(--cell)); }
   .drop-icon { color: var(--pencil); }
-  /* Word lists' two ways in, big enough to find at a glance. */
-  .list-buttons.big { gap: 12px; margin-top: 4px; }
-  .list-buttons.big .btn { flex: 1 1 10em; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-    min-height: 52px; padding: 10px 22px; font-size: 17px; font-weight: 700; text-align: center; }
-  .list-buttons.big .btn.train { background: var(--pencil); border-color: var(--pencil); color: #fff; }
-  .list-buttons.big .btn.train:hover { filter: brightness(1.1); }
-  /* The AI filtering is a paid feature in waiting, so it looks like an offer rather than a tool. */
-  .list-buttons.big .btn.ai { border-style: dashed; }
-  .list-buttons.big .btn.ai::after { content: "preview"; margin-left: 7px; padding: 2px 6px; border-radius: 999px;
-    background: var(--line-soft); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+  /* Word lists' three ways in: alike, side by side, the same width. */
+  .list-buttons.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .list-buttons.three .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;
+    min-height: 48px; padding: 8px 10px; font-size: 15px; font-weight: 700; text-align: center; }
+  /* The AI filtering is a paid feature in waiting: a small tag says so, rather than a different button. */
+  .list-buttons.three .btn.ai::after { content: "preview"; padding: 2px 6px; border-radius: 999px;
+    background: var(--line-soft); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+  @media (max-width: 420px) { .list-buttons.three { grid-template-columns: minmax(0, 1fr); } }
   /* The cards' buttons stand up a little: a heavier border and a hard shadow under it, pressed flat when clicked. */
   .choice .btn { border-width: 2px; box-shadow: 0 3px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
   .choice .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 30%, transparent); }
-  .list-buttons.big .btn.train { border-color: color-mix(in srgb, var(--pencil) 70%, black); }
   .note { font-size: 13px; }
   .soon {
     justify-self: start;
@@ -204,6 +201,13 @@
     <details class="choice" data-box="quick">
       <summary class="choice-head"><div><h2 id="quick-title">{{home.quick.heading|line}}</h2><p class="choice-line">{{home.quick.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="choice-body">
+      <div class="list-buttons three">
+        <a class="btn" href="lists">Edit a list</a>
+        <a class="btn" href="train">Train a list</a>
+        <a class="btn ai" href="teach">Filter with AI</a>
+      </div>
+      <a class="manage-link" href="wordlists">Manage your lists →</a>
+      <h3 class="sub-head">Add a word</h3>
       <form id="quick-add" class="quick" novalidate>
         <div class="quick-row">
           <input id="quick-word" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Word" aria-label="Word to add">
@@ -213,12 +217,6 @@
         <label class="field">Add to <select id="quick-list"></select></label>
         <p id="quick-message" class="quick-message" role="alert"></p>
       </form>
-      <div class="list-buttons big">
-        <a class="btn primary" href="lists">Edit a list</a>
-        <a class="btn train" href="train">Train a list</a>
-        <a class="btn ai" href="teach">Filter with AI</a>
-      </div>
-      <a class="btn manage" href="wordlists">Manage lists</a>
       </div>
     </details>
 
