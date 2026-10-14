@@ -127,6 +127,9 @@
   /* One quiet line under the grid: what the colours mean and what the keys do. */
   .keys { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
   .keys .dot { margin: 0 2px; }
+  .key-help { display: contents; }
+  /* The keyboard's shortcuts mean nothing on a touch screen: only the colour key shows there. */
+  @media (hover: none) and (pointer: coarse) { .key-help { display: none; } }
   kbd {
     font: 600 11px / 1 var(--sans);
     padding: 2px 5px;
@@ -473,7 +476,7 @@
                aria-describedby="cell-desc">
       </div>
       <p id="cell-desc" class="sr-only" aria-live="polite"></p>
-      <p class="keys"><span class="swatch" aria-hidden="true">A</span> ink <span class="swatch pencil" aria-hidden="true">A</span> pencil <span class="swatch weak" aria-hidden="true"></span> <span id="weak-cap">under your minimum score</span> <span class="dot">·</span> <kbd>Space</kbd> blank <span class="dot">·</span> <kbd>.</kbd> block <span class="dot">·</span> <kbd>⌫</kbd> erase, or open a block <span class="dot">·</span> arrows move <span class="dot">·</span> <kbd>Enter</kbd> across/down <span class="dot">·</span> <kbd>Shift</kbd> rebus, then <kbd>Enter</kbd> <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</p>
+      <p class="keys"><span class="swatch" aria-hidden="true">A</span> ink <span class="swatch pencil" aria-hidden="true">A</span> pencil <span class="swatch weak" aria-hidden="true"></span> <span id="weak-cap">under your minimum score</span><span class="key-help"> <span class="dot">·</span> <kbd>Space</kbd> blank <span class="dot">·</span> <kbd>.</kbd> block <span class="dot">·</span> <kbd>⌫</kbd> erase, or open a block <span class="dot">·</span> arrows move <span class="dot">·</span> <kbd>Enter</kbd> across/down <span class="dot">·</span> <kbd>Shift</kbd> rebus, then <kbd>Enter</kbd> <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo <span class="dot">·</span> <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span></p>
     </section>
 
     <aside class="panel" aria-label="Autofill and word options">
