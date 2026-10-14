@@ -132,11 +132,8 @@
   .upload > p { margin: 0; color: var(--muted); line-height: 1.5; }
   .upload-error { margin: 0; color: var(--danger); font-size: 14px; }
   .upload-error:empty { display: none; }
-  .recent { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .recent li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
-  .recent a { font-weight: 600; color: var(--ink); }
-  .recent .meta { flex: 1; font-size: 13px; color: var(--muted); }
-  .recent button { padding: 2px 8px; border: 1px solid var(--rule); border-radius: 3px; background: none; color: var(--muted); font: 12px var(--sans); cursor: pointer; }
+  .drop-icon { color: var(--pencil); }
+  #recent { max-height: none; }
   .upload h2 { margin: 10px 0 0; font: 600 20px / 1.2 var(--serif); }
 
   @media (max-width: 900px) {
@@ -165,14 +162,15 @@
     <h1>{{solve.upload.heading|line}}</h1>
     <p>{{solve.upload.body|line}}</p>
     <p id="upload-note" class="upload-error" role="alert"></p>
-    <label class="drop" id="drop">
-      <b>Choose a puzzle file</b>
+    <label class="drop compact" id="drop">
+      <svg class="drop-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>Open a puzzle file</b>
       <span>or drop it here · .puz, .ipuz or .jpz</span>
       <input type="file" id="puzzle-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
     </label>
     <div id="recent-box" hidden>
       <h2>{{solve.upload.recent|line}}</h2>
-      <ul id="recent" class="recent"></ul>
+      <ul id="recent" class="puzzles"></ul>
     </div>
   </section>
 
@@ -746,20 +744,13 @@
     const list = window.SolveFiles.list();
     $("recent-box").hidden = !list.length;
     $("recent").replaceChildren(...list.map((entry) => {
-      const li = document.createElement("li");
-      const link = Object.assign(document.createElement("a"), { href: `solve?f=${encodeURIComponent(entry.id)}`, textContent: entry.title || "Untitled puzzle" });
-      const progress = window.SolveFiles.progress(entry.id);
-      const meta = Object.assign(document.createElement("span"), {
-        className: "meta",
-        textContent: [byline(entry.author), `${entry.width}×${entry.height}`, progress || "not started"].filter(Boolean).join(" · "),
-      });
-      const drop = Object.assign(document.createElement("button"), { type: "button", textContent: "Remove" });
+      const drop = Object.assign(document.createElement("button"), { type: "button", className: "btn quiet small", textContent: "Remove" });
+      drop.title = `Take ${entry.title || "this puzzle"} and your progress on it out of this browser`;
       drop.addEventListener("click", () => {
         window.SolveFiles.remove(entry.id);
         showUpload();
       });
-      li.append(link, meta, drop);
-      return li;
+      return window.SolveFiles.row(entry, drop);
     }));
   }
 

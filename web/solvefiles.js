@@ -94,5 +94,91 @@
     return "";
   }
 
-  root.SolveFiles = { list, open, load, touch, remove, progress, progressKey: (id) => PROGRESS + id };
+  /* How far along a kept puzzle is: {filled, open, share (0 to 1), done}, or null if it's gone. */
+  function filledOf(id) {
+    const puzzle = load(id);
+    if (!puzzle) return null;
+    const open = [...puzzle.cells].filter((cell) => cell !== "#").length;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(PROGRESS + id)); } catch (error) { /* not started */ }
+    // Progress is an array of letters, or, saved by earlier versions, a string with "." for empty.
+    const letters = saved && saved.letters ? Array.from(saved.letters) : [];
+    const filled = letters.filter((text, i) => text && text !== "." && puzzle.cells[i] !== "#").length;
+    return { filled, open, share: open ? filled / open : 0, done: Boolean(saved && saved.done), puzzle };
+  }
+
+  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];
+  const ago = (time) => {
+    const seconds = (time - Date.now()) / 1000;
+    for (const [unit, size] of UNITS) if (Math.abs(seconds) >= size) return relative.format(Math.round(seconds / size), unit);
+    return "just now";
+  };
+
+  /* One line about a kept puzzle, for a list of them: "by Name · 15×15 · 42% filled · opened 2 days ago". */
+  function describe(entry) {
+    const state = filledOf(entry.id);
+    const how = !state ? "" : state.done ? "solved" : state.filled ? `${Math.max(1, Math.floor(100 * state.share))}% filled` : "not started";
+    // A file's author field often says "by" already.
+    const author = String(entry.author || "").trim().replace(/^by\s+/i, "");
+    return [author ? `by ${author}` : "", `${entry.width}×${entry.height}`, how, entry.opened ? `opened ${ago(entry.opened)}` : ""]
+      .filter(Boolean).join(" · ");
+  }
+
+  /* The puzzle's blocks drawn small, as the home page draws the puzzles you're making. */
+  function thumbnail(id, size = 48) {
+    const puzzle = load(id);
+    if (!puzzle) return null;
+    const SVG = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", `0 0 ${puzzle.width} ${puzzle.height}`);
+    svg.setAttribute("width", size * Math.min(1, puzzle.width / puzzle.height));
+    svg.setAttribute("height", size * Math.min(1, puzzle.height / puzzle.width));
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < puzzle.cells.length; i++) {
+      if (puzzle.cells[i] !== "#") continue;
+      const rect = document.createElementNS(SVG, "rect");
+      rect.setAttribute("x", i % puzzle.width);
+      rect.setAttribute("y", Math.floor(i / puzzle.width));
+      rect.setAttribute("width", 1);
+      rect.setAttribute("height", 1);
+      svg.append(rect);
+    }
+    return svg;
+  }
+
+  /* A row for a list of kept puzzles: thumbnail, title linking to it, the line about it, and a thin
+     bar of how much is filled. extra, if given, goes at the end of the row (a Remove button, say). */
+  function row(entry, extra) {
+    const item = document.createElement("li");
+    item.className = "puzzle";
+    const thumb = document.createElement("span");
+    thumb.className = "thumb";
+    const svg = thumbnail(entry.id);
+    if (svg) thumb.append(svg);
+    const text = document.createElement("div");
+    const link = document.createElement("a");
+    link.href = `solve?f=${encodeURIComponent(entry.id)}`;
+    link.textContent = entry.title || "Untitled puzzle";
+    const info = document.createElement("div");
+    info.className = "meta";
+    info.textContent = describe(entry);
+    text.append(link, info);
+    const state = filledOf(entry.id);
+    if (state && state.filled && !state.done) {
+      const bar = document.createElement("div");
+      bar.className = "filled-bar";
+      bar.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("i");
+      fill.style.width = `${(100 * state.share).toFixed(1)}%`;
+      bar.append(fill);
+      text.append(bar);
+    }
+    item.append(thumb, text);
+    if (extra) item.append(extra);
+    return item;
+  }
+
+  root.SolveFiles = { list, open, load, touch, remove, progress, filledOf, describe, thumbnail, row, progressKey: (id) => PROGRESS + id };
 })(self);

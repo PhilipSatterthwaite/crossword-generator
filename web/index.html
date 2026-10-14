@@ -132,14 +132,6 @@
   .quick-message.ok { color: var(--muted); }
   /* The words added to this list lately, each with a way to take it back out. */
 
-  .puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
-  .puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
-  .thumb { display: grid; place-items: center; width: 48px; height: 48px; }
-  .thumb svg { display: block; max-width: 48px; max-height: 48px; background: var(--cell); outline: 1.5px solid var(--ink); }
-  .thumb rect { fill: var(--block); }
-  .puzzle a { color: var(--ink); font: 600 17px / 1.3 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
-  .puzzle a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .puzzle a::after { content: ""; }
   .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .note .link-button { font-size: inherit; }
   .btn.confirm { border-color: var(--danger); color: var(--danger); font-weight: 600; }
@@ -174,13 +166,15 @@
     <details class="choice" data-box="solve">
       <summary class="choice-head"><div><h2 id="solve-title">{{home.solve.heading|line}}</h2><p class="choice-line">{{home.solve.line|plain}}</p></div><svg class="chevron" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="choice-body">
-      <label class="drop blue" id="solve-drop" title=".puz, .ipuz or .jpz">
-        <svg class="drop-icon" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <b>Choose or drop a puzzle file</b>
+      <label class="drop blue compact" id="solve-drop" title=".puz, .ipuz or .jpz">
+        <svg class="drop-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <b>Open a puzzle file</b><span>or drop one here</span>
         <input type="file" id="solve-file" accept=".puz,.ipuz,.jpz,application/json,application/xml,text/xml">
       </label>
       <p id="solve-note" class="quick-message" role="alert"></p>
-      <a id="solve-recent" class="note" href="solve" hidden></a>
+      <h3 id="solving-title" class="sub-head" hidden>Keep solving</h3>
+      <ul id="solving" class="puzzles" hidden></ul>
+      <a id="solving-link" class="btn quiet" href="solve" hidden>All your puzzles to solve</a>
       </div>
     </details>
 
@@ -362,12 +356,17 @@
     $("solve-drop").classList.remove("over");
     if (type === "drop" && event.dataTransfer && event.dataTransfer.files[0]) solveFile(event.dataTransfer.files[0]);
   });
-  {
-    const inProgress = window.SolveFiles.list();
-    $("solve-recent").hidden = !inProgress.length;
-    $("solve-recent").textContent = inProgress.length === 1 ? `Carry on with ${inProgress[0].title || "your puzzle"}` : `Your ${inProgress.length} puzzles in progress`;
-    if (inProgress.length === 1) $("solve-recent").href = `solve?f=${encodeURIComponent(inProgress[0].id)}`;
+  /* The puzzles you're solving, the last few opened, the way the Create box shows the ones you're making. */
+  function renderSolving() {
+    const all = window.SolveFiles.list().filter((entry) => window.SolveFiles.load(entry.id));
+    const recent = all.slice(0, RECENT);
+    $("solving").replaceChildren(...recent.map((entry) => window.SolveFiles.row(entry)));
+    $("solving").hidden = $("solving-title").hidden = !recent.length;
+    $("solving-link").hidden = !all.length;
+    $("solving-link").textContent = all.length > RECENT ? `All ${all.length} puzzles you're solving` : "All your puzzles to solve";
   }
+  renderSolving();
+  window.addEventListener("pageshow", (event) => { if (event.persisted) renderSolving(); });
 
   $("start-new").addEventListener("click", () => {
     location.href = `grid?p=${encodeURIComponent(S.create())}`;

@@ -500,3 +500,21 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .drop b { font-size: 17px; color: var(--ink); }
 .drop span { font-size: 13px; color: var(--muted); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+/* The small one: a single row, icon and words side by side. */
+.drop.compact { grid-auto-flow: column; justify-content: start; gap: 10px; min-height: 0; padding: 12px 16px; text-align: left; }
+.drop.compact b { font-size: 15px; }
+/* Nothing is dropped on a phone, so the box just says what it opens. */
+@media (max-width: 480px), (hover: none) and (pointer: coarse) { .drop.compact span { display: none; } }
+
+/* A list of puzzles: a small drawing of the grid, the title, a line about it. The puzzles you're making
+   on the home page, and the puzzles you're solving there and on the solve page. */
+.puzzles { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; border-top: 1px solid var(--line-soft); }
+.puzzle { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line-soft); }
+.thumb { display: grid; place-items: center; width: 48px; height: 48px; }
+.thumb svg { display: block; max-width: 48px; max-height: 48px; background: var(--cell); outline: 1.5px solid var(--ink); }
+.thumb rect { fill: var(--block); }
+.puzzle a { color: var(--ink); font: 600 17px / 1.3 var(--serif); text-decoration: none; overflow-wrap: anywhere; }
+.puzzle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.puzzle .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.filled-bar { width: min(100%, 220px); height: 4px; margin-top: 6px; border-radius: 2px; background: var(--chip); overflow: hidden; }
+.filled-bar i { display: block; height: 100%; background: var(--pencil); }
