@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-VGMIDmU7j8xyQyxyrXGJIxkHWaDa4ls+OkMYAzNfkVM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-4gFOZsWRcSCVu3N+35Ydn1WN5wNFcuFUMvFQXGA5WI0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solve a puzzle · fillmein</title>
 <meta name="description" content="Solve a crossword in your browser: open a .puz, .ipuz or .jpz file, or a link someone shared from fillmein.">
@@ -251,7 +251,6 @@
   let cells = [];         // the square elements
   let sel = 0, dir = "across";
   let elapsed = 0, done = false, ticking = null;
-  let armedReveal = false;
   let touched = false; // whether the solver has picked a square yet
 
   /* The puzzle is not shown until it can be solved at speed. The grid appeared as soon as it was
@@ -673,22 +672,29 @@
     render();
   });
 
-  $("reveal-all").addEventListener("click", (event) => {
-    const button = event.currentTarget;
-    if (!armedReveal) {
-      armedReveal = true;
-      button.textContent = "Really reveal everything?";
-      button.classList.add("stop");
-      setTimeout(() => {
-        armedReveal = false;
-        button.textContent = "Reveal everything";
-        button.classList.remove("stop");
-      }, 4000);
-      return;
+  /* Anything that can't be taken back asks once: the first click turns the button into the question,
+     a second within four seconds does it, and otherwise it goes back to what it was. */
+  function armed(button, question) {
+    if (button.dataset.armed) {
+      clearTimeout(Number(button.dataset.armed));
+      delete button.dataset.armed;
+      button.textContent = button.dataset.label;
+      button.classList.remove("stop");
+      return true;
     }
-    armedReveal = false;
-    button.textContent = "Reveal everything";
-    button.classList.remove("stop");
+    button.dataset.label = button.textContent;
+    button.textContent = question;
+    button.classList.add("stop");
+    button.dataset.armed = String(setTimeout(() => {
+      delete button.dataset.armed;
+      button.textContent = button.dataset.label;
+      button.classList.remove("stop");
+    }, 4000));
+    return false;
+  }
+
+  $("reveal-all").addEventListener("click", (event) => {
+    if (!armed(event.currentTarget, "Really reveal everything?")) return;
     puzzle.cells.split("").forEach((cell, i) => {
       if (cell === "#") return;
       if (letters[i] !== answerAt(i)) revealed.add(i);
@@ -700,7 +706,9 @@
     render();
   });
 
-  $("clear-solve").addEventListener("click", () => {
+  $("clear-solve").addEventListener("click", (event) => {
+    // Nothing to lose, nothing to ask.
+    if (letters.some(Boolean) && !armed(event.currentTarget, "Really start over?")) return;
     letters = new Array(puzzle.cells.length).fill("");
     revealed = new Set();
     wrong = new Set();

@@ -249,7 +249,6 @@
   let cells = [];         // the square elements
   let sel = 0, dir = "across";
   let elapsed = 0, done = false, ticking = null;
-  let armedReveal = false;
   let touched = false; // whether the solver has picked a square yet
 
   /* The puzzle is not shown until it can be solved at speed. The grid appeared as soon as it was
@@ -671,22 +670,29 @@
     render();
   });
 
-  $("reveal-all").addEventListener("click", (event) => {
-    const button = event.currentTarget;
-    if (!armedReveal) {
-      armedReveal = true;
-      button.textContent = "Really reveal everything?";
-      button.classList.add("stop");
-      setTimeout(() => {
-        armedReveal = false;
-        button.textContent = "Reveal everything";
-        button.classList.remove("stop");
-      }, 4000);
-      return;
+  /* Anything that can't be taken back asks once: the first click turns the button into the question,
+     a second within four seconds does it, and otherwise it goes back to what it was. */
+  function armed(button, question) {
+    if (button.dataset.armed) {
+      clearTimeout(Number(button.dataset.armed));
+      delete button.dataset.armed;
+      button.textContent = button.dataset.label;
+      button.classList.remove("stop");
+      return true;
     }
-    armedReveal = false;
-    button.textContent = "Reveal everything";
-    button.classList.remove("stop");
+    button.dataset.label = button.textContent;
+    button.textContent = question;
+    button.classList.add("stop");
+    button.dataset.armed = String(setTimeout(() => {
+      delete button.dataset.armed;
+      button.textContent = button.dataset.label;
+      button.classList.remove("stop");
+    }, 4000));
+    return false;
+  }
+
+  $("reveal-all").addEventListener("click", (event) => {
+    if (!armed(event.currentTarget, "Really reveal everything?")) return;
     puzzle.cells.split("").forEach((cell, i) => {
       if (cell === "#") return;
       if (letters[i] !== answerAt(i)) revealed.add(i);
@@ -698,7 +704,9 @@
     render();
   });
 
-  $("clear-solve").addEventListener("click", () => {
+  $("clear-solve").addEventListener("click", (event) => {
+    // Nothing to lose, nothing to ask.
+    if (letters.some(Boolean) && !armed(event.currentTarget, "Really start over?")) return;
     letters = new Array(puzzle.cells.length).fill("");
     revealed = new Set();
     wrong = new Set();
