@@ -135,6 +135,10 @@ html.ready body::before { animation-play-state: running; }
 /* A grid track grows to its widest child's natural width unless told otherwise, which let one long row
    (a list of length buttons, say) push a phone's page a few pixels sideways. */
 .page > * { min-width: 0; }
+/* A phone zooms the page in when a box with text under 16px is focused, and leaves it zoomed. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+}
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Masthead: the name is itself a row of the grid — FILL, ME and IN, split by blocks. */
