@@ -36,6 +36,7 @@
     const key = (label, value, className = "") =>
       `<button type="button" class="tk${className ? ` ${className}` : ""}" data-key="${value}" aria-label="${value === " " ? "Space" : value}">${label}</button>`;
     board.innerHTML =
+      `<div class="tk-top"><button type="button" class="tk-hide" data-hide aria-label="Hide the keyboard">⌄ hide</button></div>` +
       `<div class="tk-row">${[...ROWS[0]].map((ch) => key(ch, ch)).join("")}</div>` +
       `<div class="tk-row tk-indent">${[...ROWS[1]].map((ch) => key(ch, ch)).join("")}</div>` +
       `<div class="tk-row">${key("Rebus", "Rebus", "tk-wide tk-rebus")}${[...ROWS[2]].map((ch) => key(ch, ch)).join("")}${key("⌫", "Backspace", "tk-wide")}</div>` +
@@ -73,6 +74,10 @@
     };
     board.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      if (event.target.closest("[data-hide]")) {
+        input.blur();
+        return;
+      }
       const button = event.target.closest("[data-key]");
       if (!button) return;
       const value = button.dataset.key;
@@ -106,10 +111,45 @@
       switching = false;
     });
 
+    /* The phone's Back button. With the phone's own keyboard up, Android shows a "lower the keyboard"
+       button where Back is; with this one up it shows Back, which would leave the page. So while this
+       keyboard is open there is a step in the history for Back to take, and taking it closes the
+       keyboard. Closed any other way, the step is taken back out, unless the page is being left. */
+    let stepped = false;   // the history step is there
+    let quietPop = false;  // the next popstate is our own taking it back out
+    let leaving = false;
+    root.addEventListener("pagehide", () => { leaving = true; });
+    root.addEventListener("beforeunload", () => { leaving = true; });
+    const addStep = () => {
+      if (stepped) return;
+      history.pushState(Object.assign({}, history.state, { fillmeinKeys: true }), "");
+      stepped = true;
+    };
+    const dropStep = () => {
+      // A moment's grace: tapping another square closes and reopens the keyboard, and a tapped link
+      // is about to leave the page anyway.
+      setTimeout(() => {
+        if (!stepped || leaving || !board.hidden || native) return;
+        stepped = false;
+        quietPop = true;
+        history.back();
+      }, 350);
+    };
+    root.addEventListener("popstate", () => {
+      if (quietPop) {
+        quietPop = false;
+        return;
+      }
+      if (!stepped) return;
+      stepped = false;
+      if (!board.hidden || native) input.blur();
+    });
+
     input.addEventListener("focus", () => {
       if (native) return;
       board.hidden = false;
       document.body.classList.add("touch-keys-open");
+      addStep();
       showRebus();
       // The square being typed in stays above the keyboard.
       requestAnimationFrame(() => {
@@ -128,6 +168,7 @@
       stopRepeat();
       board.hidden = true;
       document.body.classList.remove("touch-keys-open");
+      dropStep();
     });
     // A rebus can also end by tapping another square; keep the key's look in step.
     document.addEventListener("pointerup", () => requestAnimationFrame(showRebus));

@@ -509,6 +509,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); background: var(--surface);
   box-shadow: 0 -6px 20px rgb(0 0 0 / 0.08); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .touch-keys[hidden] { display: none; }
+.tk-top { display: flex; justify-content: flex-end; margin: -2px 2px -2px 0; }
+.tk-hide { padding: 4px 12px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 600 13px / 1 var(--sans);
+  -webkit-tap-highlight-color: transparent; }
+.tk-hide:active { background: var(--hover); }
 .tk-row { display: flex; justify-content: center; gap: 5px; }
 .tk-indent { padding-inline: 5%; }
 .tk { flex: 1 1 0; min-width: 0; height: 46px; padding: 0; border: 1px solid var(--rule); border-radius: 6px; background: var(--cell);
