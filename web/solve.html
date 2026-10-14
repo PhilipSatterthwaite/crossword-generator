@@ -21,6 +21,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
 <link rel="stylesheet" href="theme.css">
 <style>
+  /* The warm-up cover: the page's own background, over everything, while the grid is built, painted
+     and settled underneath it. Taking it away is one step, with no work left to do. */
+  .cover { position: fixed; inset: 0; z-index: 9; background: var(--ground); }
   body { margin: 0; }
   .wordmark-link { color: inherit; text-decoration: none; }
 
@@ -154,6 +157,9 @@
   </header>
 
   <p id="loading" class="status" data-state="busy" role="status">Opening the puzzle…</p>
+  <!-- Over the grid while it warms up: laying out and painting a grid is a few hundred milliseconds of
+       work, and doing it behind this is what keeps it out of the first letters typed. -->
+  <div id="cover" class="cover" hidden aria-hidden="true"></div>
 
   <section id="upload" class="upload" hidden>
     <h1>{{solve.upload.heading|line}}</h1>
@@ -227,7 +233,6 @@
 <script src="solvefiles.js"></script>
 <script src="store.js"></script>
 <script src="confirm.js"></script>
-<script type="module" src="account.js"></script>
 <script type="module">
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -246,6 +251,43 @@
   let elapsed = 0, done = false, ticking = null;
   let armedReveal = false;
   let touched = false; // whether the solver has picked a square yet
+
+  /* The puzzle is not shown until it can be solved at speed. The grid appeared as soon as it was
+     built, which was before the fonts were in, before the drifting background had rasterized (a
+     blurred layer the size of the window is the dearest thing on the page) and in the middle of a
+     few hundred milliseconds of other work: the first letters typed lagged by a fifth of a second.
+     So: let the background start behind the loading line, wait for the fonts, and wait for the main
+     thread to keep up with the screen for a few frames running. */
+  const QUIET = 3;        // frames in a row that arrive on time before the thread counts as free
+  const FRAME = 24;       // ms; a frame slower than this means something is still running
+  const WAIT_MOST = 3000; // however slow the device, the puzzle is handed over in the end
+  const FONTS_MOST = 1500;
+
+  const after = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function threadFree() {
+    return new Promise((resolve) => {
+      const start = performance.now();
+      let last = start;
+      let quiet = 0;
+      const tick = (now) => {
+        quiet = now - last <= FRAME ? quiet + 1 : 0;
+        last = now;
+        if (quiet >= QUIET || now - start > WAIT_MOST) resolve();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  /* The account: sign-in, the puzzles kept in it, and the page counts. It is a few hundred kilobytes
+     of Firebase to fetch, parse and run -- a third of a second of work on a slow machine -- and it
+     used to land just as the first letters were being typed. It is loaded before the puzzle is handed
+     over instead, so nothing of it runs while someone is solving; on a slow line the puzzle goes
+     ahead without waiting any longer than this. */
+  const ACCOUNT_MOST = 4000; // the account, its analytics and Google's tag, on a slow line
+  let account = null;
+  const loadAccount = () => (account = account || import("/account.js").catch(() => null));
 
   const isBlock = (i) => puzzle.cells[i] === "#";
   // What belongs in a square: its letter, or all of a rebus square's letters.
@@ -734,6 +776,8 @@
   (async () => {
     if (!id && !fileId) {
       showUpload();
+      document.documentElement.classList.add("ready");
+      threadFree().then(loadAccount);
       return;
     }
     if (fileId) {
@@ -745,6 +789,7 @@
       window.SolveFiles.touch(fileId, puzzle);
     }
     else try {
+      await loadAccount();
       const fs = await window.Fillmein.loadFirestore();
       const snapshot = await fs.getDoc(fs.doc(fs.getFirestore(window.Fillmein.app), "published", id));
       if (!snapshot.exists()) throw new Error("not published");
@@ -768,6 +813,7 @@
     } catch (error) {
       $("loading").hidden = true;
       $("not-found").hidden = false;
+      document.documentElement.classList.add("ready");
       return;
     }
 
@@ -790,14 +836,27 @@
       line.append(another);
       $("done").append(line);
     }
-    $("loading").hidden = true;
+    /* Built, and not yet handed over. The grid goes into the page under the cover so that its layout
+       and its first paint happen now rather than in the solver's way; the background starts
+       rasterizing, the rest of the scripts load, the fonts land, and only once the main thread keeps
+       up with the screen does the cover come off. */
+    document.documentElement.classList.add("ready");
+    $("cover").hidden = false;
     $("solve").hidden = false;
     if (done) {
       $("done").hidden = false;
       $("done-time").textContent = `Finished in ${clock(elapsed)}.`;
     }
     $("timer").textContent = clock(elapsed);
-    render();
+    render(); // the letters already in it, painted under the cover with everything else
+
+    // The account, and the analytics and first sign-in word that come with it; one deadline for all.
+    await Promise.race([loadAccount().then(() => window.Fillmein && window.Fillmein.settled), after(ACCOUNT_MOST)]);
+    await Promise.race([document.fonts.ready, after(FONTS_MOST)]);
+    await threadFree();
+
+    $("loading").hidden = true;
+    $("cover").hidden = true;
   })();
 </script>
 </body>

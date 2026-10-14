@@ -253,17 +253,17 @@
   const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
 
-  // Which boxes are open is remembered, so the part of the site you use opens itself next time.
-  const OPEN = "fillmein:home:open";
-  let opened = [];
-  try { opened = JSON.parse(localStorage.getItem(OPEN) || "[]") || []; } catch (error) { /* all shut, then */ }
-  for (const box of document.querySelectorAll(".choice[data-box]")) {
-    box.open = opened.includes(box.dataset.box);
+  /* Every visit starts with all four shut, so the page you land on is the same page every time, and
+     opening one shuts the others: four boxes of equal size, one of them open. */
+  const boxes = [...document.querySelectorAll(".choice[data-box]")];
+  for (const box of boxes) {
+    box.open = false;
     box.addEventListener("toggle", () => {
-      const names = [...document.querySelectorAll(".choice[data-box]")].filter((one) => one.open).map((one) => one.dataset.box);
-      try { localStorage.setItem(OPEN, JSON.stringify(names)); } catch (error) { /* this visit only */ }
+      if (!box.open) return;
+      for (const other of boxes) if (other !== box) other.open = false;
     });
   }
+  try { localStorage.removeItem("fillmein:home:open"); } catch (error) { /* nothing was kept anyway */ }
   const SVG = "http://www.w3.org/2000/svg";
   const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
   const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];

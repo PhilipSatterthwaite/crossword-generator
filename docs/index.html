@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-4+B2WvoJpWCDdkXqsVJM2rrqdGcamdebLCzsoD0tyrA='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-Nk2y4Kk6NSldiG60UzRNxcJDlkQOmdONAy538sm8gSM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fillmein · make crosswords</title>
 <meta name="description" content="Build crosswords with scored word lists and an autofill that knows real crossword fill.">
@@ -250,24 +250,24 @@
 <script src="store.js?v=7a21b4e833"></script>
 <script src="confirm.js?v=e0e42d8b5d"></script>
 <script src="lists.js?v=b34f3c2bbb"></script>
-<script type="module" src="account.js?v=583e91dd6c"></script>
+<script type="module" src="account.js?v=b2c298a5a4"></script>
 <script>
 (() => {
   "use strict";
   const S = window.GridfillStore;
   const $ = (id) => document.getElementById(id);
 
-  // Which boxes are open is remembered, so the part of the site you use opens itself next time.
-  const OPEN = "fillmein:home:open";
-  let opened = [];
-  try { opened = JSON.parse(localStorage.getItem(OPEN) || "[]") || []; } catch (error) { /* all shut, then */ }
-  for (const box of document.querySelectorAll(".choice[data-box]")) {
-    box.open = opened.includes(box.dataset.box);
+  /* Every visit starts with all four shut, so the page you land on is the same page every time, and
+     opening one shuts the others: four boxes of equal size, one of them open. */
+  const boxes = [...document.querySelectorAll(".choice[data-box]")];
+  for (const box of boxes) {
+    box.open = false;
     box.addEventListener("toggle", () => {
-      const names = [...document.querySelectorAll(".choice[data-box]")].filter((one) => one.open).map((one) => one.dataset.box);
-      try { localStorage.setItem(OPEN, JSON.stringify(names)); } catch (error) { /* this visit only */ }
+      if (!box.open) return;
+      for (const other of boxes) if (other !== box) other.open = false;
     });
   }
+  try { localStorage.removeItem("fillmein:home:open"); } catch (error) { /* nothing was kept anyway */ }
   const SVG = "http://www.w3.org/2000/svg";
   const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
   const UNITS = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]];

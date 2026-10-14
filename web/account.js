@@ -51,11 +51,44 @@ const auth = getAuth(app);
 /* Google Analytics: page views and how many people are on the site, in the Firebase console, on every
    page. Left off in automated browsers so test runs don't count as visitors. Ad blockers block it, so
    the counts are a floor, not a headcount. */
-if (!navigator.webdriver) {
-  import("https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js")
+const analyticsReady = navigator.webdriver
+  ? Promise.resolve()
+  : import("https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js")
     .then(({ getAnalytics, isSupported }) => isSupported().then((ok) => ok && getAnalytics(app)))
     .catch(() => { /* blocked or unavailable: the site works the same */ });
-}
+
+/* Resolves once this module has done its start-up work: analytics loaded (or skipped) and the first
+   word on who is signed in received. A page with something time-critical to show, like the solve
+   page, waits on it so none of this lands while someone is typing. */
+let firstWord = null;
+const signedInOnce = new Promise((resolve) => { firstWord = resolve; });
+/* getAnalytics drops Google's own gtag script into the page, once it has fetched the measurement
+   settings: it is the last thing to arrive and the dearest to run. So this waits for the tag to
+   appear, then for it to have run (its load event, or the object it leaves behind), each within a
+   few seconds. */
+const GTAG = 'script[src*="googletagmanager.com/gtag"]';
+const gtagReady = analyticsReady.then(() => new Promise((resolve) => {
+  let stop = setTimeout(resolve, 3000);
+  const finish = () => { clearTimeout(stop); resolve(); };
+  const ran = (tag) => {
+    clearTimeout(stop);
+    stop = setTimeout(resolve, 3000);
+    tag.addEventListener("load", finish, { once: true });
+    tag.addEventListener("error", finish, { once: true });
+    const look = () => { if (window.google_tag_manager) finish(); else if (stop) setTimeout(look, 50); };
+    look();
+  };
+  const now = document.querySelector(GTAG);
+  if (now) return ran(now);
+  const watch = new MutationObserver(() => {
+    const tag = document.querySelector(GTAG);
+    if (!tag) return;
+    watch.disconnect();
+    ran(tag);
+  });
+  watch.observe(document.documentElement, { childList: true, subtree: true });
+}));
+const settled = Promise.all([gtagReady, signedInOnce]).then(() => undefined);
 
 let firestore = null; // the Firestore module, once loaded
 let db = null;
@@ -338,6 +371,7 @@ window.addEventListener("unhandledrejection", (event) => {
 /* What pages can use: the app itself, Firestore on demand, who's signed in, and sharing. */
 window.Fillmein = {
   app,
+  settled,
   loadFirestore,
   user: () => auth.currentUser,
   onUser(callback) {
@@ -380,6 +414,7 @@ async function startSync(user) {
 }
 
 onAuthStateChanged(auth, (user) => {
+  firstWord();
   if (stopListening) stopListening();
   stopListening = null;
   known.clear();
