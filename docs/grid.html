@@ -203,7 +203,8 @@
   .option[data-status="fails"] { color: var(--muted); font-weight: 500; }
   .option[data-status="fails"] .option-word { text-decoration: line-through; text-decoration-thickness: 1px; }
   .option[data-status="fails"] .score { opacity: 0.55; }
-  .option-word { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  /* A word stays one word: cut short with an ellipsis if it must, never broken a letter a line. */
+  .option-word { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .option-combo { flex: none; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .option-mark { flex: none; width: 1.1em; text-align: center; font-weight: 700; letter-spacing: 0; }
   .tag { flex: none; font: 600 10px / 1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -381,6 +382,14 @@
   @media (max-width: 880px) {
     .bench { grid-template-columns: minmax(0, 1fr); }
     .options-list { max-height: 50vh; }
+  }
+  /* On a phone the word gets the whole width, and Score, Not here and Remove go on a line under it,
+     still tinted with the row's verdict. */
+  @media (max-width: 560px) {
+    .option-row { flex-wrap: wrap; }
+    .option-row .option { flex: 1 1 100%; }
+    .option-edit { flex: 1 1 100%; justify-content: flex-end; padding: 0 8px 6px; }
+    .option-row:has(.option[data-status="works"]) { background: var(--works-bg); }
   }
   @media (prefers-reduced-motion: reduce) {
     .cell.fresh .ch, .status[data-state="busy"]::before { animation: none; }
