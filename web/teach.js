@@ -684,7 +684,8 @@ Answer with a verdict, a score (1-10 when keeping, 0 when cutting) and a reason 
     if (beside) drawWhole();
     $("setup").hidden = name === "gate" || MODELS_OFF;
     $("sync-note").hidden = name === "gate"; // nothing is being kept yet on the way in
-    $("preview-note").hidden = name === "gate";
+    // The gate already says it's a paid feature in preview; past it, the strip only shows to say the models are off.
+    $("preview-note").hidden = name === "gate" || !MODELS_OFF;
     if (MODELS_OFF) {
       $("preview-note").textContent = "The models are off while this page's look is being settled. Everything works, but the " +
         "answers are stand-ins worked out from the word list's own figures, and nothing is sent to Claude.";
