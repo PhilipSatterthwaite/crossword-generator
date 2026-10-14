@@ -534,6 +534,26 @@
       `Model: <b>${keep ? `keep at ${score}` : "remove"}</b> <span>${sure < 55 ? "coin toss" : `${sure}% sure`}</span></p>`;
   }
 
+  /* The figures on the card: only the ones that say something. A dash for a word nobody has counted,
+     or a 0 for a word never seen, is left off rather than shown a dozen times over. Score always shows. */
+  function factsOf(row) {
+    const fact = (label, value, title = "") => `<span${title ? ` title="${title}"` : ""}>${label} <b>${value}</b></span>`;
+    const out = [fact("Score", row.score)];
+    if (row.broda >= 0) out.push(fact("Broda", row.broda, "Peter Broda's own score, before the site's popularity nudge"));
+    if (row.uses) out.push(fact("NYT", row.uses.toLocaleString()));
+    if (row.year) out.push(fact("last", row.year));
+    if (row.everyday) out.push(fact("Familiar", row.everyday, "How familiar the word is in everyday English, 0 to 100. Not a score."));
+    if (row.zipf) out.push(fact("Zipf", row.zipf.toFixed(1), "Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand"));
+    if (row.google) out.push(fact("Google", compact(row.google), `${row.google.toLocaleString()} in Google's web corpus`));
+    if (row.books) out.push(fact("Books", compact(row.books), `${row.books.toLocaleString()} uses in Google Books, 2015-2019`));
+    if (papersOf(row)) out.push(fact("Other papers", compact(papersOf(row)), Object.entries(PAPERS).map(([key, name]) => `${name} ${row[key].toLocaleString()}`).join(", ")));
+    if (row.outlets) out.push(fact("Outlets", row.outlets, "Different crossword outlets that have used it"));
+    out.push(fact("Scrabble", row.scrabble.toFixed(1), "Average Scrabble value of its letters (E is 1, Q and Z are 10)"));
+    if (spokenOf(row)) out.push(fact("Spoken", compact(spokenOf(row)), `Film and TV subtitles: SUBTLEX-US ${row.subtlex.toLocaleString()}, OpenSubtitles ${row.opensubs.toLocaleString()}`));
+    if (row.wiki) out.push(fact("Wikipedia", "yes", `${row.wiki} Wikipedia article title${row.wiki === 1 ? "" : "s"}`));
+    return out.join("");
+  }
+
   function renderCard() {
     scoring = null;
     const box = $("review");
@@ -564,16 +584,7 @@
       `<p class="big${row.removed ? " gone" : ""}">${row.word}</p>` +
       (row.cuts ? `<p class="reading">read as <b>${readingOf(row)}</b></p>` : "") +
       modelGuess(row) +
-      `<div class="facts"><span>Score <b>${row.score}</b></span><span title="Peter Broda's own score, before the site's popularity nudge">Broda <b>${row.broda < 0 ? "–" : row.broda}</b></span>` +
-      `<span>NYT <b>${row.uses.toLocaleString()}</b></span>${row.year ? `<span>last <b>${row.year}</b></span>` : ""}<span title="How familiar the word is in everyday English, 0 to 100. Not a score.">Familiar <b>${row.everyday}</b></span>` +
-      `<span title="Zipf frequency in everyday English: 3 is one word in a million, 5 one in ten thousand">Zipf <b>${row.zipf ? row.zipf.toFixed(1) : "–"}</b></span>` +
-      `<span title="${row.google.toLocaleString()} in Google's web corpus">Google <b>${compact(row.google)}</b></span>` +
-      `<span title="${row.books.toLocaleString()} uses in Google Books, 2015-2019">Books <b>${compact(row.books)}</b></span>` +
-      `<span title="${Object.entries(PAPERS).map(([key, name]) => `${name} ${row[key].toLocaleString()}`).join(", ")}">Other papers <b>${compact(papersOf(row))}</b></span>` +
-      `<span title="Different crossword outlets that have used it">Outlets <b>${row.outlets || "–"}</b></span>` +
-      `<span title="Average Scrabble value of its letters (E is 1, Q and Z are 10)">Scrabble <b>${row.scrabble.toFixed(1)}</b></span>` +
-      `<span title="Film and TV subtitles: SUBTLEX-US ${row.subtlex.toLocaleString()}, OpenSubtitles ${row.opensubs.toLocaleString()}">Spoken <b>${compact(spokenOf(row))}</b></span>` +
-      `<span title="${row.wiki ? `${row.wiki} Wikipedia article title${row.wiki === 1 ? "" : "s"}` : "No Wikipedia article by that name"}">Wikipedia <b>${row.wiki ? "yes" : "no"}</b></span>` +
+      `<div class="facts">${factsOf(row)}` +
       `${wiktTags(row)}${tags.join("")}</div>` +
       `<p class="definition" id="definition-box"></p>` +
       `<div id="clues-box"></div>` +
