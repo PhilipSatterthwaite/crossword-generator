@@ -461,8 +461,8 @@
         <div class="fill-head"><span id="blocks-title" class="label">Blocks</span></div>
         <div class="control-group fill-settings">
           <button type="button" id="design" class="btn" title="{{grid.design.title|line}}">{{grid.design|line}}</button>
-          <label class="field" title="The most squares the designer may leave black">Up to <input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> % black</label>
-          <label class="field" title="How long the designer searches for a pattern"><input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
+          <label class="field" title="The most squares the designer may leave black">Black squares, at most <input id="design-blocks" class="number" type="number" min="8" max="30" step="1" value="16" inputmode="numeric" aria-label="Most black squares, as a percentage"> %</label>
+          <label class="field" title="How long the designer searches for a pattern">Search for <input id="design-time" class="number" type="number" min="15" max="600" step="15" value="60" inputmode="numeric" aria-label="Seconds to search for a pattern"> s</label>
           <label class="check" title="Placing a block places its mirror image too, turned 180°"><input type="checkbox" id="symmetry" checked> Mirror blocks</label>
         </div>
       </section>
@@ -477,7 +477,7 @@
         <div class="control-group fill-settings">
           <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="1" max="9" step="1" value="5"> <output id="min-score-value" for="min-score">5</output></label>
           <label class="check" title="Everyday words that score at least 4, even when that is under the minimum"><input type="checkbox" id="allow-popular"> Allow popular below it</label>
-          <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer."><input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric" aria-label="Seconds to search"> s</label>
+          <label class="field" title="How long the autofill searches before it gives up. A hard grid may need longer.">Search for <input id="time-limit" class="number" type="number" min="5" max="900" step="5" value="30" inputmode="numeric" aria-label="Seconds to search"> s</label>
         </div>
       </section>
 
