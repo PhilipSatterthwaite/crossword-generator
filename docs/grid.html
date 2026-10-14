@@ -34,6 +34,7 @@
   .controls { border-block: 1px solid var(--line-soft); }
   .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; }
   .control-group { gap: 8px; }
+  .btn.icon { display: inline-flex; align-items: center; justify-content: center; padding: 7px 9px; }
   #example { max-width: 190px; }
   .control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
   .times { color: var(--muted); }
@@ -448,9 +449,11 @@
         </select>
         <label class="check"><input type="checkbox" id="tint" checked> Tint weak words</label>
       </div>
-      <div class="control-group">
-        <button type="button" id="undo" class="btn quiet" title="Undo (Ctrl+Z)">Undo</button>
-        <button type="button" id="redo" class="btn quiet" title="Redo (Ctrl+Y)">Redo</button>
+      <div class="control-group edits">
+        <button type="button" id="undo" class="btn quiet icon" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7.5 5.5 4 9l3.5 3.5M4.5 9h7a4 4 0 0 1 0 8H9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" id="redo" class="btn quiet icon" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M12.5 5.5 16 9l-3.5 3.5M15.5 9h-7a4 4 0 0 0 0 8H11" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" id="erase" class="btn quiet" title="Take out every pencilled letter, keeping what's inked">Erase pencil</button>
+        <button type="button" id="clear" class="btn quiet" title="Take out every letter, inked and pencilled">Clear letters</button>
       </div>
       <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
     </div>
@@ -487,8 +490,6 @@
           <button type="button" id="fill" class="btn primary" disabled>Fill grid</button>
           <button type="button" id="another" class="btn" disabled>Another fill</button>
           <button type="button" id="stop" class="btn stop" hidden>Stop</button>
-          <button type="button" id="erase" class="btn quiet">Erase pencil</button>
-          <button type="button" id="clear" class="btn quiet">Clear letters</button>
         </div>
         <div class="control-group fill-settings">
           <label class="field range" title="The lowest word score the autofill will use">Min. score <input id="min-score" type="range" min="1" max="9" step="1" value="5"> <output id="min-score-value" for="min-score">5</output></label>
