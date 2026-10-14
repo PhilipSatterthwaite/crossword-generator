@@ -440,7 +440,10 @@
         <button type="button" id="erase" class="btn quiet" title="Take out every pencilled letter, keeping what's inked">Erase pencil</button>
         <button type="button" id="clear" class="btn quiet" title="Take out every letter, inked and pencilled">Clear letters</button>
       </div>
-      <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
+      <div class="control-group">
+        <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
+        <button type="button" id="open-lists" class="btn quiet" title="Add, copy or change word lists, and the words kept out of this puzzle">Lists…</button>
+      </div>
     </div>
   </div>
 
@@ -2952,7 +2955,6 @@
     };
     for (const id of Object.keys(BUILT_INS)) option(id, `${BUILT_INS[id].name} (${wordCount(builtInEntry(id)).toLocaleString()})`);
     for (const list of listState.lists) option(list.id, `${list.name} (${wordCount(list).toLocaleString()})`);
-    option("__manage", "Add or manage lists…");
     const known = isBuiltIn(listChoice.id) || listState.lists.some((list) => list.id === listChoice.id);
     select.value = known ? listChoice.id : "built-in";
   }
@@ -3172,16 +3174,12 @@
 
   $("list-choice").addEventListener("change", async () => {
     const value = $("list-choice").value;
-    if (value === "__manage") {
-      renderListChoice(); // put the dropdown back to the list actually in use
-      await openLists();
-      return;
-    }
     listChoice = { id: value };
     save();
     await refreshWordList();
     if (ready && !running) setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
   });
+  $("open-lists").addEventListener("click", openLists);
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });

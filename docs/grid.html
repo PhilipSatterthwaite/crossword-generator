@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-MyZEK/XgjnNEoNcAVLXreF6Zbh75IV2hn0o1iz2LIzE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com https://www.googletagmanager.com https://static.cloudflareinsights.com 'sha256-vuR+Ke9hCubYeACzggah/c1/fgmHYFPW3u9fPlk/W/Y=' 'sha256-a1JkF27kTeffxYGo8sLegAPCf7OU1BHdh7Trjlk6Yzc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.anthropic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com; frame-src 'self' https://fillmein.org https://fillmein-87a2d.firebaseapp.com https://accounts.google.com; worker-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.svg?v=fee319e805" type="image/svg+xml">
 <link rel="icon" href="favicon.png?v=dff4c49415" sizes="192x192">
@@ -457,7 +457,10 @@
         <button type="button" id="erase" class="btn quiet" title="Take out every pencilled letter, keeping what's inked">Erase pencil</button>
         <button type="button" id="clear" class="btn quiet" title="Take out every letter, inked and pencilled">Clear letters</button>
       </div>
-      <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
+      <div class="control-group">
+        <label class="field">List <select id="list-choice" aria-label="Word list for this puzzle"></select></label>
+        <button type="button" id="open-lists" class="btn quiet" title="Add, copy or change word lists, and the words kept out of this puzzle">Lists…</button>
+      </div>
     </div>
   </div>
 
@@ -2969,7 +2972,6 @@
     };
     for (const id of Object.keys(BUILT_INS)) option(id, `${BUILT_INS[id].name} (${wordCount(builtInEntry(id)).toLocaleString()})`);
     for (const list of listState.lists) option(list.id, `${list.name} (${wordCount(list).toLocaleString()})`);
-    option("__manage", "Add or manage lists…");
     const known = isBuiltIn(listChoice.id) || listState.lists.some((list) => list.id === listChoice.id);
     select.value = known ? listChoice.id : "built-in";
   }
@@ -3189,16 +3191,12 @@
 
   $("list-choice").addEventListener("change", async () => {
     const value = $("list-choice").value;
-    if (value === "__manage") {
-      renderListChoice(); // put the dropdown back to the list actually in use
-      await openLists();
-      return;
-    }
     listChoice = { id: value };
     save();
     await refreshWordList();
     if (ready && !running) setStatus("idle", `Ready: ${runner.count.toLocaleString()} scored words.`);
   });
+  $("open-lists").addEventListener("click", openLists);
   $("lists-dialog").addEventListener("click", (event) => {
     if (event.target === $("lists-dialog") || event.target.closest("[data-close-lists]")) $("lists-dialog").close();
   });
