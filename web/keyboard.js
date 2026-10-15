@@ -1,178 +1,92 @@
-/* A keyboard of the site's own for touch screens, in place of the phone's, while the grid has focus.
+/* The phone's own keyboard for the grid, working the way a computer's does.
 
-   A phone's keyboard can't type a rebus: its Shift key sends the page nothing, so "press and release
-   Shift" never happens. This one is capitals only, with Rebus where Shift would be, and a 123 key that
-   hands over to the phone's own keyboard for numbers and symbols (tap the grid again to come back).
+   On a computer: letters fill squares, "." makes a block (on the Grid page), space and Enter do what
+   each page says, and Shift pressed and released on its own starts a rebus. A phone's keyboard does all
+   of that but the last: its Shift key sends the page nothing. What it does send is the letter typed
+   after it, as a capital. So the keyboard is asked for small letters, and a capital is the sign that
+   Shift was pressed: it starts a rebus, with that letter first. The rest of the rebus is typed as usual
+   and Enter keeps it, as on a computer.
 
-   Every key is sent to the grid's hidden input as the key press a real keyboard would make, so the
-   page needs no second way of handling them: letters, Backspace, space, Enter, and Rebus as a Shift
-   pressed and released on its own (or Enter, to finish a rebus already started).
+   A phone keyboard also capitalises on its own at the start of an empty box, which would turn every
+   letter into a rebus, so the box never quite empties: it keeps one quiet character in it. And some
+   phone keyboards send no key press for Backspace in an empty box, only a request to delete; that is
+   turned into the Backspace the page understands.
 
-   FillmeinKeyboard.attach(input, {isRebus, spaceLabel, enterLabel, extra}): extra is more keys for the
-   bottom row, between space and Enter, as [{label, key}]. While a rebus is being typed, Enter says
-   "enter" (it keeps the letters), and the extra keys rest, since they don't apply. Does nothing on a device with a
-   mouse or trackpad. */
+   FillmeinKeyboard.attach(input, {grid, isRebus}). On a device with a mouse or trackpad it does nothing. */
 (function (root) {
   "use strict";
 
   const TOUCH = root.matchMedia && root.matchMedia("(hover: none) and (pointer: coarse)").matches;
-  const ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-  const REPEAT_AFTER = 400; // ms a held Backspace waits before repeating
-  const REPEAT_EVERY = 70;
+  const QUIET = "-"; // kept in the box so it's never empty; no page reads it as anything
+  const KEYBOARD_TALL = 150; // px the visible page shrinks by when a phone keyboard is up, at least
 
   function attach(input, options = {}) {
     if (!TOUCH || !input) return null;
     const isRebus = options.isRebus || (() => false);
-    let native = false; // the phone's own keyboard is up, for numbers and symbols
-    let switching = false; // the blur and focus that hand over to it, which aren't the grid losing focus
+    const view = root.visualViewport;
 
-    input.setAttribute("inputmode", "none");
-
-    const board = document.createElement("div");
-    board.className = "touch-keys";
-    board.setAttribute("role", "group");
-    board.setAttribute("aria-label", "Keyboard");
-    board.hidden = true;
-    const key = (label, value, className = "") =>
-      `<button type="button" class="tk${className ? ` ${className}` : ""}" data-key="${value}" aria-label="${value === " " ? "Space" : value}">${label}</button>`;
-    board.innerHTML =
-      `<div class="tk-top"><button type="button" class="tk-hide" data-hide aria-label="Hide the keyboard">⌄ hide</button></div>` +
-      `<div class="tk-row">${[...ROWS[0]].map((ch) => key(ch, ch)).join("")}</div>` +
-      `<div class="tk-row tk-indent">${[...ROWS[1]].map((ch) => key(ch, ch)).join("")}</div>` +
-      `<div class="tk-row">${key("Rebus", "Rebus", "tk-wide tk-rebus")}${[...ROWS[2]].map((ch) => key(ch, ch)).join("")}${key("⌫", "Backspace", "tk-wide")}</div>` +
-      `<div class="tk-row">${key("123", "Native", "tk-wide tk-quiet")}${key(options.spaceLabel || "space", " ", "tk-space tk-quiet")}` +
-      `${(options.extra || []).map((extra) => key(extra.label, extra.key, "tk-wide tk-quiet tk-extra")).join("")}` +
-      `${key(options.enterLabel || "↵", "Enter", "tk-wide tk-quiet tk-enter")}</div>`;
-    document.body.append(board);
+    input.setAttribute("inputmode", "text");
+    input.setAttribute("autocapitalize", "none"); // small letters, so a capital means Shift
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false");
 
     const send = (name, type = "keydown") => input.dispatchEvent(new KeyboardEvent(type, { key: name, bubbles: true, cancelable: true }));
-    const press = (value) => {
-      if (value === "Rebus") {
-        // A rebus already started is finished as Enter would; otherwise Shift, pressed and let go alone.
-        if (isRebus()) send("Enter");
-        else {
-          send("Shift");
-          send("Shift", "keyup");
-        }
-      } else {
-        send(value);
-      }
-      showRebus();
+    const settle = () => {
+      if (input.value !== QUIET) input.value = QUIET;
+      try { input.setSelectionRange(1, 1); } catch (error) { /* not every box allows it */ }
     };
-    const showRebus = () => {
-      const on = isRebus();
-      board.querySelector(".tk-rebus").setAttribute("aria-pressed", String(on));
-      board.querySelector(".tk-enter").textContent = on ? "enter ↵" : options.enterLabel || "↵";
-      for (const extra of board.querySelectorAll(".tk-extra")) extra.classList.toggle("tk-resting", on);
-    };
+    input.addEventListener("focus", () => setTimeout(settle, 0));
+    settle();
 
-    // Keys act on the press, not the lift, and never take the focus from the grid.
-    let repeat = null;
-    const stopRepeat = () => {
-      clearTimeout(repeat);
-      repeat = null;
-    };
-    board.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      if (event.target.closest("[data-hide]")) {
-        input.blur();
-        return;
+    /* What the keyboard typed arrives here before the page reads it. A capital starts a rebus first, so
+       the page then takes the letters as a rebus's; the page clears the box, and the quiet character
+       goes back in. */
+    input.addEventListener("input", () => {
+      const typed = input.value.split(QUIET).join("");
+      if (input.value !== typed) input.value = typed; // the page sees only what was typed
+      if (/[A-Z]/.test(typed) && !isRebus()) {
+        send("Shift");
+        send("Shift", "keyup");
       }
-      const button = event.target.closest("[data-key]");
-      if (!button) return;
-      const value = button.dataset.key;
-      if (value === "Native") return; // on the click, below: a phone only opens its keyboard from one
-      button.classList.add("down");
-      press(value);
-      if (value === "Backspace") {
-        const again = () => {
-          press("Backspace");
-          repeat = setTimeout(again, REPEAT_EVERY);
-        };
-        repeat = setTimeout(again, REPEAT_AFTER);
-      }
+      setTimeout(settle, 0);
     });
-    for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
-      board.addEventListener(type, () => {
-        stopRepeat();
-        for (const down of board.querySelectorAll(".down")) down.classList.remove("down");
+
+    // Some keyboards send a letter as a key press instead: a capital there means Shift just the same.
+    input.addEventListener("keydown", (event) => {
+      if (event.isTrusted && /^[A-Z]$/.test(event.key) && !isRebus()) {
+        send("Shift");
+        send("Shift", "keyup");
+      }
+    }, true);
+
+    // Backspace, however the keyboard sends it.
+    input.addEventListener("beforeinput", (event) => {
+      if (event.inputType !== "deleteContentBackward") return;
+      event.preventDefault();
+      send("Backspace");
+      settle();
+    });
+
+    /* Lowering the keyboard with the phone's down arrow leaves the grid with the focus, and focusing it
+       again does nothing, so a tap on the grid wouldn't bring the keyboard back. Here it does. */
+    const keyboardUp = (() => {
+      let tallest = view ? view.height : 0;
+      root.addEventListener("orientationchange", () => { tallest = 0; });
+      return () => {
+        if (!view) return true;
+        tallest = Math.max(tallest, view.height);
+        return view.height < tallest - KEYBOARD_TALL;
+      };
+    })();
+    if (options.grid) {
+      options.grid.addEventListener("click", () => {
+        if (document.activeElement !== input || keyboardUp()) return;
+        input.blur();
+        input.focus();
       });
     }
-    board.addEventListener("click", (event) => {
-      const button = event.target.closest('[data-key="Native"]');
-      if (!button) return;
-      native = true;
-      board.hidden = true;
-      document.body.classList.remove("touch-keys-open");
-      input.setAttribute("inputmode", "text");
-      switching = true;
-      input.blur();
-      input.focus();
-      switching = false;
-    });
-
-    /* The phone's Back button. With the phone's own keyboard up, Android shows a "lower the keyboard"
-       button where Back is; with this one up it shows Back, which would leave the page. So while this
-       keyboard is open there is a step in the history for Back to take, and taking it closes the
-       keyboard. Closed any other way, the step is taken back out, unless the page is being left. */
-    let stepped = false;   // the history step is there
-    let quietPop = false;  // the next popstate is our own taking it back out
-    let leaving = false;
-    root.addEventListener("pagehide", () => { leaving = true; });
-    root.addEventListener("beforeunload", () => { leaving = true; });
-    const addStep = () => {
-      if (stepped) return;
-      history.pushState(Object.assign({}, history.state, { fillmeinKeys: true }), "");
-      stepped = true;
-    };
-    const dropStep = () => {
-      // A moment's grace: tapping another square closes and reopens the keyboard, and a tapped link
-      // is about to leave the page anyway.
-      setTimeout(() => {
-        if (!stepped || leaving || !board.hidden || native) return;
-        stepped = false;
-        quietPop = true;
-        history.back();
-      }, 350);
-    };
-    root.addEventListener("popstate", () => {
-      if (quietPop) {
-        quietPop = false;
-        return;
-      }
-      if (!stepped) return;
-      stepped = false;
-      if (!board.hidden || native) input.blur();
-    });
-
-    input.addEventListener("focus", () => {
-      if (native) return;
-      board.hidden = false;
-      document.body.classList.add("touch-keys-open");
-      addStep();
-      showRebus();
-      // The square being typed in stays above the keyboard.
-      requestAnimationFrame(() => {
-        const r = input.getBoundingClientRect();
-        const top = board.getBoundingClientRect().top;
-        if (r.bottom > top - 8) root.scrollBy({ top: r.bottom - top + 24, behavior: "smooth" });
-      });
-    });
-    input.addEventListener("blur", () => {
-      if (switching) return;
-      // Going back to the grid's own keyboard is a tap on the grid away.
-      if (native) {
-        native = false;
-        input.setAttribute("inputmode", "none");
-      }
-      stopRepeat();
-      board.hidden = true;
-      document.body.classList.remove("touch-keys-open");
-      dropStep();
-    });
-    // A rebus can also end by tapping another square; keep the key's look in step.
-    document.addEventListener("pointerup", () => requestAnimationFrame(showRebus));
-    return { board, refresh: showRebus };
+    return { input };
   }
 
   root.FillmeinKeyboard = { attach, touch: TOUCH };

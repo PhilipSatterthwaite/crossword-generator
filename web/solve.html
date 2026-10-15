@@ -528,7 +528,7 @@
   /* A rebus: press and release Shift on its own (or press Rebus) and the square takes several letters;
      Enter keeps them and moves on, Escape leaves the square as it was. */
   function startRebus() {
-    if (revealed.has(sel) || isBlock(sel)) return;
+    if (!puzzle || revealed.has(sel) || isBlock(sel)) return;
     rebusAt = sel;
     rebusText = letters[sel] || "";
     $("rebus").setAttribute("aria-pressed", "true");
@@ -626,10 +626,8 @@
     render();
   });
 
-  // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be.
-  if (window.FillmeinKeyboard) {
-    window.FillmeinKeyboard.attach($("solve-input"), { isRebus: () => rebusAt >= 0, spaceLabel: "across / down", enterLabel: "next ↵" });
-  }
+  // On a touch screen, the phone's keyboard works as a computer's does; a capital (Shift) starts a rebus.
+  if (window.FillmeinKeyboard) window.FillmeinKeyboard.attach($("solve-input"), { grid: $("solve-grid"), isRebus: () => rebusAt >= 0 });
 
   $("solve-input").addEventListener("input", (event) => {
     // Phone keyboards insert text rather than sending key presses.

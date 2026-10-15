@@ -2148,17 +2148,23 @@
     }
   });
 
-  // On a touch screen, the grid's own keyboard: capitals only, and Rebus where Shift would be. Its 123
-  // key brings up the phone's keyboard, for a block (.) among other things.
-  if (window.FillmeinKeyboard) {
-    window.FillmeinKeyboard.attach(input, { isRebus: () => rebusAt >= 0, spaceLabel: "blank", enterLabel: "turn ↵",
-      extra: [{ label: "■ block", key: "." }] });
-  }
+  // On a touch screen, the phone's keyboard works as a computer's does: "." a block, space a blank,
+  // Enter turns, and a capital (typed with Shift) starts a rebus.
+  if (window.FillmeinKeyboard) window.FillmeinKeyboard.attach(input, { grid: $("grid"), isRebus: () => rebusAt >= 0 });
 
   // Phone keyboards often skip keydown for letters, so read what lands in the input.
   input.addEventListener("input", () => {
     const typed = input.value.toUpperCase();
     input.value = "";
+    // In a rebus, letters go into the square; a block or a blank has no place in one.
+    if (rebusAt >= 0) {
+      const letters = typed.replace(/[^A-Z]/g, "");
+      if (letters) {
+        rebusText = (rebusText + letters).slice(0, REBUS_MOST);
+        render();
+      }
+      return;
+    }
     for (const ch of typed) {
       if (/[A-Z]/.test(ch)) typeLetter(ch);
       else if (ch === ".") edit(() => toggleBlock(sel));
